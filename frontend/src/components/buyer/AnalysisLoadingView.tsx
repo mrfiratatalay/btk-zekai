@@ -147,7 +147,7 @@ const EDGE_TYPES = { agent: AgentEdge };
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 export function AnalysisLoadingView({
-  agentSteps, userNeedText, product, analysisId, onComplete,
+  agentSteps, userNeedText, product, analysisId, onComplete, completedOverride, disableTimer,
 }: {
   agentSteps: AgentStep[];
   userNeedText: string;
@@ -155,8 +155,13 @@ export function AnalysisLoadingView({
   product?: Product;
   analysisId: string;
   onComplete: () => void;
+  completedOverride?: number;
+  disableTimer?: boolean;
 }) {
-  const { completed, progress } = useAnalysisProgress(agentSteps, onComplete);
+  const { completed, progress } = useAnalysisProgress(agentSteps, onComplete, {
+    completedOverride,
+    disableTimer,
+  });
 
   /* nodes & edges — reactive to `completed` */
   const nodes = useMemo<Node<AgentND>[]>(() =>

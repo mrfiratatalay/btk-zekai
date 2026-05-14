@@ -6,16 +6,12 @@ import type { Product } from '@/types/product'
 import {
     BatteryCharging,
     Bluetooth,
-    Bot,
     Box,
     ChevronRight,
-    FileSearch,
-    Gauge,
     Info,
     Mic,
     PackageCheck,
     PackageSearch,
-    Repeat2,
     ShieldCheck,
     Star,
     Truck,
@@ -49,31 +45,6 @@ function getFeatureIcon(label: string): LucideIcon {
   return Info;
 }
 
-function getCategoryRisk(product: Product) {
-  const category = product.category.toLocaleLowerCase("tr-TR");
-
-  if (product.features.Mikrofon || product.features["Gecikme modu"]) {
-    return "Mikrofon ve gecikme beklentisi kontrol ediliyor";
-  }
-
-  if (category.includes("ev")) {
-    return "Ölçü, kullanım alanı ve iade sebepleri eşleşiyor";
-  }
-
-  if (category.includes("spor")) {
-    return "Beden/kalıp uyuşmazlığı sinyalleri izleniyor";
-  }
-
-  if (category.includes("bebek")) {
-    return "Kurulum, güvenlik ve destek sinyalleri kontrol ediliyor";
-  }
-
-  if (category.includes("aksesuar")) {
-    return "Kırılganlık ve paketleme sinyalleri kontrol ediliyor";
-  }
-
-  return "Beklenti ve iade sinyalleri kontrol ediliyor";
-}
 
 function getQuestionCount(product: Product) {
   return Math.max(18, Math.round(product.reviewCount / 10));
@@ -91,30 +62,6 @@ export function ProductInfoPanel({ product }: { product: Product }) {
       ? product.originalPrice - product.price
       : 0;
 
-  const aiSignals = [
-    {
-      label: `${product.reviewCount.toLocaleString("tr-TR")} yorum tarandı`,
-      value: "Tekrarlayan beklenti sinyalleri çıkarıldı",
-      icon: FileSearch,
-    },
-    {
-      label: "Fiyat geçmişi kontrol edildi",
-      value: product.originalPrice
-        ? `%${product.discountPercent ?? Math.round((savings / product.originalPrice) * 100)} indirim doğrulandı`
-        : "Pazar konumu karşılaştırıldı",
-      icon: Gauge,
-    },
-    {
-      label: "İade sinyalleri bulundu",
-      value: getCategoryRisk(product),
-      icon: Repeat2,
-    },
-    {
-      label: "Satıcı güveni hesaplandı",
-      value: `${product.sellerName} için sinyaller işlendi`,
-      icon: ShieldCheck,
-    },
-  ];
 
   return (
     <section className="space-y-5">
@@ -238,46 +185,6 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-[#DDD6FE] bg-[#F5F3FF] p-5">
-        <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#5B2EFF] text-white">
-            <Bot className="size-5" />
-          </span>
-          <div>
-            <h2 className="font-extrabold text-[#111827]">
-              Zekai karar motoru bu ürün için hazır
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-[#3B1B9A]">
-              Satın almadan önce ihtiyacını yaz; sistem yorum, fiyat, iade ve
-              satıcı sinyallerini kişisel pişmanlık riskine dönüştürsün.
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {aiSignals.map((signal) => {
-            const Icon = signal.icon
-
-            return (
-              <div
-                key={signal.label}
-                className="rounded-lg border border-[#DDD6FE] bg-white px-3 py-2"
-              >
-                <div className="flex items-center gap-2 text-xs font-extrabold text-[#5B2EFF]">
-                  <Icon className="size-3.5" />
-                  {signal.label}
-                </div>
-                <p className="mt-1 text-xs font-semibold text-[#374151]">
-                  {signal.value}
-                </p>
-              </div>
-            )
-          })}
-        </div>
-        <div className="mt-4 flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-bold text-[#111827]">
-          <FileSearch className="size-4 text-[#FF6000]" />
-          Bu ürün senin ihtiyacına göre analiz edilebilir.
-        </div>
-      </div>
     </section>
   )
 }
