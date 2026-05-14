@@ -115,13 +115,13 @@ export function SyntheticPersonaCard({
             </p>
             <div className="relative rounded-xl border border-[#E5E7EB] bg-white p-5">
               <div className="absolute left-4 top-4 text-3xl leading-none text-[#E5E7EB] select-none">
-                "
+                &ldquo;
               </div>
               <p className="pl-5 text-sm leading-7 text-[#374151] italic">
                 {persona.monologue}
               </p>
               <div className="absolute bottom-3 right-4 text-3xl leading-none text-[#E5E7EB] select-none">
-                "
+                &rdquo;
               </div>
             </div>
           </div>

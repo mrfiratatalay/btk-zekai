@@ -208,7 +208,9 @@ export function AnalysisLoadingView({
       {/* Centered content */}
       <div className="mx-auto w-full max-w-md flex-1 space-y-10 px-6 py-10">
 
-        <p className="text-base italic leading-7 text-slate-500">"{userNeedText}"</p>
+        <p className="text-base italic leading-7 text-slate-500">
+          &ldquo;{userNeedText}&rdquo;
+        </p>
 
         {/* 3-step progress */}
         <div className="space-y-5">

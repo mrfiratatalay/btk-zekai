@@ -240,7 +240,7 @@ export function SellerProfitAnalysis({
             <TrendingDown className="mb-2 size-5 text-[#C2410C]" />
             <h3 className="font-extrabold text-[#9A3412]">Pazara in</h3>
             <p className="mt-2 text-sm leading-6 text-[#9A3412]">
-              Fiyatı 850 TL'ye indirirsen dönüşüm artar; iade maliyetiyle
+              Fiyatı 850 TL&apos;ye indirirsen dönüşüm artar; iade maliyetiyle
               birlikte hesaplanmalı.
             </p>
             <p className="mt-3 text-sm font-extrabold text-[#C2410C]">

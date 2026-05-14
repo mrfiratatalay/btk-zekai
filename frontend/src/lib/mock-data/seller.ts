@@ -199,6 +199,13 @@ export const sellerActions: SellerActionItem[] = [
     impact: "Aylık kayıpta ₺4.200'e kadar azalma",
     priority: "urgent",
   },
+  {
+    id: "bundle-contents",
+    title: "Aksesuar paketinde kutu içeriğini madde madde listele",
+    description: "Sentetik panelde kutu içeriği belirsizliği tekrarlanan soru olarak işlendi.",
+    impact: "Kargo iadesinde tahmini %3 azalma",
+    priority: "healthy",
+  },
 ];
 
 export const sellerKpis: SellerKpi[] = [
