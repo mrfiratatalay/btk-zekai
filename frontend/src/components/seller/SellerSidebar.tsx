@@ -5,21 +5,13 @@ import { usePathname } from "next/navigation";
 import {
   Bot,
   Home,
+  LifeBuoy,
   MessageSquareText,
   Package,
   RotateCcw,
   Settings,
   ShoppingBag,
 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -38,10 +30,7 @@ export function SellerSidebar() {
   const pathname = usePathname();
 
   return (
-    // Sidebar: tam ekran yüksekliği, kendi içinde overflow yok — alt kısımlar kesilmez
     <aside className="hidden h-full w-72 shrink-0 flex-col border-r border-[#E5E7EB] bg-white lg:flex">
-
-      {/* HEADER — shrink-0: asla küçülmez, her zaman en üstte */}
       <div className="shrink-0 border-b border-[#E5E7EB] px-6 py-5">
         <Link href="/seller" className="flex items-center gap-3">
           <span className="flex size-11 items-center justify-center rounded-xl bg-[#FF6000] text-lg font-extrabold text-white">
@@ -56,7 +45,6 @@ export function SellerSidebar() {
         </Link>
       </div>
 
-      {/* NAV — flex-1 + ScrollArea: nav uzarsa sidebar içinde scroll eder */}
       <ScrollArea className="flex-1">
         <nav className="space-y-1 px-3 py-5">
           {navItems.map((item) => {
@@ -99,46 +87,16 @@ export function SellerSidebar() {
         </nav>
       </ScrollArea>
 
-      {/* FOOTER — shrink-0: sidebar scroll etse bile footer hep altta sabit */}
       <div className="shrink-0">
         <Separator className="bg-[#E5E7EB]" />
         <div className="px-3 py-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-[#F9FAFB]">
-                <Avatar size="sm">
-                  <AvatarFallback className="bg-[#FF6000] text-xs font-extrabold text-white">
-                    MK
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-extrabold text-[#111827]">
-                    TeknoPazar Plus
-                  </p>
-                  <p className="truncate text-xs text-[#6B7280]">Mehmet Kaya</p>
-                </div>
-                <Badge className="shrink-0 rounded-full border-[#DDD6FE] bg-[#F5F3FF] text-[10px] font-bold text-[#5B2EFF]">
-                  Seller Plus
-                </Badge>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-56">
-              <DropdownMenuItem asChild>
-                <Link href="#" className="font-semibold">
-                  Mağaza profili
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="#" className="font-semibold">
-                  Ayarlar
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="font-semibold text-[#DC2626] focus:text-[#DC2626]">
-                Çıkış yap
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Link
+            href="#"
+            className="flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-[#6B7280] transition hover:bg-[#F9FAFB] hover:text-[#111827]"
+          >
+            <LifeBuoy className="size-3.5 shrink-0" />
+            Yardım & Destek
+          </Link>
         </div>
       </div>
     </aside>
