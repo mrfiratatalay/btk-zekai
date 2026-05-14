@@ -4,6 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function AnalysisHeader({ analysis }: { analysis: BuyerAnalysis }) {
+  const evidenceTags = [
+    analysis.fitAnalysis.subScores[0]?.label,
+    "Fiyat karşılaştırması",
+    "Yorum sinyalleri",
+    "İade sebepleri",
+  ].filter(Boolean);
+
   return (
     <Card className="overflow-hidden rounded-2xl border-[#FCA5A5] bg-white shadow-sm">
       <CardContent className="grid gap-5 p-5 md:grid-cols-[1fr_auto] md:items-center md:p-6">
@@ -14,16 +21,14 @@ export function AnalysisHeader({ analysis }: { analysis: BuyerAnalysis }) {
           </Badge>
           <div className="space-y-2">
             <h1 className="text-3xl font-extrabold tracking-tight text-[#111827] md:text-4xl">
-              Bu ürünü mevcut senaryon için almanı önermiyorum.
+              Bu ürün için karar vermeden önce dikkatli ol.
             </h1>
             <p className="max-w-3xl text-base leading-7 text-[#4B5563]">
-              Sebep: mikrofon şikayetleri, oyun gecikmesi belirsizliği, yapay
-              indirim sinyali ve iade riskinin senin kullanım ihtiyacınla
-              çakışması.
+              {analysis.recommendationText}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs font-bold">
-            {["Mikrofon kanıtı", "Fiyat geçmişi", "Bot yorum şüphesi", "İade kök nedeni"].map(
+            {evidenceTags.map(
               (item) => (
                 <span
                   key={item}
@@ -48,7 +53,13 @@ export function AnalysisHeader({ analysis }: { analysis: BuyerAnalysis }) {
             <AlertTriangle className="size-6 text-[#F59E0B]" />
             <div>
               <p className="text-sm font-semibold text-[#92400E]">Karar</p>
-              <p className="text-base font-extrabold">Satın alma, alternatif bak</p>
+              <p className="text-base font-extrabold">
+                {analysis.recommendationLevel === "risky"
+                  ? "Alternatif bak"
+                  : analysis.recommendationLevel === "safe"
+                    ? "Alınabilir görünüyor"
+                    : "Kontrol ederek karar ver"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-[#DDD6FE] bg-[#F5F3FF] p-4 text-[#111827]">

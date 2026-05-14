@@ -1,40 +1,78 @@
+import { BuyerFitDialog } from '@/components/shop/BuyerFitDialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { formatPrice } from '@/lib/mock-data/products'
+import type { Product } from '@/types/product'
 import {
-  BatteryCharging,
-  Bluetooth,
-  Bot,
-  ChevronRight,
-  FileSearch,
-  Gauge,
-  Mic,
-  PackageCheck,
-  Repeat2,
-  ShieldCheck,
-  Star,
-  Truck,
-  Zap,
-} from "lucide-react";
-import type { Product } from "@/types/product";
-import { formatPrice } from "@/lib/mock-data/products";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { BuyerFitDialog } from "@/components/shop/BuyerFitDialog";
+    Bluetooth,
+    Bot,
+    ChevronRight,
+    FileSearch,
+    Gauge,
+    Info,
+    Mic,
+    PackageCheck,
+    Repeat2,
+    ShieldCheck,
+    Star,
+    Truck,
+    Zap,
+} from 'lucide-react'
 
-const featureHighlights = [
-  { label: "Bluetooth 5.3", icon: Bluetooth },
-  { label: "20 saate kadar pil", icon: BatteryCharging },
-  { label: "Dahili mikrofon", icon: Mic },
-  { label: "Hızlı şarj", icon: Zap },
-  { label: "Katlanabilir tasarım", icon: Repeat2 },
-];
+const featureIconByKey = [
+  { match: 'bluetooth', icon: Bluetooth },
+  { match: 'baglanti', icon: Bluetooth },
+  { match: 'mikrofon', icon: Mic },
+  { match: 'gecikme', icon: Zap },
+  { match: 'pil', icon: Zap },
+  { match: 'garanti', icon: ShieldCheck },
+  { match: 'kullanim', icon: Repeat2 },
+] as const
 
-const aiSignals = [
-  { label: "142 yorum tarandı", value: "Mikrofon şikayeti yoğun", icon: Mic },
-  { label: "Fiyat geçmişi kontrol edildi", value: "Yapay indirim sinyali", icon: Gauge },
-  { label: "İade sinyalleri bulundu", value: "Senaryonla çakışıyor", icon: Repeat2 },
-  { label: "Satıcı güveni hesaplandı", value: "Risk: orta-yüksek", icon: ShieldCheck },
-];
+function getFeatureIcon(label: string) {
+  const normalized = label.toLocaleLowerCase('tr-TR')
+  return (
+    featureIconByKey.find((item) => normalized.includes(item.match))?.icon ??
+    Info
+  )
+}
+
+function getAiSignals(product: Product) {
+  return [
+    {
+      label: `${product.reviewCount.toLocaleString('tr-TR')} yorum tarandı`,
+      value: 'Tekrar eden beklenti sinyalleri çıkarıldı',
+      icon: FileSearch,
+    },
+    {
+      label: 'Fiyat geçmişi kontrol edildi',
+      value: product.discountPercent
+        ? 'İndirim doğrulanmalı'
+        : 'Pazarla kıyaslandı',
+      icon: Gauge,
+    },
+    {
+      label: 'İade sinyalleri bulundu',
+      value: `${product.category} kategorisine göre değerlendirildi`,
+      icon: Repeat2,
+    },
+    {
+      label: 'Satıcı güveni hesaplandı',
+      value: 'Listeleme ve yorum kalitesi birlikte okundu',
+      icon: ShieldCheck,
+    },
+  ]
+}
 
 export function ProductInfoPanel({ product }: { product: Product }) {
+  const featureHighlights = Object.entries(product.features)
+    .slice(0, 5)
+    .map(([key, value]) => ({
+      label: `${key}: ${value}`,
+      icon: getFeatureIcon(key),
+    }))
+  const aiSignals = getAiSignals(product)
+
   return (
     <section className="space-y-5">
       <div className="space-y-3">
@@ -57,7 +95,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
             {product.rating.toFixed(1)}
           </span>
           <span className="text-[#6B7280]">
-            ({product.reviewCount.toLocaleString("tr-TR")} Değerlendirme)
+            ({product.reviewCount.toLocaleString('tr-TR')} Değerlendirme)
           </span>
           <span className="font-semibold text-[#2563EB]">142 Sorulan Soru</span>
         </div>
@@ -118,7 +156,8 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         <div className="flex items-center gap-2">
           <PackageCheck className="size-4 text-[#334155]" />
           <span>
-            Stok: <strong className="text-[#16803A]">{product.stock} adet</strong>
+            Stok:{' '}
+            <strong className="text-[#16803A]">{product.stock} adet</strong>
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -139,7 +178,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         <h2 className="font-extrabold text-[#111827]">Öne çıkan özellikler</h2>
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
           {featureHighlights.map((feature) => {
-            const Icon = feature.icon;
+            const Icon = feature.icon
 
             return (
               <div key={feature.label} className="text-center">
@@ -148,7 +187,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
                   {feature.label}
                 </p>
               </div>
-            );
+            )
           })}
         </div>
       </div>
@@ -170,7 +209,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {aiSignals.map((signal) => {
-            const Icon = signal.icon;
+            const Icon = signal.icon
 
             return (
               <div
@@ -185,7 +224,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
                   {signal.value}
                 </p>
               </div>
-            );
+            )
           })}
         </div>
         <div className="mt-4 flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-bold text-[#111827]">
@@ -194,5 +233,5 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         </div>
       </div>
     </section>
-  );
+  )
 }

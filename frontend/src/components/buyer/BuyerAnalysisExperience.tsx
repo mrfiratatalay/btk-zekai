@@ -10,13 +10,6 @@ import { FinalAdviceCard } from "@/components/buyer/FinalAdviceCard";
 import { ScoreCards } from "@/components/buyer/ScoreCards";
 import { Badge } from "@/components/ui/badge";
 
-const cautionReasons = [
-  "Mikrofon yorumlarında tekrar eden şikayetler var.",
-  "Oyun için gecikme bilgisi net değil.",
-  "Fiyat pazar medyanının üzerinde.",
-  "İade sebepleri senin kullanım senaryonla çakışıyor.",
-];
-
 export function BuyerAnalysisExperience({
   analysis,
 }: {
@@ -24,6 +17,14 @@ export function BuyerAnalysisExperience({
 }) {
   const [reportVisible, setReportVisible] = useState(false);
   const showReport = useCallback(() => setReportVisible(true), []);
+  const cautionReasons = [
+    analysis.fitAnalysis.subScores[0]?.reason,
+    analysis.fitAnalysis.subScores[1]?.reason,
+    analysis.priceAnalysis.warning,
+    analysis.returnRiskAnalysis.personalWarning,
+  ].filter(Boolean).map((reason) =>
+    reason.length > 120 ? `${reason.slice(0, 117)}...` : reason,
+  );
 
   return (
     <div className="min-h-screen bg-[#F5F6F8]">

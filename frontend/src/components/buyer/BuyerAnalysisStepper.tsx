@@ -87,8 +87,8 @@ const decisionStages = [
   {
     title: "İhtiyacın anlaşılıyor",
     doneTitle: "İhtiyacın anlaşıldı",
-    description: "Online ders, oyun, mikrofon kalitesi ve bütçe öncelikleri çıkarılıyor.",
-    completedText: "Online ders, oyun ve mikrofon önceliği çıkarıldı.",
+    description: "Yazdığın kullanım amacı ve beklentiler karar kriterlerine çevriliyor.",
+    completedText: "Kullanım senaryon karar kriterlerine çevrildi.",
     from: 0,
     to: 1,
     icon: UserRoundSearch,
@@ -117,14 +117,10 @@ const decisionStages = [
 ];
 
 const liveFindings = [
-  { threshold: 2, text: "142 yorum tarandı", tone: "success" },
-  { threshold: 3, text: "32 yorum düşük güven ağırlığına alındı", tone: "success" },
-  { threshold: 5, text: "Fiyat geçmişinde yapay indirim sinyali var", tone: "warning" },
-  {
-    threshold: 6,
-    text: "Mikrofon şikayetleri kullanım senaryonla eşleşiyor",
-    tone: "warning",
-  },
+  { threshold: 2, text: "Ürün açıklaması ve özellikleri incelendi", tone: "success" },
+  { threshold: 3, text: "Yorumlardan tekrar eden risk başlıkları çıkarıldı", tone: "success" },
+  { threshold: 5, text: "Fiyat ve pazar sinyalleri karşılaştırıldı", tone: "warning" },
+  { threshold: 6, text: "İade sebepleri kullanım senaryonla eşleştirildi", tone: "warning" },
   { threshold: 8, text: "Kanıtsız iddialar rapordan elendi", tone: "success" },
 ] as const;
 
@@ -436,7 +432,12 @@ export function BuyerAnalysisStepper({
               maxZoom={1.05}
               nodesDraggable={false}
               nodesConnectable={false}
-              panOnScroll
+              panOnDrag={false}
+              panOnScroll={false}
+              zoomOnScroll={false}
+              zoomOnPinch={false}
+              zoomOnDoubleClick={false}
+              preventScrolling={false}
               proOptions={{ hideAttribution: true }}
             >
               <Background color="#E2E8F0" gap={18} />
@@ -515,7 +516,12 @@ export function BuyerAnalysisStepper({
               maxZoom={1}
               nodesDraggable={false}
               nodesConnectable={false}
-              panOnScroll
+              panOnDrag={false}
+              panOnScroll={false}
+              zoomOnScroll={false}
+              zoomOnPinch={false}
+              zoomOnDoubleClick={false}
+              preventScrolling={false}
               proOptions={{ hideAttribution: true }}
             >
               <Background color="#E2E8F0" gap={18} />

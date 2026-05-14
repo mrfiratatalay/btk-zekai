@@ -3,12 +3,15 @@ import { BuyerAnalysisExperience } from "@/components/buyer/BuyerAnalysisExperie
 import { getBuyerAnalysisById } from "@/lib/mock-data/buyer-analysis";
 
 export default async function BuyerAnalysisPage({
+  searchParams,
   params,
 }: {
   params: Promise<{ analysisId: string }>;
+  searchParams: Promise<{ need?: string }>;
 }) {
   const { analysisId } = await params;
-  const analysis = getBuyerAnalysisById(analysisId);
+  const { need } = await searchParams;
+  const analysis = getBuyerAnalysisById(analysisId, need);
 
   if (!analysis) {
     notFound();
