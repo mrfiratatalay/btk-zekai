@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { BuyerAnalysisExperience } from "@/components/buyer/BuyerAnalysisExperience";
 import { getBuyerAnalysisById } from "@/lib/mock-data/buyer-analysis";
+import { getProductById } from "@/lib/mock-data/products";
 
 export default async function BuyerAnalysisPage({
   params,
@@ -13,9 +14,9 @@ export default async function BuyerAnalysisPage({
   const { need } = await searchParams;
   const analysis = getBuyerAnalysisById(analysisId, need);
 
-  if (!analysis) {
-    notFound();
-  }
+  if (!analysis) notFound();
 
-  return <BuyerAnalysisExperience analysis={analysis} />;
+  const product = getProductById(analysisId);
+
+  return <BuyerAnalysisExperience analysis={analysis} product={product} />;
 }

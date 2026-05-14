@@ -10,25 +10,53 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 
+function getScoreColor(score: number) {
+  if (score >= 70) return "text-[#16A34A]";
+  if (score >= 45) return "text-[#D97706]";
+  return "text-[#DC2626]";
+}
+
 export function BuyerDecisionTabs({ analysis }: { analysis: BuyerAnalysis }) {
   const tabs = [
-    { value: "fit", label: "Uygunluk", metric: `${analysis.scores.fitScore}/100`, activeClass: "data-[state=active]:bg-[#EFF6FF] data-[state=active]:text-[#1D4ED8]" },
-    { value: "trust", label: "Güven", metric: `${analysis.scores.trustScore}/100`, activeClass: "data-[state=active]:bg-[#F5F3FF] data-[state=active]:text-[#5B2EFF]" },
-    { value: "price", label: "Fiyat", metric: `${analysis.scores.priceScore}/100`, activeClass: "data-[state=active]:bg-[#FFF4EC] data-[state=active]:text-[#EA580C]" },
-    { value: "return", label: "İade Riski", metric: `%${analysis.scores.returnRiskPercent}`, activeClass: "data-[state=active]:bg-[#FEF2F2] data-[state=active]:text-[#DC2626]" },
+    {
+      value: "fit",
+      label: "Uygunluk",
+      metric: `${analysis.scores.fitScore}/100`,
+      scoreColor: getScoreColor(analysis.scores.fitScore),
+    },
+    {
+      value: "trust",
+      label: "Güven",
+      metric: `${analysis.scores.trustScore}/100`,
+      scoreColor: getScoreColor(analysis.scores.trustScore),
+    },
+    {
+      value: "price",
+      label: "Fiyat",
+      metric: `${analysis.scores.priceScore}/100`,
+      scoreColor: getScoreColor(analysis.scores.priceScore),
+    },
+    {
+      value: "return",
+      label: "İade Riski",
+      metric: `%${analysis.scores.returnRiskPercent}`,
+      scoreColor: getScoreColor(100 - analysis.scores.returnRiskPercent),
+    },
   ];
 
   return (
     <Tabs defaultValue="fit" className="space-y-5">
-      <TabsList className="inline-flex h-auto max-w-full gap-1 overflow-x-auto rounded-xl border border-[#E5E7EB] bg-white p-1 shadow-sm">
+      <TabsList className="inline-flex h-auto w-full max-w-full gap-1 overflow-x-auto rounded-xl border border-[#E5E7EB] bg-white p-1 shadow-sm">
         {tabs.map((tab) => (
           <TabsTrigger
             key={tab.value}
             value={tab.value}
-            className={`h-11 min-w-[132px] rounded-lg px-3 text-sm font-bold text-[#64748B] data-[state=active]:shadow-sm ${tab.activeClass}`}
+            className="flex h-12 min-w-[130px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 text-xs font-semibold text-[#64748B] data-[state=active]:bg-[#EEF2FF] data-[state=active]:text-[#4F46E5] data-[state=active]:shadow-sm"
           >
-            <span>{tab.label}</span>
-            <span className="ml-2 rounded-full bg-white/80 px-2 py-0.5 text-xs font-extrabold">
+            <span className="text-[11px] font-bold uppercase tracking-wide">
+              {tab.label}
+            </span>
+            <span className={`text-base font-extrabold ${tab.scoreColor} data-[state=active]:text-[#4F46E5]`}>
               {tab.metric}
             </span>
           </TabsTrigger>

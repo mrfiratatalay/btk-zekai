@@ -1,64 +1,39 @@
 import { AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
 import type { BuyerAnalysis, TrustSignal } from "@/types/analysis";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 
-const toneClasses: Record<TrustSignal["tone"], string> = {
-  danger: "border-[#FECACA] bg-[#FEF2F2] text-[#7F1D1D]",
-  warning: "border-[#FCD34D] bg-[#FFFBEB] text-[#78350F]",
-  success: "border-[#BBF7D0] bg-[#F0FDF4] text-[#14532D]",
-};
-
-const toneIcons = {
-  danger: ShieldAlert,
-  warning: AlertTriangle,
-  success: CheckCircle2,
-};
+const ICON = { success:CheckCircle2, warning:AlertTriangle, danger:ShieldAlert };
+const DOT  = { success:"bg-emerald-500", warning:"bg-amber-500", danger:"bg-red-500" };
+const TXT  = { success:"text-emerald-600", warning:"text-amber-600", danger:"text-red-600" };
+const CATS = ["Yorum Forensiği","Görsel Tutarlılık","Satıcı Geçmişi","Açıklama Tutarlılığı"];
 
 export function TrustTab({ analysis }: { analysis: BuyerAnalysis }) {
   return (
-    <div className="space-y-4">
-      <Card className="rounded-xl border-[#E5E7EB] bg-white shadow-sm">
-        <CardContent className="grid gap-4 p-5 md:grid-cols-[240px_1fr]">
-          <div>
-            <p className="text-sm font-medium text-[#6B7280]">Güven skoru</p>
-            <p className="mt-1 text-4xl font-extrabold text-[#5B2EFF]">
-              {analysis.scores.trustScore}/100
-            </p>
-            <Progress className="mt-4" value={analysis.scores.trustScore} />
-          </div>
-          <p className="text-sm leading-7 text-[#6B7280]">
-            {analysis.trustAnalysis.summary}
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        {analysis.trustAnalysis.signals.map((signal) => {
-          const Icon = toneIcons[signal.tone];
-
+    <div className="max-w-2xl space-y-6">
+      <p className="text-sm leading-7 text-slate-500">{analysis.trustAnalysis.summary}</p>
+      <Accordion type="multiple" className="divide-y divide-slate-100">
+        {analysis.trustAnalysis.signals.map((s: TrustSignal, i) => {
+          const Icon = ICON[s.tone];
           return (
-            <Card
-              key={signal.title}
-              className={cn("rounded-xl shadow-sm", toneClasses[signal.tone])}
-            >
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold">{signal.title}</h3>
-                    <p className="text-sm font-bold">{signal.value}</p>
-                  </div>
-                  <Icon className="size-5 shrink-0" />
+            <AccordionItem key={s.title} value={s.title} className="border-0">
+              <AccordionTrigger className="py-4 text-sm hover:no-underline [&>svg]:text-slate-300">
+                <div className="flex flex-1 items-center gap-3 pr-3">
+                  <span className={cn("size-2 shrink-0 rounded-full", DOT[s.tone])}/>
+                  <span className="font-medium text-slate-700">{CATS[i]??s.title}</span>
+                  <span className={cn("ml-auto text-xs font-semibold", TXT[s.tone])}>{s.value}</span>
                 </div>
-                <p className="text-sm leading-6 opacity-80">
-                  {signal.description}
-                </p>
-              </CardContent>
-            </Card>
+              </AccordionTrigger>
+              <AccordionContent className="pb-4">
+                <div className="flex items-start gap-2 text-sm leading-6 text-slate-500">
+                  <Icon className={cn("mt-0.5 size-4 shrink-0", TXT[s.tone])}/>
+                  <span>{s.description}</span>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           );
         })}
-      </div>
+      </Accordion>
     </div>
   );
 }
