@@ -63,6 +63,8 @@ export type SyntheticPersona = {
   profile: string;
   lookedAt: string[];
   recommendation: string;
+  monologue: string;
+  city: string;
 };
 
 export type SellerReturnReason = {

@@ -1,13 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   ArrowRight,
   Search,
   ShieldCheck,
   Scale,
 } from "lucide-react";
-import { ProductCard } from "@/components/shop/ProductCard";
 import { ShopHeader } from "@/components/shop/ShopHeader";
+import { ShopProductGrid } from "@/components/shop/ShopProductGrid";
 import { Button } from "@/components/ui/button";
 import { products } from "@/lib/mock-data/products";
 
@@ -123,28 +124,15 @@ export default function ShopPage() {
           })}
         </section>
 
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-extrabold tracking-tight text-[#111827]">
-                Öne çıkan ürünler
-              </h2>
-            </div>
-            <Link
-              href="/shop"
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#FF6000]"
-            >
-              Tümünü Gör
-              <ArrowRight className="size-4" />
-            </Link>
-          </div>
-
+        <Suspense fallback={
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-72 animate-pulse rounded-2xl bg-[#F1F5F9]" />
             ))}
           </div>
-        </section>
+        }>
+          <ShopProductGrid />
+        </Suspense>
       </main>
     </div>
   );

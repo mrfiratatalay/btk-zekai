@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Heart, Search, ShoppingCart, Store, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +60,9 @@ export function ShopHeader() {
           </div>
         </div>
       </div>
-      <CategoryStrip />
+      <Suspense fallback={<div className="h-10 border-t border-[#E5E7EB]" />}>
+        <CategoryStrip />
+      </Suspense>
     </header>
   );
 }

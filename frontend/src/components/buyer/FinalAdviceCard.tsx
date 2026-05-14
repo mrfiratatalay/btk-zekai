@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function FinalAdviceCard({ analysis }: { analysis: BuyerAnalysis }) {
+  const alternativesUrl = `/shop/alternatives/${analysis.productId}?need=${encodeURIComponent(analysis.userNeedText ?? "")}`;
+
   return (
     <>
       <div className="h-[220px] md:h-[112px]" />
@@ -35,25 +37,27 @@ export function FinalAdviceCard({ analysis }: { analysis: BuyerAnalysis }) {
 
             <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] md:min-w-[520px]">
               <Button
+                asChild
                 className="h-10 rounded-lg bg-gradient-to-r from-[#5B2EFF] to-[#2563EB] px-3 text-sm font-bold text-white hover:from-[#4C1FDC] hover:to-[#1D4ED8]"
-                onClick={() =>
-                  toast.info("Alternatif ürün karşılaştırması sonraki turda açılacak.")
-                }
               >
-                <Target className="size-4" />
-                <span className="truncate">Bana Uygun Alternatifleri Göster</span>
+                <Link href={alternativesUrl}>
+                  <Target className="size-4" />
+                  <span className="truncate">Bana Uygun Alternatifleri Göster</span>
+                </Link>
               </Button>
               <Button
                 variant="outline"
                 className="h-10 rounded-lg border-[#E5E7EB] bg-white px-3 text-sm font-semibold"
-                onClick={() =>
-                  toast.info("Ürün sepete eklendi.")
-                }
+                onClick={() => toast.info("Ürün sepete eklendi.")}
               >
                 <ShoppingCart className="size-4" />
                 <span className="truncate">Yine de Bu Ürünü Al</span>
               </Button>
-              <Button asChild variant="ghost" className="h-10 rounded-lg px-3 text-sm font-semibold">
+              <Button
+                asChild
+                variant="ghost"
+                className="h-10 rounded-lg px-3 text-sm font-semibold"
+              >
                 <Link href={`/shop/product/${analysis.productId}`}>
                   <ArrowLeft className="size-4" />
                   <span className="hidden truncate lg:inline">Ürüne Geri Dön</span>
