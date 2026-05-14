@@ -1,7 +1,9 @@
+import os
+
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
 
 
-MODEL = "gemini-2.5-flash"
+MODEL = os.getenv("GOOGLE_ADK_MODEL", "gemini-2.0-flash-lite")
 
 GLOBAL_RULES = """
 Gorevin Zekai e-ticaret karar asistaninin kanita dayali alici analizini uretmek.

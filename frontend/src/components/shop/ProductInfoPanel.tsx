@@ -1,190 +1,154 @@
-import { BuyerFitDialog } from '@/components/shop/BuyerFitDialog'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { formatPrice } from '@/lib/mock-data/products'
-import type { Product } from '@/types/product'
+import { BuyerFitDialog } from "@/components/shop/BuyerFitDialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { formatPrice } from "@/lib/mock-data/products";
+import type { Product } from "@/types/product";
 import {
-    BatteryCharging,
-    Bluetooth,
-    Box,
-    ChevronRight,
-    Info,
-    Mic,
-    PackageCheck,
-    PackageSearch,
-    ShieldCheck,
-    Star,
-    Truck,
-    Zap,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+  BatteryCharging,
+  Bluetooth,
+  Info,
+  Mic,
+  PackageCheck,
+  ShieldCheck,
+  Star,
+  Truck,
+  Zap,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 function getFeatureIcon(label: string): LucideIcon {
-  const normalized = label.toLocaleLowerCase("tr-TR");
-
-  if (normalized.includes("bluetooth") || normalized.includes("baglanti")) {
-    return Bluetooth;
-  }
-
-  if (normalized.includes("pil") || normalized.includes("sarj")) {
-    return BatteryCharging;
-  }
-
-  if (normalized.includes("mikrofon") || normalized.includes("ses")) {
-    return Mic;
-  }
-
-  if (normalized.includes("gecikme") || normalized.includes("guc")) {
-    return Zap;
-  }
-
-  if (normalized.includes("garanti") || normalized.includes("dayanim")) {
-    return ShieldCheck;
-  }
-
+  const n = label.toLocaleLowerCase("tr-TR");
+  if (n.includes("bluetooth") || n.includes("baglanti")) return Bluetooth;
+  if (n.includes("pil") || n.includes("sarj")) return BatteryCharging;
+  if (n.includes("mikrofon") || n.includes("ses")) return Mic;
+  if (n.includes("gecikme") || n.includes("guc")) return Zap;
+  if (n.includes("garanti") || n.includes("dayanim")) return ShieldCheck;
   return Info;
 }
 
-
-function getQuestionCount(product: Product) {
-  return Math.max(18, Math.round(product.reviewCount / 10));
-}
-
-function getTechnicalHighlights(product: Product) {
-  return Object.entries(product.features).slice(0, 5);
-}
-
 export function ProductInfoPanel({ product }: { product: Product }) {
-  const technicalHighlights = getTechnicalHighlights(product);
-  const questionCount = getQuestionCount(product);
   const savings =
     product.originalPrice && product.originalPrice > product.price
       ? product.originalPrice - product.price
       : 0;
-
+  const specs = Object.entries(product.features).slice(0, 4);
 
   return (
-    <section className="space-y-5">
-      <div className="space-y-3">
-        <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-[#111827] lg:text-4xl">
+    <section className="flex flex-col gap-6">
+
+      {/* Title + meta */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          <span className="font-medium text-slate-600">{product.brand}</span>
+          <span>·</span>
+          <span>{product.sellerName}</span>
+          {product.badges?.[0] && (
+            <Badge className="rounded-full bg-slate-100 text-slate-600 hover:bg-slate-100">
+              {product.badges[0]}
+            </Badge>
+          )}
+        </div>
+        <h1 className="text-2xl font-bold leading-tight text-slate-900">
           {product.title}
         </h1>
-
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="font-bold text-[#111827]">{product.brand}</span>
-          <Badge className="rounded-md bg-[#16A34A] px-2 py-1 text-white">
-            9.2
-          </Badge>
-          <span className="text-[#6B7280]">Satıcı:</span>
-          <span className="font-bold text-[#2563EB]">{product.sellerName}</span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          <span className="flex items-center gap-1 font-semibold text-[#111827]">
-            <Star className="size-4 fill-[#FFB020] text-[#FFB020]" />
-            {product.rating.toFixed(1)}
-          </span>
-          <span className="text-[#6B7280]">
-            ({product.reviewCount.toLocaleString('tr-TR')} Değerlendirme)
-          </span>
-          <span className="font-semibold text-[#2563EB]">
-            {questionCount.toLocaleString("tr-TR")} sorulan soru
+        <div className="flex items-center gap-2">
+          <div className="flex">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                className={`size-4 ${i < Math.round(product.rating) ? "fill-amber-400 text-amber-400" : "fill-slate-200 text-slate-200"}`}
+              />
+            ))}
+          </div>
+          <span className="text-sm font-medium text-slate-700">{product.rating.toFixed(1)}</span>
+          <span className="text-sm text-slate-400">
+            ({product.reviewCount.toLocaleString("tr-TR")} değerlendirme)
           </span>
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-4xl font-extrabold tracking-tight text-[#FF6000]">
+      {/* Price */}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <span className="text-4xl font-black text-slate-900">
             {formatPrice(product.price)}
           </span>
-          {product.originalPrice ? (
-            <span className="text-lg font-semibold text-[#8A8F98] line-through">
+          {product.originalPrice && (
+            <span className="text-lg text-slate-400 line-through">
               {formatPrice(product.originalPrice)}
             </span>
-          ) : null}
-          {product.discountPercent ? (
-            <Badge className="rounded-md bg-[#DC2626] px-2.5 py-1 text-white">
+          )}
+          {product.discountPercent && (
+            <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-sm font-bold text-red-600">
               %{product.discountPercent} indirim
-            </Badge>
-          ) : null}
+            </span>
+          )}
         </div>
-        {savings ? (
-          <p className="w-fit rounded-full bg-[#E8F7EC] px-3 py-1 text-sm font-semibold text-[#16803A]">
-            Kazancınız: {formatPrice(savings)}
+        {savings > 0 && (
+          <p className="text-sm font-medium text-emerald-600">
+            {formatPrice(savings)} tasarruf ediyorsun
           </p>
-        ) : null}
-        <button
-          type="button"
-          className="flex items-center gap-1 text-sm font-bold text-[#111827] hover:text-[#FF6000]"
-        >
-          Peşin fiyatına 3 taksit
-          <ChevronRight className="size-4" />
-        </button>
+        )}
       </div>
 
-      <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
-        <div className="grid gap-3 text-sm text-[#374151]">
-          <div className="flex items-center gap-3">
-            <Truck className="size-5 text-[#16803A]" />
-            <span>{product.cargoText}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="size-5 text-[#334155]" />
-            <span>15 gün içinde ücretsiz iade</span>
-          </div>
+      {/* Key specs — icon pills */}
+      <div className="grid grid-cols-2 gap-2">
+        {specs.map(([label, value]) => {
+          const Icon = getFeatureIcon(label);
+          return (
+            <div key={label} className="flex items-start gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+              <Icon className="mt-0.5 size-4 shrink-0 text-slate-400" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-slate-400">{label}</p>
+                <p className="text-xs font-semibold text-slate-800">{value}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Stock urgency */}
+      {product.stock <= 20 && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
+          <span className="size-2 shrink-0 rounded-full bg-amber-500" />
+          <p className="text-sm font-medium text-amber-700">
+            Son <strong>{product.stock} adet</strong> kaldı
+          </p>
+        </div>
+      )}
+
+      {/* Kargo + iade */}
+      <div className="space-y-2 text-sm text-slate-600">
+        <div className="flex items-center gap-2.5">
+          <Truck className="size-4 shrink-0 text-emerald-500" />
+          <span>{product.cargoText}</span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <ShieldCheck className="size-4 shrink-0 text-slate-400" />
+          <span>15 gün içinde ücretsiz iade</span>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Button className="h-14 rounded-xl bg-[#FF6000] text-lg font-extrabold text-white shadow-sm hover:bg-[#E65700]">
+      {/* CTAs */}
+      <div className="flex gap-2.5">
+        <Button className="h-12 flex-1 rounded-xl bg-[#FF6000] text-base font-bold text-white hover:bg-[#E65700]">
           <PackageCheck className="size-5" />
           Sepete Ekle
         </Button>
         <BuyerFitDialog product={product} />
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 text-sm sm:grid-cols-3">
-        <div className="flex items-center gap-2">
-          <PackageCheck className="size-4 text-[#334155]" />
-          <span>
-            Stok:{' '}
-            <strong className="text-[#16803A]">{product.stock} adet</strong>
-          </span>
+      {/* Seller row */}
+      <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
+        <div className="flex items-center gap-2 text-slate-500">
+          <span>Satıcı:</span>
+          <span className="font-semibold text-slate-800">{product.sellerName}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Box className="size-4 text-[#334155]" />
-          <span>
-            Kategori: <strong>{product.category}</strong>
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <PackageSearch className="size-4 text-[#334155]" />
-          <span>
-            Analiz: <strong className="text-[#5B2EFF]">Uygun</strong>
-          </span>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-        <h2 className="font-extrabold text-[#111827]">Teknik öne çıkanlar</h2>
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
-          {technicalHighlights.map(([label, value]) => {
-            const Icon = getFeatureIcon(label);
-
-            return (
-              <div key={label} className="text-center">
-                <Icon className="mx-auto size-6 text-[#334155]" />
-                <p className="mt-2 text-xs font-extrabold leading-5 text-[#111827]">
-                  {label}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-[#6B7280]">{value}</p>
-              </div>
-            )
-          })}
-        </div>
+        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+          Güvenilir Satıcı
+        </span>
       </div>
 
     </section>
-  )
+  );
 }

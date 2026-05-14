@@ -92,7 +92,7 @@ export function AnalysisResultView({ analysis, product }: {
             </p>
             <p className={cn("text-sm", lv.sub2)}>{lv.sub}</p>
             {analysis.userNeedText && (
-              <p className="pt-1 text-xs italic text-slate-400">"{analysis.userNeedText}"</p>
+              <p className="pt-1 text-xs italic text-slate-400">&quot;{analysis.userNeedText}&quot;</p>
             )}
           </div>
           {/* Risk % — shown ONCE, here only */}

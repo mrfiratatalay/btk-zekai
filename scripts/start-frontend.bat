@@ -7,6 +7,7 @@ rem PowerShell, cmd, VS Code terminal, or any current working directory.
 set "SCRIPT_DIR=%~dp0"
 set "ROOT_DIR=%SCRIPT_DIR%.."
 set "FRONTEND_DIR=%ROOT_DIR%\frontend"
+set "FRONTEND_ENV=%FRONTEND_DIR%\.env.local"
 set "DEFAULT_PORT=3000"
 set "PORT=%DEFAULT_PORT%"
 set "DID_PUSHD=0"
@@ -72,6 +73,11 @@ if not exist "node_modules" (
   )
 )
 
+if not exist "%FRONTEND_ENV%" (
+  echo [INFO] Creating frontend .env.local with default ADK backend URL...
+  > "%FRONTEND_ENV%" echo NEXT_PUBLIC_ADK_API_URL=http://localhost:8000
+)
+
 echo.
 echo [INFO] Checking preferred port %DEFAULT_PORT%...
 for /l %%P in (%DEFAULT_PORT%,1,3010) do (
@@ -93,10 +99,12 @@ if not "%PORT%"=="%DEFAULT_PORT%" (
 echo.
 echo [INFO] Starting frontend dev server...
 echo [INFO] URL: http://localhost:%PORT%
+echo [INFO] ADK API: http://localhost:8000
 echo [INFO] Press Ctrl+C to stop the server.
 echo.
 
 set "PORT=%PORT%"
+set "NEXT_PUBLIC_ADK_API_URL=http://localhost:8000"
 call npm run dev
 
 echo.

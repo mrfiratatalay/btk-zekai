@@ -91,7 +91,7 @@ function getNeedPlaceholder(product: Product) {
   return "Bu ürünü almayı düşünüyorum. Beklentilerime uygun mu, fiyatı ve iade riski mantıklı mı görmek istiyorum.";
 }
 
-export function BuyerFitDialog({ product }: { product: Product }) {
+export function BuyerFitDialog({ product, triggerClassName }: { product: Product; triggerClassName?: string }) {
   const router = useRouter()
   const [need, setNeed] = useState('')
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
@@ -131,7 +131,7 @@ export function BuyerFitDialog({ product }: { product: Product }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="h-14 flex-1 rounded-xl bg-gradient-to-r from-[#5B2EFF] to-[#7C2DFF] text-lg font-extrabold text-white shadow-sm hover:from-[#4C1FDC] hover:to-[#6D28D9]">
+        <Button className={triggerClassName ?? "h-12 flex-1 rounded-xl bg-gradient-to-r from-[#5B2EFF] to-[#7C2DFF] text-base font-extrabold text-white shadow-sm hover:from-[#4C1FDC] hover:to-[#6D28D9]"}>
           <Bot className="size-5" />
           Bana Uygun mu?
         </Button>

@@ -25,6 +25,8 @@ export type VerifiedReport = {
 };
 
 const ADK_API_URL = process.env.NEXT_PUBLIC_ADK_API_URL ?? "http://localhost:8000";
+const APP_NAME = "buyer_agent";
+const USER_ID = "zekai-demo-user";
 
 const authorToStepId: Record<string, string> = {
   need_understanding: "need-agent",
@@ -43,8 +45,14 @@ export function stepIdFromAuthor(author?: string) {
 
 function parseMaybeJson(value: unknown) {
   if (typeof value !== "string") return value;
+  const normalized = value
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
   try {
-    return JSON.parse(value);
+    return JSON.parse(normalized);
   } catch {
     return undefined;
   }
@@ -97,9 +105,10 @@ export function extractVerifiedReport(event: AdkAgentEvent): VerifiedReport | un
 }
 
 export function buildAgentMessage(product: Product, buyerNeed: string) {
-  const marketMedian = Math.round(product.price * 0.86);
-  const fairLow = Math.round(marketMedian * 0.92);
-  const fairHigh = Math.round(marketMedian * 1.08);
+  const evidence = product.analysisEvidence;
+  const marketMedian = evidence?.market.medianPrice ?? Math.round(product.price * 0.86);
+  const fairLow = evidence?.market.fairPriceMin ?? Math.round(marketMedian * 0.92);
+  const fairHigh = evidence?.market.fairPriceMax ?? Math.round(marketMedian * 1.08);
 
   return [
     "ANALYSIS_INPUT:",
@@ -125,17 +134,25 @@ export function buildAgentMessage(product: Product, buyerNeed: string) {
           cargoText: product.cargoText,
           image: product.image,
           thumbnails: product.thumbnails,
+          sellerSignals: evidence?.sellerSignals ?? null,
         },
         reviews: {
           total: product.reviewCount,
           rating: product.rating,
-          sample_reviews: [],
-          note: "Bu prototipte ham yorum metinleri yerine urun puani ve yorum hacmi gonderiliyor.",
+          verified_purchase_count:
+            evidence?.reviews.filter((review) => review.verifiedPurchase).length ?? 0,
+          sample_reviews: evidence?.reviews ?? [],
+          note: evidence?.reviews.length
+            ? "Bu urun icin mock e-commerce katalogundan temsilci yorumlar gonderiliyor."
+            : "Ham yorum metni yok; yalnizca puan ve yorum hacmi var.",
         },
         visual_data: {
           image: product.image,
           thumbnails: product.thumbnails,
-          customer_photos: [],
+          customer_photos: evidence?.visualNotes.customerPhotoCount ?? 0,
+          studio_photos: evidence?.visualNotes.studioPhotoCount ?? product.thumbnails.length,
+          consistency_notes: evidence?.visualNotes.consistencyNotes ?? [],
+          visual_red_flags: evidence?.visualNotes.redFlags ?? [],
         },
         price_data: {
           current_price_tl: product.price,
@@ -143,13 +160,23 @@ export function buildAgentMessage(product: Product, buyerNeed: string) {
           discount_percent: product.discountPercent ?? 0,
           market_median_price_tl: marketMedian,
           fair_price_range: { min: fairLow, max: fairHigh },
-          alternative_sellers: products
-            .filter((item) => item.id !== product.id && item.category === product.category)
-            .slice(0, 3)
-            .map((item) => ({ name: item.sellerName, price_tl: item.price })),
+          price_history: evidence?.priceHistory ?? [],
+          alternative_sellers:
+            evidence?.market.alternativeSellers.map((seller) => ({
+              name: seller.name,
+              price_tl: seller.price,
+              seller_rating: seller.rating,
+            })) ??
+            products
+              .filter((item) => item.id !== product.id && item.category === product.category)
+              .slice(0, 3)
+              .map((item) => ({ name: item.sellerName, price_tl: item.price })),
         },
         return_data: {
-          note: "Kategori bazli iade sebepleri ajan tarafinda urun ve ihtiyac baglamindan tahmin edilir.",
+          top_return_reasons: evidence?.returnReasons ?? [],
+          note: evidence?.returnReasons.length
+            ? "Kategoriye ve urune ozel mock iade sebepleri gonderiliyor."
+            : "Kategori bazli iade sebepleri ajan tarafinda urun ve ihtiyac baglamindan tahmin edilir.",
         },
       },
       null,
@@ -169,6 +196,8 @@ export async function runBuyerAgentStream({
   analysisId: string;
   onEvent: (event: AdkAgentEvent) => void;
 }) {
+  await ensureAdkSession(analysisId);
+
   const response = await fetch(`${ADK_API_URL}/run_sse`, {
     method: "POST",
     headers: {
@@ -176,8 +205,8 @@ export async function runBuyerAgentStream({
       Accept: "text/event-stream",
     },
     body: JSON.stringify({
-      app_name: "buyer_agent",
-      user_id: "zekai-demo-user",
+      app_name: APP_NAME,
+      user_id: USER_ID,
       session_id: analysisId,
       new_message: {
         role: "user",
@@ -213,6 +242,28 @@ export async function runBuyerAgentStream({
         buffer = `${json}\n${buffer}`;
       }
     }
+  }
+}
+
+async function ensureAdkSession(sessionId: string) {
+  const path = `/apps/${encodeURIComponent(APP_NAME)}/users/${encodeURIComponent(
+    USER_ID,
+  )}/sessions/${encodeURIComponent(sessionId)}`;
+  const existing = await fetch(`${ADK_API_URL}${path}`, { method: "GET" });
+
+  if (existing.ok) return;
+  if (existing.status !== 404) {
+    throw new Error(`ADK session check failed: ${existing.status}`);
+  }
+
+  const created = await fetch(`${ADK_API_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+
+  if (!created.ok) {
+    throw new Error(`ADK session create failed: ${created.status}`);
   }
 }
 
