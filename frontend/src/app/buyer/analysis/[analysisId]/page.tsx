@@ -3,8 +3,8 @@ import { BuyerAnalysisExperience } from "@/components/buyer/BuyerAnalysisExperie
 import { getBuyerAnalysisById } from "@/lib/mock-data/buyer-analysis";
 
 export default async function BuyerAnalysisPage({
-  searchParams,
   params,
+  searchParams,
 }: {
   params: Promise<{ analysisId: string }>;
   searchParams: Promise<{ need?: string }>;

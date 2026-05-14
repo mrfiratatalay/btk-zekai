@@ -110,6 +110,7 @@ export function SellerProductTable({
         </div>
       ) : null}
 
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow className="bg-[#F9FAFB] hover:bg-[#F9FAFB]">
@@ -187,6 +188,7 @@ export function SellerProductTable({
           ))}
         </TableBody>
       </Table>
+      </div>
     </section>
   );
 }

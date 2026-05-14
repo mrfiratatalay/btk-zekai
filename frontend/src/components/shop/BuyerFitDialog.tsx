@@ -16,16 +16,17 @@ import { cn } from '@/lib/utils'
 import type { Product } from '@/types/product'
 import {
     Bot,
-    CheckCircle2,
     CircleDollarSign,
     Clock,
-    Dumbbell,
     Gift,
-    Home,
     Mic,
+    Ruler,
+    ShieldCheck,
     Star,
     UserRound,
+    Volume2,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -33,45 +34,68 @@ import { toast } from 'sonner'
 
 const maxNeedLength = 500
 
-const commonQuickOptions = [
-  { label: 'Kendim için', icon: UserRound },
-  { label: 'Hediye', icon: Gift },
-  { label: 'Bütçem sınırlı', icon: CircleDollarSign },
-  { label: 'İlk kez alıyorum', icon: Star },
-]
+type QuickOption = {
+  label: string;
+  icon: LucideIcon;
+};
 
-type QuickOption = (typeof commonQuickOptions)[number]
+function getQuickOptions(product: Product): QuickOption[] {
+  const category = product.category.toLocaleLowerCase("tr-TR");
+  const featureText = Object.keys(product.features).join(" ").toLocaleLowerCase("tr-TR");
+  const options: QuickOption[] = [
+    { label: "Kendim için", icon: UserRound },
+    { label: "Hediye", icon: Gift },
+    { label: "Bütçem sınırlı", icon: CircleDollarSign },
+    { label: "Uzun kullanım", icon: Clock },
+    { label: "İlk kez alıyorum", icon: Star },
+  ];
 
-const categoryQuickOptions: Record<string, QuickOption[]> = {
-  Elektronik: [
-    { label: 'Mikrofon önemli', icon: Mic },
-    { label: 'Uzun kullanım', icon: Clock },
-  ],
-  'Ev & Yasam': [
-    { label: 'Uzun kullanım', icon: Clock },
-    { label: 'Ev/ofis için', icon: Home },
-  ],
-  'Spor & Outdoor': [
-    { label: 'Rahatlık önemli', icon: CheckCircle2 },
-    { label: 'Spor için', icon: Dumbbell },
-  ],
-  Mutfak: [
-    { label: 'Sık kullanacağım', icon: Clock },
-    { label: 'Kolay temizlik', icon: CheckCircle2 },
-  ],
-} satisfies Record<string, Array<{ label: string; icon: typeof UserRound }>>
+  if (featureText.includes("mikrofon")) {
+    options.splice(3, 0, { label: "Mikrofon önemli", icon: Mic });
+  } else if (category.includes("ev") || category.includes("mobilya")) {
+    options.splice(3, 0, { label: "Ölçü ve konfor önemli", icon: Ruler });
+  } else if (category.includes("spor")) {
+    options.splice(3, 0, { label: "Beden uyumu önemli", icon: Ruler });
+  } else if (category.includes("bebek")) {
+    options.splice(3, 0, { label: "Güvenlik önemli", icon: ShieldCheck });
+  } else {
+    options.splice(3, 0, { label: "Kalite riski düşük olsun", icon: ShieldCheck });
+  }
+
+  if (featureText.includes("ses") || featureText.includes("db")) {
+    options.push({ label: "Sessiz/konforlu çalışsın", icon: Volume2 });
+  }
+
+  return options;
+}
+
+function getNeedPlaceholder(product: Product) {
+  const category = product.category.toLocaleLowerCase("tr-TR");
+
+  if (product.features.Mikrofon || product.features["Gecikme modu"]) {
+    return "Online ders ve oyun için kulaklık arıyorum. Mikrofonu iyi olsun, kulağımı rahatsız etmesin, bütçem 1500 TL.";
+  }
+
+  if (category.includes("ev")) {
+    return "Evde uzun süre kullanacağım. Ölçüsü uygun olsun, iade riski düşük olsun ve fiyatı mantıklı olsun.";
+  }
+
+  if (category.includes("spor")) {
+    return "Günlük yürüyüşte kullanacağım. Kalıbı rahat olsun, ayağımı vurmasın ve iade riski düşük olsun.";
+  }
+
+  if (category.includes("bebek")) {
+    return "Bebek takibi için güvenilir ve kolay kurulan bir ürün arıyorum. Destek ve iade süreci net olsun.";
+  }
+
+  return "Bu ürünü almayı düşünüyorum. Beklentilerime uygun mu, fiyatı ve iade riski mantıklı mı görmek istiyorum.";
+}
 
 export function BuyerFitDialog({ product }: { product: Product }) {
   const router = useRouter()
   const [need, setNeed] = useState('')
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
-  const quickOptions = [
-    ...commonQuickOptions.slice(0, 3),
-    ...(categoryQuickOptions[product.category] ?? [
-      { label: 'Uzun kullanım', icon: Clock },
-    ]),
-    commonQuickOptions[3],
-  ]
+  const quickOptions = getQuickOptions(product)
 
   function toggleOption(option: string) {
     setSelectedOptions((current) => {
@@ -93,13 +117,15 @@ export function BuyerFitDialog({ product }: { product: Product }) {
   }
 
   function startAnalysis() {
-    if (!need.trim()) {
+    const trimmedNeed = need.trim();
+
+    if (!trimmedNeed) {
       toast.error('Analize başlamak için ihtiyacını kısaca yazmalısın.')
       return
     }
 
-    const query = new URLSearchParams({ need: need.trim() })
-    router.push(`/buyer/analysis/${product.id}?${query.toString()}`)
+    const params = new URLSearchParams({ need: trimmedNeed })
+    router.push(`/buyer/analysis/${product.id}?${params.toString()}`)
   }
 
   return (
@@ -116,9 +142,9 @@ export function BuyerFitDialog({ product }: { product: Product }) {
             <DialogTitle className="text-2xl font-extrabold tracking-tight text-[#111827]">
               Sana uygun mu?
             </DialogTitle>
-            <DialogDescription className="text-sm leading-6 text-[#6B7280]">
-              Ne için kullanacağını yaz. Zekai bu ürünü senin beklentine göre
-              yorum, fiyat ve iade sinyalleriyle kontrol eder.
+            <DialogDescription className="max-w-md text-sm leading-6 text-[#6B7280]">
+              Kullanım amacını ve beklentilerini kısaca anlat, karar motoru bu
+              ürünü senin senaryona göre değerlendirsin.
             </DialogDescription>
           </DialogHeader>
 
@@ -159,13 +185,7 @@ export function BuyerFitDialog({ product }: { product: Product }) {
                 maxLength={maxNeedLength}
                 onChange={(event) => setNeed(event.target.value)}
                 className="min-h-30 resize-none rounded-xl border-[#D1D5DB] bg-white p-4 pb-8 text-sm leading-6 shadow-sm focus-visible:border-[#FF6000] focus-visible:ring-[#FF6000]/20"
-                placeholder={
-                  product.category === 'Ev & Yasam'
-                    ? 'Bilgisayar masam için alıyorum. Uzun kullanımda rahat olsun, sağlam dursun.'
-                    : product.category === 'Spor & Outdoor'
-                      ? 'Günlük yürüyüş için alıyorum. Rahat olsun, ayağımı vurmasın.'
-                      : 'Ne için kullanacağını ve senin için önemli olan 2-3 şeyi yaz.'
-                }
+                placeholder={getNeedPlaceholder(product)}
               />
               <span className="absolute bottom-2.5 right-4 text-xs text-[#6B7280]">
                 {need.length}/{maxNeedLength}

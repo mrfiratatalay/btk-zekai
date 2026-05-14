@@ -116,13 +116,6 @@ const decisionStages = [
   },
 ];
 
-const liveFindings = [
-  { threshold: 2, text: "Ürün açıklaması ve özellikleri incelendi", tone: "success" },
-  { threshold: 3, text: "Yorumlardan tekrar eden risk başlıkları çıkarıldı", tone: "success" },
-  { threshold: 5, text: "Fiyat ve pazar sinyalleri karşılaştırıldı", tone: "warning" },
-  { threshold: 6, text: "İade sebepleri kullanım senaryonla eşleştirildi", tone: "warning" },
-  { threshold: 8, text: "Kanıtsız iddialar rapordan elendi", tone: "success" },
-] as const;
 
 type AgentNodeData = AgentStep & {
   state: "pending" | "active" | "completed";
@@ -299,10 +292,12 @@ const edgeTypes = { evidence: EvidenceEdge };
 export function BuyerAnalysisStepper({
   agentSteps,
   userNeedText,
+  liveFindings,
   onComplete,
 }: {
   agentSteps: AgentStep[];
   userNeedText: string;
+  liveFindings: string[];
   onComplete: () => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -325,6 +320,18 @@ export function BuyerAnalysisStepper({
   const completed = Math.min(currentIndex, agentSteps.length);
   const progress = Math.min((completed / agentSteps.length) * 100, 100);
   const activeStep = agentSteps[Math.min(currentIndex, agentSteps.length - 1)];
+  const findingItems = [
+    ...liveFindings.map((text, index) => ({
+      threshold: Math.min(agentSteps.length - 1, 2 + index * 2),
+      text,
+      tone: index >= 2 ? "warning" : "success",
+    })),
+    {
+      threshold: agentSteps.length - 1,
+      text: "Kanıtsız iddialar rapordan elendi",
+      tone: "success",
+    },
+  ];
 
   const nodes = useMemo<Node<AgentNodeData>[]>(
     () =>
@@ -470,7 +477,7 @@ export function BuyerAnalysisStepper({
           </div>
 
           <div className="mt-4 grid gap-3 text-sm">
-            {liveFindings.map((finding) => {
+            {findingItems.map((finding) => {
               const revealed = completed >= finding.threshold;
               const warning = finding.tone === "warning";
 

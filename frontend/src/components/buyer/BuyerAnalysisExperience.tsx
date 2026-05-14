@@ -18,13 +18,16 @@ export function BuyerAnalysisExperience({
   const [reportVisible, setReportVisible] = useState(false);
   const showReport = useCallback(() => setReportVisible(true), []);
   const cautionReasons = [
-    analysis.fitAnalysis.subScores[0]?.reason,
-    analysis.fitAnalysis.subScores[1]?.reason,
+    ...analysis.fitAnalysis.subScores.map((score) => score.reason),
     analysis.priceAnalysis.warning,
     analysis.returnRiskAnalysis.personalWarning,
-  ].filter(Boolean).map((reason) =>
-    reason.length > 120 ? `${reason.slice(0, 117)}...` : reason,
-  );
+  ].slice(0, 4);
+  const liveFindings = [
+    `${analysis.trustAnalysis.signals[0]?.value ?? "Yorumlar"} tarandı`,
+    analysis.trustAnalysis.signals[1]?.description ?? "Görseller kontrol edildi",
+    analysis.priceAnalysis.warning,
+    analysis.returnRiskAnalysis.personalWarning,
+  ];
 
   return (
     <div className="min-h-screen bg-[#F5F6F8]">
@@ -53,6 +56,7 @@ export function BuyerAnalysisExperience({
           <BuyerAnalysisStepper
             agentSteps={analysis.agentSteps}
             userNeedText={analysis.userNeedText}
+            liveFindings={liveFindings}
             onComplete={showReport}
           />
         ) : (

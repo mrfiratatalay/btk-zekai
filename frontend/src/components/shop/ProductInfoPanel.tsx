@@ -4,74 +4,117 @@ import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/lib/mock-data/products'
 import type { Product } from '@/types/product'
 import {
+    BatteryCharging,
     Bluetooth,
     Bot,
+    Box,
     ChevronRight,
     FileSearch,
     Gauge,
     Info,
     Mic,
     PackageCheck,
+    PackageSearch,
     Repeat2,
     ShieldCheck,
     Star,
     Truck,
     Zap,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
-const featureIconByKey = [
-  { match: 'bluetooth', icon: Bluetooth },
-  { match: 'baglanti', icon: Bluetooth },
-  { match: 'mikrofon', icon: Mic },
-  { match: 'gecikme', icon: Zap },
-  { match: 'pil', icon: Zap },
-  { match: 'garanti', icon: ShieldCheck },
-  { match: 'kullanim', icon: Repeat2 },
-] as const
+function getFeatureIcon(label: string): LucideIcon {
+  const normalized = label.toLocaleLowerCase("tr-TR");
 
-function getFeatureIcon(label: string) {
-  const normalized = label.toLocaleLowerCase('tr-TR')
-  return (
-    featureIconByKey.find((item) => normalized.includes(item.match))?.icon ??
-    Info
-  )
+  if (normalized.includes("bluetooth") || normalized.includes("baglanti")) {
+    return Bluetooth;
+  }
+
+  if (normalized.includes("pil") || normalized.includes("sarj")) {
+    return BatteryCharging;
+  }
+
+  if (normalized.includes("mikrofon") || normalized.includes("ses")) {
+    return Mic;
+  }
+
+  if (normalized.includes("gecikme") || normalized.includes("guc")) {
+    return Zap;
+  }
+
+  if (normalized.includes("garanti") || normalized.includes("dayanim")) {
+    return ShieldCheck;
+  }
+
+  return Info;
 }
 
-function getAiSignals(product: Product) {
-  return [
-    {
-      label: `${product.reviewCount.toLocaleString('tr-TR')} yorum tarandı`,
-      value: 'Tekrar eden beklenti sinyalleri çıkarıldı',
-      icon: FileSearch,
-    },
-    {
-      label: 'Fiyat geçmişi kontrol edildi',
-      value: product.discountPercent
-        ? 'İndirim doğrulanmalı'
-        : 'Pazarla kıyaslandı',
-      icon: Gauge,
-    },
-    {
-      label: 'İade sinyalleri bulundu',
-      value: `${product.category} kategorisine göre değerlendirildi`,
-      icon: Repeat2,
-    },
-    {
-      label: 'Satıcı güveni hesaplandı',
-      value: 'Listeleme ve yorum kalitesi birlikte okundu',
-      icon: ShieldCheck,
-    },
-  ]
+function getCategoryRisk(product: Product) {
+  const category = product.category.toLocaleLowerCase("tr-TR");
+
+  if (product.features.Mikrofon || product.features["Gecikme modu"]) {
+    return "Mikrofon ve gecikme beklentisi kontrol ediliyor";
+  }
+
+  if (category.includes("ev")) {
+    return "Ölçü, kullanım alanı ve iade sebepleri eşleşiyor";
+  }
+
+  if (category.includes("spor")) {
+    return "Beden/kalıp uyuşmazlığı sinyalleri izleniyor";
+  }
+
+  if (category.includes("bebek")) {
+    return "Kurulum, güvenlik ve destek sinyalleri kontrol ediliyor";
+  }
+
+  if (category.includes("aksesuar")) {
+    return "Kırılganlık ve paketleme sinyalleri kontrol ediliyor";
+  }
+
+  return "Beklenti ve iade sinyalleri kontrol ediliyor";
+}
+
+function getQuestionCount(product: Product) {
+  return Math.max(18, Math.round(product.reviewCount / 10));
+}
+
+function getTechnicalHighlights(product: Product) {
+  return Object.entries(product.features).slice(0, 5);
 }
 
 export function ProductInfoPanel({ product }: { product: Product }) {
-  const featureHighlights = Object.entries(product.features)
-    .slice(0, 5)
-    .map(([key, value]) => ({
-      label: `${key}: ${value}`,
-      icon: getFeatureIcon(key),
-    }))
-  const aiSignals = getAiSignals(product)
+  const technicalHighlights = getTechnicalHighlights(product);
+  const questionCount = getQuestionCount(product);
+  const savings =
+    product.originalPrice && product.originalPrice > product.price
+      ? product.originalPrice - product.price
+      : 0;
+
+  const aiSignals = [
+    {
+      label: `${product.reviewCount.toLocaleString("tr-TR")} yorum tarandı`,
+      value: "Tekrarlayan beklenti sinyalleri çıkarıldı",
+      icon: FileSearch,
+    },
+    {
+      label: "Fiyat geçmişi kontrol edildi",
+      value: product.originalPrice
+        ? `%${product.discountPercent ?? Math.round((savings / product.originalPrice) * 100)} indirim doğrulandı`
+        : "Pazar konumu karşılaştırıldı",
+      icon: Gauge,
+    },
+    {
+      label: "İade sinyalleri bulundu",
+      value: getCategoryRisk(product),
+      icon: Repeat2,
+    },
+    {
+      label: "Satıcı güveni hesaplandı",
+      value: `${product.sellerName} için sinyaller işlendi`,
+      icon: ShieldCheck,
+    },
+  ];
 
   return (
     <section className="space-y-5">
@@ -97,7 +140,9 @@ export function ProductInfoPanel({ product }: { product: Product }) {
           <span className="text-[#6B7280]">
             ({product.reviewCount.toLocaleString('tr-TR')} Değerlendirme)
           </span>
-          <span className="font-semibold text-[#2563EB]">142 Sorulan Soru</span>
+          <span className="font-semibold text-[#2563EB]">
+            {questionCount.toLocaleString("tr-TR")} sorulan soru
+          </span>
         </div>
       </div>
 
@@ -117,9 +162,9 @@ export function ProductInfoPanel({ product }: { product: Product }) {
             </Badge>
           ) : null}
         </div>
-        {product.originalPrice ? (
+        {savings ? (
           <p className="w-fit rounded-full bg-[#E8F7EC] px-3 py-1 text-sm font-semibold text-[#16803A]">
-            Kazancınız: {formatPrice(product.originalPrice - product.price)}
+            Kazancınız: {formatPrice(savings)}
           </p>
         ) : null}
         <button
@@ -135,7 +180,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         <div className="grid gap-3 text-sm text-[#374151]">
           <div className="flex items-center gap-3">
             <Truck className="size-5 text-[#16803A]" />
-            <span>Bugün kargoda, 2 saatte sipariş verirseniz</span>
+            <span>{product.cargoText}</span>
           </div>
           <div className="flex items-center gap-3">
             <ShieldCheck className="size-5 text-[#334155]" />
@@ -152,7 +197,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         <BuyerFitDialog product={product} />
       </div>
 
-      <div className="grid grid-cols-3 gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 text-sm md:grid-cols-3">
+      <div className="grid gap-3 rounded-xl border border-[#E5E7EB] bg-white p-4 text-sm sm:grid-cols-3">
         <div className="flex items-center gap-2">
           <PackageCheck className="size-4 text-[#334155]" />
           <span>
@@ -161,31 +206,32 @@ export function ProductInfoPanel({ product }: { product: Product }) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Mic className="size-4 text-[#334155]" />
+          <Box className="size-4 text-[#334155]" />
           <span>
-            Renk: <strong>Siyah</strong>
+            Kategori: <strong>{product.category}</strong>
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <ShieldCheck className="size-4 text-[#334155]" />
+          <PackageSearch className="size-4 text-[#334155]" />
           <span>
-            Garanti: <strong className="text-[#16803A]">2 yıl</strong>
+            Analiz: <strong className="text-[#5B2EFF]">Uygun</strong>
           </span>
         </div>
       </div>
 
       <div className="rounded-xl border border-[#E5E7EB] bg-white p-5">
-        <h2 className="font-extrabold text-[#111827]">Öne çıkan özellikler</h2>
+        <h2 className="font-extrabold text-[#111827]">Teknik öne çıkanlar</h2>
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-5">
-          {featureHighlights.map((feature) => {
-            const Icon = feature.icon
+          {technicalHighlights.map(([label, value]) => {
+            const Icon = getFeatureIcon(label);
 
             return (
-              <div key={feature.label} className="text-center">
+              <div key={label} className="text-center">
                 <Icon className="mx-auto size-6 text-[#334155]" />
-                <p className="mt-2 text-xs font-medium leading-5 text-[#111827]">
-                  {feature.label}
+                <p className="mt-2 text-xs font-extrabold leading-5 text-[#111827]">
+                  {label}
                 </p>
+                <p className="mt-1 text-xs leading-5 text-[#6B7280]">{value}</p>
               </div>
             )
           })}

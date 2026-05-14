@@ -56,7 +56,7 @@ export function FinalAdviceCard({ analysis }: { analysis: BuyerAnalysis }) {
               <Button asChild variant="ghost" className="h-10 rounded-lg px-3 text-sm font-semibold">
                 <Link href={`/shop/product/${analysis.productId}`}>
                   <ArrowLeft className="size-4" />
-                  <span className="hidden truncate lg:inline">Ürüne Dön</span>
+                  <span className="hidden truncate lg:inline">Ürüne Geri Dön</span>
                 </Link>
               </Button>
             </div>

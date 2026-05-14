@@ -33,6 +33,7 @@ export default async function ShopProductPage({
   }
 
   const similarProducts = getSimilarProducts(product.id).slice(0, 3);
+  const questionCount = Math.max(18, Math.round(product.reviewCount / 10));
 
   return (
     <div className="min-h-screen bg-white">
@@ -45,11 +46,7 @@ export default async function ShopProductPage({
             Ana Sayfa
           </Link>
           <ChevronRight className="size-4" />
-          <span>Elektronik</span>
-          <ChevronRight className="size-4" />
-          <span>Ses & Görüntü</span>
-          <ChevronRight className="size-4" />
-          <span>Kulaklık & Mikrofon</span>
+          <span>{product.category}</span>
           <ChevronRight className="size-4" />
           <span className="font-semibold text-[#2563EB]">{product.title}</span>
         </nav>
@@ -94,14 +91,16 @@ export default async function ShopProductPage({
                 <div className="flex items-center gap-4">
                   <Truck className="size-6 text-[#334155]" />
                   <div>
-                    <p className="text-[#6B7280]">Tahmini Teslimat</p>
-                    <p className="font-extrabold text-[#16803A]">Yarın kapında</p>
+                    <p className="text-[#6B7280]">Teslimat Bilgisi</p>
+                    <p className="font-extrabold text-[#16803A]">
+                      {product.cargoText}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <Box className="size-6 text-[#334155]" />
-                    <p className="font-semibold text-[#111827]">Kargo Bedava</p>
+                    <p className="font-semibold text-[#111827]">Kargo Avantajı</p>
                   </div>
                   <Badge className="rounded-md bg-[#16A34A] text-white">Ücretsiz</Badge>
                 </div>
@@ -114,14 +113,15 @@ export default async function ShopProductPage({
                 <h2 className="font-extrabold text-[#111827]">Zekai Güven Rozeti</h2>
               </div>
               <p className="mt-4 text-sm leading-6 text-[#6B7280]">
-                Bu ürün Zekai tarafından analiz edildi.
+                Bu ürün Zekai tarafından ürün, fiyat, satıcı ve iade sinyalleriyle
+                analiz edilebilir.
               </p>
               <div className="mt-5 grid gap-3 text-sm text-[#374151]">
                 {[
-                  "Yorumlar tarandı",
+                  `${product.reviewCount.toLocaleString("tr-TR")} yorum tarandı`,
                   "Fiyat geçmişi kontrol edildi",
                   "Satıcı güven skoru hesaplandı",
-                  "İade riski değerlendirildi",
+                  `${product.category} iade sinyalleri değerlendirildi`,
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-3">
                     <PackageCheck className="size-4 text-[#16A34A]" />
@@ -160,22 +160,25 @@ export default async function ShopProductPage({
         </section>
 
         <section className="rounded-xl border border-[#E5E7EB] bg-white">
-          <div className="flex overflow-x-auto border-b border-[#E5E7EB] px-4">
-            {["Ürün Açıklaması", "Teknik Özellikler", `Yorumlar (${product.reviewCount.toLocaleString("tr-TR")})`, "Soru & Cevap (142)"].map(
-              (tab, index) => (
-                <button
-                  key={tab}
-                  type="button"
-                  className={`min-w-max border-b-2 px-5 py-4 text-sm font-bold ${
-                    index === 0
-                      ? "border-[#FF6000] text-[#111827]"
-                      : "border-transparent text-[#374151]"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ),
-            )}
+          <div className="flex overflow-x-auto border-b border-[#E5E7EB] px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {[
+              "Ürün Açıklaması",
+              "Teknik Özellikler",
+              `Yorumlar (${product.reviewCount.toLocaleString("tr-TR")})`,
+              `Soru & Cevap (${questionCount.toLocaleString("tr-TR")})`,
+            ].map((tab, index) => (
+              <button
+                key={tab}
+                type="button"
+                className={`min-w-max border-b-2 px-5 py-4 text-sm font-bold ${
+                  index === 0
+                    ? "border-[#FF6000] text-[#111827]"
+                    : "border-transparent text-[#374151]"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
           <div className="grid gap-6 p-6 lg:grid-cols-[1fr_360px]">
             <div>

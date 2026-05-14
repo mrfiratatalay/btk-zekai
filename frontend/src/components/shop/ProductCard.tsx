@@ -5,6 +5,18 @@ import type { Product } from "@/types/product";
 import { formatPrice } from "@/lib/mock-data/products";
 import { Badge } from "@/components/ui/badge";
 
+function getRiskLabel(product: Product) {
+  if (product.rating < 4.2) {
+    return "AI risk: izlenmeli";
+  }
+
+  if ((product.discountPercent ?? 0) >= 25) {
+    return "Fiyat sinyali var";
+  }
+
+  return "AI analiz uygun";
+}
+
 export function ProductCard({ product }: { product: Product }) {
   const savings =
     product.originalPrice && product.originalPrice > product.price
@@ -69,6 +81,10 @@ export function ProductCard({ product }: { product: Product }) {
                 %{savings} tasarruf
               </p>
             ) : null}
+          </div>
+
+          <div className="rounded-lg border border-[#DDD6FE] bg-[#F5F3FF] px-2.5 py-2 text-xs font-bold text-[#5B2EFF]">
+            {getRiskLabel(product)}
           </div>
         </div>
       </article>

@@ -55,8 +55,8 @@ export function PriceTab({ analysis }: { analysis: BuyerAnalysis }) {
         </Card>
       </div>
 
-      <Card className="rounded-xl border-[#E5E7EB] bg-white shadow-sm">
-        <CardContent className="h-[320px] p-4">
+      <Card className="min-w-0 rounded-xl border-[#E5E7EB] bg-white shadow-sm">
+        <CardContent className="h-[320px] min-w-0 p-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={analysis.priceAnalysis.priceHistory}>
               <CartesianGrid stroke="#E5E7EB" strokeDasharray="3 3" />

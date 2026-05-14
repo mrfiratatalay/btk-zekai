@@ -3,13 +3,24 @@ import type { BuyerAnalysis } from "@/types/analysis";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
+function getDecisionText(analysis: BuyerAnalysis) {
+  if (analysis.recommendationLevel === "safe") {
+    return "Bu ürün senin senaryon için kontrollü şekilde değerlendirilebilir.";
+  }
+
+  if (analysis.recommendationLevel === "risky") {
+    return "Bu ürünü mevcut senaryon için almanı önermiyorum.";
+  }
+
+  return "Bu ürün için satın almadan önce dikkatli ilerlemelisin.";
+}
+
 export function AnalysisHeader({ analysis }: { analysis: BuyerAnalysis }) {
-  const evidenceTags = [
-    analysis.fitAnalysis.subScores[0]?.label,
-    "Fiyat karşılaştırması",
-    "Yorum sinyalleri",
-    "İade sebepleri",
-  ].filter(Boolean);
+  const evidenceChips = [
+    ...analysis.fitAnalysis.subScores.map((score) => score.label),
+    "Fiyat geçmişi",
+    "İade kök nedeni",
+  ].slice(0, 4);
 
   return (
     <Card className="overflow-hidden rounded-2xl border-[#FCA5A5] bg-white shadow-sm">
@@ -21,23 +32,21 @@ export function AnalysisHeader({ analysis }: { analysis: BuyerAnalysis }) {
           </Badge>
           <div className="space-y-2">
             <h1 className="text-3xl font-extrabold tracking-tight text-[#111827] md:text-4xl">
-              Bu ürün için karar vermeden önce dikkatli ol.
+              {getDecisionText(analysis)}
             </h1>
             <p className="max-w-3xl text-base leading-7 text-[#4B5563]">
               {analysis.recommendationText}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs font-bold">
-            {evidenceTags.map(
-              (item) => (
-                <span
-                  key={item}
-                  className="rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-1.5 text-[#374151]"
-                >
-                  {item}
-                </span>
-              ),
-            )}
+            {evidenceChips.map((item) => (
+              <span
+                key={item}
+                className="rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-1.5 text-[#374151]"
+              >
+                {item}
+              </span>
+            ))}
           </div>
         </div>
 
@@ -57,7 +66,7 @@ export function AnalysisHeader({ analysis }: { analysis: BuyerAnalysis }) {
                 {analysis.recommendationLevel === "risky"
                   ? "Alternatif bak"
                   : analysis.recommendationLevel === "safe"
-                    ? "Alınabilir görünüyor"
+                    ? "Kontrollü ilerle"
                     : "Kontrol ederek karar ver"}
               </p>
             </div>

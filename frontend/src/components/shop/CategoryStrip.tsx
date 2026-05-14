@@ -15,7 +15,7 @@ const categories = [
 export function CategoryStrip() {
   return (
     <nav className="border-t border-[#E5E7EB] bg-white">
-      <div className="mx-auto flex max-w-[1440px] items-center gap-6 overflow-x-auto px-6 py-3">
+      <div className="mx-auto flex max-w-[1440px] items-center gap-6 overflow-x-auto px-6 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <button
           type="button"
           className="flex min-w-max items-center gap-2 text-sm font-bold text-[#111827] transition hover:text-[#FF6000]"
