@@ -19,3 +19,7 @@ sessions.db
 
 .DS_Store
 Thumbs.db
+
+# Private / not for repo
+docs/
+yarisma/
