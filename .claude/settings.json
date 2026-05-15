@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\FIRAT\\\\Desktop\\\\CyberSecurity\\\\btk-zekai\" -Force -Recurse -Directory | Where-Object { $_.FullName -match '\\(docs|scripts|yarisma|mock-shop\\)' } | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\(\"c:\\\\Users\\\\FIRAT\\\\Desktop\\\\CyberSecurity\\\\btk-zekai\\\\\",\"\"\\) })"
+    ]
+  }
+}

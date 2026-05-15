@@ -2,115 +2,125 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BarChart3,
-  Bot,
-  Home,
-  Package,
-  Settings,
-  Sparkles,
-  Store,
-} from "lucide-react";
+import { Bell, Bookmark, HelpCircle, LayoutDashboard, Package, Settings, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 
 const NAV = [
-  { label: "Genel Bakış", href: "/seller", icon: Home },
+  { label: "Dashboard", href: "/seller", icon: LayoutDashboard },
   { label: "Ürünlerim", href: "/seller/products", icon: Package },
-  { label: "AI Optimizasyon", href: "/seller/optimize", icon: Bot },
-  { label: "Analitik", href: "/seller/analytics", icon: BarChart3 },
+  { label: "AI Studio", href: "/seller/ai-studio", icon: Sparkles },
+  { label: "Kaydedilen Çıktılar", href: "/seller/saved", icon: Bookmark },
   { label: "Ayarlar", href: "/seller/settings", icon: Settings },
 ];
+
+/* ZekAI four-diamond logo mark */
+function ZekAILogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="0" y="0" width="12" height="12" rx="3" fill="#22c55e" />
+      <rect x="16" y="0" width="12" height="12" rx="3" fill="#22c55e" opacity="0.7" />
+      <rect x="0" y="16" width="12" height="12" rx="3" fill="#22c55e" opacity="0.7" />
+      <rect x="16" y="16" width="12" height="12" rx="3" fill="#22c55e" opacity="0.4" />
+    </svg>
+  );
+}
 
 export function SellerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-card lg:flex">
-        {/* Brand */}
-        <div className="flex h-16 shrink-0 items-center gap-3 border-b border-border px-5">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-[#ADFF41]">
-            <Sparkles className="size-4 text-[#0D0F0B]" />
-          </div>
-          <div>
-            <p className="text-sm font-extrabold text-foreground leading-none">
-              Seller Studio
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">by ZekAI</p>
-          </div>
+    <div className="flex min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
+      {/* ── Sidebar ── */}
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-white/8 dark:bg-[#111] lg:flex">
+
+        {/* Logo */}
+        <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
+          <ZekAILogo size={28} />
+          <span className="text-lg font-black tracking-tight text-gray-900 dark:text-white">ZekAI</span>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
+        {/* Navigation */}
+        <nav className="flex-1 space-y-0.5 px-3 py-2">
           {NAV.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.href || (item.href !== "/seller" && pathname.startsWith(item.href));
+            const active =
+              item.href === "/seller"
+                ? pathname === "/seller"
+                : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all",
                   active
-                    ? "bg-[#ADFF41]/15 text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
+                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-800 dark:text-gray-500 dark:hover:bg-white/5 dark:hover:text-gray-300",
                 )}
               >
-                <Icon className={cn("size-4 shrink-0", active && "text-[#ADFF41]")} />
+                <Icon
+                  className={cn(
+                    "size-[18px] shrink-0",
+                    active ? "text-green-600 dark:text-green-400" : "text-gray-400",
+                  )}
+                />
                 {item.label}
               </Link>
             );
           })}
         </nav>
 
-        {/* Store info */}
-        <div className="shrink-0 border-t border-border p-4">
+        {/* User footer */}
+        <div className="shrink-0 border-t border-gray-100 p-4 dark:border-white/8">
           <div className="flex items-center gap-3">
-            <Avatar className="size-9 shrink-0">
-              <AvatarFallback className="bg-[#ADFF41] text-[#0D0F0B] text-xs font-bold">ME</AvatarFallback>
-            </Avatar>
+            {/* Avatar */}
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-green-500 text-[13px] font-black text-white">
+              ME
+            </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">Mehmet Elektronik</p>
-              <p className="truncate text-xs text-muted-foreground">Seller Plus</p>
+              <p className="truncate text-sm font-bold text-gray-900 dark:text-white">Mehmet Elektronik</p>
+              <p className="truncate text-xs text-gray-400">Demo Store</p>
             </div>
           </div>
-          <Link href="/" className="mt-3 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
-            <Store className="size-3.5" />
-            ZekAI&apos;ye dön
+          <Link
+            href="/"
+            className="mt-3 flex items-center gap-2 text-xs font-medium text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M7.5 1L2.5 6L7.5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Zekai'ye dön
           </Link>
         </div>
       </aside>
 
-      {/* Main */}
-      <div className="flex flex-1 flex-col min-w-0">
-        {/* Topbar */}
-        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-xl">
-          <div className="flex items-center gap-3 lg:hidden">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-[#ADFF41]">
-              <Sparkles className="size-3.5 text-[#0D0F0B]" />
+      {/* ── Main ── */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Top bar */}
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 px-6 backdrop-blur-xl dark:border-white/8 dark:bg-[#111]/80">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <ZekAILogo size={22} />
+            <span className="text-base font-black text-gray-900 dark:text-white">ZekAI</span>
+          </div>
+          <div className="hidden lg:block" />
+
+          {/* Right: help + bell + theme */}
+          <div className="flex items-center gap-1">
+            <button className="flex size-9 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/5">
+              <HelpCircle className="size-4" />
+            </button>
+            <button className="flex size-9 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/5">
+              <Bell className="size-4" />
+            </button>
+            <div className="ml-1 flex size-9 items-center justify-center rounded-full bg-green-500 text-[12px] font-black text-white">
+              BY
             </div>
-            <span className="text-sm font-extrabold text-foreground">Seller Studio</span>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground">
-            {NAV.find((n) => pathname === n.href || (n.href !== "/seller" && pathname.startsWith(n.href)))?.label ?? "Genel Bakış"}
-          </div>
-
-          <div className="ml-auto flex items-center gap-2">
-            <Badge className="hidden sm:flex gap-1 rounded-full border-0 bg-[#ADFF41]/15 text-[#5a8a00] dark:text-[#ADFF41]">
-              <Sparkles className="size-3" />
-              AI Hazır
-            </Badge>
-            <ThemeToggle className="text-muted-foreground" />
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6 sm:p-8">{children}</main>
       </div>
     </div>
   );

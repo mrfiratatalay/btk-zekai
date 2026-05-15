@@ -2,339 +2,280 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  AlertTriangle,
-  ArrowRight,
-  ArrowUpRight,
-  BarChart3,
-  Bot,
-  Package,
-  RefreshCw,
-  Sparkles,
-  Star,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ArrowRight, Bot, ChevronRight, Sparkles, TrendingDown, TrendingUp, Users, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { formatSellerPrice, getPriorityProducts, sellerProducts, sellerStore } from "@/lib/mock-data/seller";
 
-/* ── Mock data ───────────────────────────────────────────────────────────── */
-const chartData = [
-  { ay: "Oca", satis: 42000, iade: 6200 },
-  { ay: "Şub", satis: 51000, iade: 7100 },
-  { ay: "Mar", satis: 38000, iade: 5400 },
-  { ay: "Nis", satis: 67000, iade: 8800 },
-  { ay: "May", satis: 59000, iade: 6900 },
-  { ay: "Haz", satis: 74000, iade: 9200 },
-  { ay: "Tem", satis: 82000, iade: 7500 },
-];
+const priorityProducts = getPriorityProducts(3);
 
 const KPI_CARDS = [
   {
-    label: "Aylık Satış",
-    value: "₺82.400",
-    delta: "+11%",
-    positive: true,
-    icon: TrendingUp,
-    color: "#ADFF41",
-  },
-  {
-    label: "İade Oranı",
-    value: "%9,1",
-    delta: "-2,4pp",
-    positive: true,
-    icon: RefreshCw,
-    color: "#10B981",
-  },
-  {
-    label: "AI Risk Skoru",
-    value: "48/100",
-    delta: "Orta Risk",
-    positive: false,
-    icon: BarChart3,
-    color: "#F59E0B",
+    label: "Aylık Tahmini Kayıp",
+    value: formatSellerPrice(8900),
+    sub: "İade ve düşük dönüşüm",
+    color: "red",
+    icon: TrendingDown,
   },
   {
     label: "Aktif Ürün",
-    value: "24",
-    delta: "6 riskli",
-    positive: false,
-    icon: Package,
-    color: "#8B5CF6",
+    value: "12",
+    sub: "Demo Store'dan senkronize",
+    color: "gray",
+    icon: Zap,
+  },
+  {
+    label: "İade Oranı",
+    value: "%23",
+    sub: "Sektör ortalaması %12",
+    color: "amber",
+    icon: TrendingDown,
+  },
+  {
+    label: "İyileştirme Fırsatı",
+    value: "+₺4.200",
+    sub: "Aylık potansiyel gelir",
+    color: "green",
+    icon: TrendingUp,
   },
 ];
 
-const PRIORITY_PRODUCTS = [
+const QUICK_ACTIONS = [
   {
-    id: "bluetooth-kulaklik-pro-x1",
-    title: "PulseWave Pro X1 Bluetooth Kulaklık",
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=80&q=80",
-    riskScore: 72,
-    returnRate: "18%",
-    lostProfit: "₺3.200",
-    issue: "Mikrofon bilgisi eksik, stok fotoğraf şüphesi",
+    href: "/seller/products",
+    icon: Users,
+    label: "Müşteri Simülasyonu Başlat",
+    desc: "Ürünlerini 12 profille test et",
+    green: true,
   },
   {
-    id: "akilli-saat-fit-neo",
-    title: "FitNeo S3 Akıllı Saat",
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=80&q=80",
-    riskScore: 55,
-    returnRate: "12%",
-    lostProfit: "₺1.800",
-    issue: "Açıklama çok kısa, SEO eksik",
+    href: "/seller/ai-studio",
+    icon: Sparkles,
+    label: "AI Studio'ya Git",
+    desc: "İçerik ve fiyat optimizasyonu",
+    green: false,
   },
   {
-    id: "ergonomik-calisma-sandalyesi",
-    title: "NordDesk Ergonomik Sandalye",
-    image: "https://images.unsplash.com/photo-1580480055273-228ff5388ef8?auto=format&fit=crop&w=80&q=80",
-    riskScore: 44,
-    returnRate: "8%",
-    lostProfit: "₺950",
-    issue: "Ölçü bilgisi yetersiz",
-  },
-];
-
-const AI_ACTIONS = [
-  {
+    href: "/seller/products",
     icon: Bot,
-    color: "#ADFF41",
-    title: "Başlık Optimizasyonu",
-    desc: "3 ürün için SEO başlığı hazır",
-    href: "/seller/optimize",
-  },
-  {
-    icon: Star,
-    color: "#8B5CF6",
-    title: "Yorum Analizi",
-    desc: "47 yeni yorum analiz edildi",
-    href: "/seller/products",
-  },
-  {
-    icon: AlertTriangle,
-    color: "#F59E0B",
-    title: "Fiyat Uyarısı",
-    desc: "2 üründe sahte indirim sinyali",
-    href: "/seller/products",
+    label: "AI ile Düzenle",
+    desc: "Ürün açıklamalarını güçlendir",
+    green: false,
   },
 ];
 
-function riskColor(score: number) {
-  if (score >= 65) return { bg: "bg-red-500/10 dark:bg-red-500/15", text: "text-red-600 dark:text-red-400" };
-  if (score >= 40) return { bg: "bg-amber-500/10 dark:bg-amber-500/15", text: "text-amber-600 dark:text-amber-400" };
-  return { bg: "bg-emerald-500/10 dark:bg-emerald-500/15", text: "text-emerald-600 dark:text-emerald-400" };
-}
+const RECENT_SIMS = [
+  {
+    productId: "bluetooth-kulaklik-pro-x1",
+    title: "Premium Bluetooth Kulaklık Beyaz",
+    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&q=80",
+    result: "5 aktif · 4 kararsız · 3 vazgeçti",
+    date: "Bugün 10:42",
+    score: 34,
+  },
+  {
+    productId: "spor-ayakkabi-runflex",
+    title: "RunFlex Hafif Tabanlı Spor Ayakkabı",
+    image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=80",
+    result: "6 aktif · 3 kararsız · 3 vazgeçti",
+    date: "Bugün 09:12",
+    score: 29,
+  },
+];
 
-/* ── Custom tooltip ──────────────────────────────────────────────────────── */
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-lg">
-      <p className="mb-1 text-xs font-semibold text-muted-foreground">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.dataKey} className="text-sm font-bold" style={{ color: p.color }}>
-          {p.dataKey === "satis" ? "Satış" : "İade"}: {p.value.toLocaleString("tr-TR")} ₺
-        </p>
-      ))}
-    </div>
-  );
-}
-
-/* ── Main ────────────────────────────────────────────────────────────────── */
 export function SellerDashboard() {
   return (
     <div className="space-y-6">
-      {/* Page title */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-foreground">Genel Bakış</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Mağazanın satış, iade ve AI risk sinyallerini takip et.
-        </p>
+      {/* ── Greeting ── */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Merhaba, Mehmet 👋
+          </h1>
+          <p className="mt-1 text-sm text-gray-400">
+            Demo Store · {sellerProducts.length} ürün · Son senkronizasyon: az önce
+          </p>
+        </div>
+        <Link
+          href="/seller/products"
+          className="flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-600"
+        >
+          <Sparkles className="size-4" />
+          Simülasyon Başlat
+        </Link>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {KPI_CARDS.map((card) => {
-          const Icon = card.icon;
+      {/* ── KPI cards ── */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {KPI_CARDS.map((kpi) => {
+          const Icon = kpi.icon;
           return (
             <div
-              key={card.label}
-              className="rounded-3xl border border-border bg-card p-6 shadow-sm transition-shadow hover:shadow-md"
+              key={kpi.label}
+              className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#111]"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div
-                  className="flex size-11 items-center justify-center rounded-2xl"
-                  style={{ background: card.color + "18" }}
-                >
-                  <Icon className="size-5" style={{ color: card.color }} />
-                </div>
-                <span
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                    card.positive
-                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                  )}
-                >
-                  {card.delta}
-                </span>
+              <div className={cn(
+                "mb-3 flex size-9 items-center justify-center rounded-xl",
+                kpi.color === "red" && "bg-red-50 dark:bg-red-500/10",
+                kpi.color === "amber" && "bg-amber-50 dark:bg-amber-500/10",
+                kpi.color === "green" && "bg-green-50 dark:bg-green-500/10",
+                kpi.color === "gray" && "bg-gray-100 dark:bg-white/8",
+              )}>
+                <Icon className={cn(
+                  "size-4",
+                  kpi.color === "red" && "text-red-500",
+                  kpi.color === "amber" && "text-amber-500",
+                  kpi.color === "green" && "text-green-500",
+                  kpi.color === "gray" && "text-gray-400",
+                )} />
               </div>
-              <div className="mt-4">
-                <p className="text-3xl font-extrabold text-foreground">{card.value}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{card.label}</p>
-              </div>
+              <p className="text-xs font-medium text-gray-400">{kpi.label}</p>
+              <p className={cn(
+                "mt-1 text-2xl font-black",
+                kpi.color === "red" && "text-red-600 dark:text-red-400",
+                kpi.color === "amber" && "text-amber-600 dark:text-amber-400",
+                kpi.color === "green" && "text-green-600 dark:text-green-400",
+                kpi.color === "gray" && "text-gray-900 dark:text-white",
+              )}>
+                {kpi.value}
+              </p>
+              <p className="mt-0.5 text-[11px] text-gray-400">{kpi.sub}</p>
             </div>
           );
         })}
       </div>
 
-      {/* Chart + AI Actions */}
-      <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-        {/* Sales chart */}
-        <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="font-extrabold text-foreground">Satış ve İade Trendi</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Son 7 ay</p>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-full bg-[#ADFF41]" />
-                Satış
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded-full bg-[#F59E0B]" />
-                İade
-              </span>
-            </div>
+      {/* ── Main grid: Priority products + Quick actions ── */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+
+        {/* Priority products */}
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">Acil Müdahale Gerekiyor</h2>
+            <Link
+              href="/seller/products"
+              className="flex items-center gap-1 text-sm font-semibold text-green-600 hover:text-green-700 dark:text-green-400"
+            >
+              Tüm ürünler <ArrowRight className="size-4" />
+            </Link>
           </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="salGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ADFF41" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#ADFF41" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="retGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="ay" tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip />} />
-                <Area type="monotone" dataKey="satis" stroke="#ADFF41" strokeWidth={2.5} fill="url(#salGrad)" />
-                <Area type="monotone" dataKey="iade" stroke="#F59E0B" strokeWidth={2.5} fill="url(#retGrad)" />
-              </AreaChart>
-            </ResponsiveContainer>
+
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#111]">
+            {priorityProducts.map((product, i) => (
+              <Link
+                key={product.id}
+                href={`/seller/product/${product.id}`}
+                className={cn(
+                  "flex items-center gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors",
+                  i > 0 && "border-t border-gray-100 dark:border-white/8",
+                )}
+              >
+                <div className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-gray-50">
+                  <Image src={product.image} alt={product.title} fill sizes="48px" className="object-contain p-1.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{product.title}</p>
+                  <p className="mt-0.5 truncate text-xs text-gray-400">{product.mainIssue}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-bold text-red-500">
+                    -{formatSellerPrice(product.lostProfitMonthly)}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-green-600 dark:text-green-400">
+                    +{formatSellerPrice(product.improvableRevenueMonthly)} fırsat
+                  </p>
+                </div>
+                <ChevronRight className="size-4 shrink-0 text-gray-300" />
+              </Link>
+            ))}
           </div>
         </div>
 
-        {/* AI Actions */}
-        <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-          <div className="mb-5 flex items-center gap-2">
-            <Sparkles className="size-4 text-[#ADFF41]" />
-            <h2 className="font-extrabold text-foreground">AI Öneriler</h2>
-          </div>
+        {/* Quick actions */}
+        <div>
+          <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-white">Hızlı İşlemler</h2>
           <div className="space-y-3">
-            {AI_ACTIONS.map((a) => {
-              const Icon = a.icon;
+            {QUICK_ACTIONS.map((action) => {
+              const Icon = action.icon;
               return (
-                <Link key={a.title} href={a.href}>
-                  <div className="group flex items-center gap-4 rounded-2xl border border-border bg-background p-4 transition-all hover:border-[#ADFF41]/40 hover:bg-[#ADFF41]/5">
-                    <div
-                      className="flex size-10 shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: a.color + "18" }}
-                    >
-                      <Icon className="size-4" style={{ color: a.color }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground">{a.title}</p>
-                      <p className="text-xs text-muted-foreground">{a.desc}</p>
-                    </div>
-                    <ArrowUpRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                <Link
+                  key={action.label}
+                  href={action.href}
+                  className={cn(
+                    "flex items-center gap-4 rounded-2xl border p-4 transition-all hover:shadow-md",
+                    action.green
+                      ? "border-green-200 bg-green-500 hover:bg-green-600 dark:border-green-500/20"
+                      : "border-gray-200 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-[#111] dark:hover:bg-white/5",
+                  )}
+                >
+                  <div className={cn(
+                    "flex size-10 shrink-0 items-center justify-center rounded-xl",
+                    action.green ? "bg-white/20" : "bg-gray-100 dark:bg-white/8",
+                  )}>
+                    <Icon className={cn("size-5", action.green ? "text-white" : "text-gray-500 dark:text-gray-400")} />
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={cn("text-sm font-bold", action.green ? "text-white" : "text-gray-900 dark:text-white")}>
+                      {action.label}
+                    </p>
+                    <p className={cn("mt-0.5 text-xs", action.green ? "text-green-100" : "text-gray-400")}>
+                      {action.desc}
+                    </p>
+                  </div>
+                  <ChevronRight className={cn("size-4 shrink-0", action.green ? "text-white/60" : "text-gray-300")} />
                 </Link>
               );
             })}
           </div>
-          <Button asChild className="mt-4 w-full rounded-xl bg-[#ADFF41] font-semibold text-[#0D0F0B] hover:bg-[#9AE635]">
-            <Link href="/seller/optimize">
-              <Bot className="mr-2 size-4" />
-              AI Optimizasyona Git
-            </Link>
-          </Button>
         </div>
       </div>
 
-      {/* Priority products */}
-      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h2 className="font-extrabold text-foreground">Öncelikli Ürünler</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">En yüksek risk ve kâr kaybına göre sıralandı</p>
-          </div>
-          <Button asChild variant="outline" size="sm" className="rounded-xl border-border text-foreground">
-            <Link href="/seller/products">
-              Tüm Ürünler
-              <ArrowRight className="ml-1.5 size-3.5" />
-            </Link>
-          </Button>
+      {/* ── Recent simulations ── */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold text-gray-900 dark:text-white">Son Simülasyonlar</h2>
         </div>
-
-        <div className="space-y-3">
-          {PRIORITY_PRODUCTS.map((product) => {
-            const risk = riskColor(product.riskScore);
-            return (
-              <div
-                key={product.id}
-                className="group flex flex-col gap-4 rounded-2xl border border-border bg-background p-4 transition-all hover:border-[#ADFF41]/30 sm:flex-row sm:items-center"
-              >
-                {/* Image + title */}
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted">
-                    <Image src={product.image} alt={product.title} fill sizes="56px" className="object-contain p-2" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-foreground leading-snug line-clamp-2">{product.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{product.issue}</p>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="flex items-center gap-6 shrink-0">
-                  <div className="text-center">
-                    <p className={cn("text-lg font-extrabold", riskColor(product.riskScore).text)}>
-                      {product.riskScore}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">Risk</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-extrabold text-foreground">{product.returnRate}</p>
-                    <p className="text-[10px] text-muted-foreground">İade</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="flex items-center gap-1 text-sm font-bold text-red-500">
-                      <TrendingDown className="size-3.5" />
-                      {product.lostProfit}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">Kayıp/ay</p>
-                  </div>
-                </div>
-
-                <Button
-                  asChild
-                  size="sm"
-                  className="shrink-0 rounded-xl bg-[#ADFF41] font-semibold text-[#0D0F0B] hover:bg-[#9AE635]"
-                >
-                  <Link href={`/seller/product/${product.id}`}>AI Analiz</Link>
-                </Button>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {RECENT_SIMS.map((sim) => (
+            <Link
+              key={sim.productId}
+              href={`/seller/product/${sim.productId}/simulation`}
+              className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 transition-all hover:shadow-md dark:border-white/10 dark:bg-[#111]"
+            >
+              <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-gray-50">
+                <Image src={sim.image} alt={sim.title} fill sizes="56px" className="object-contain p-2" />
               </div>
-            );
-          })}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{sim.title}</p>
+                <p className="mt-1 text-[11px] text-green-600 dark:text-green-400 font-semibold">{sim.result}</p>
+                <p className="mt-0.5 text-[11px] text-gray-400">{sim.date}</p>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-gray-300" />
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Store summary ── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#111]">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white">Mağaza Özeti</h2>
+          <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-bold text-green-700 dark:bg-green-500/10 dark:text-green-400">
+            <span className="size-1.5 rounded-full bg-green-500" />
+            Demo Store Bağlı
+          </span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {[
+            { label: "Toplam Ürün", value: sellerStore.activeProducts },
+            { label: "30 Gün Satış", value: sellerStore.totalSales30d },
+            { label: "Güven Skoru", value: `${sellerStore.trustScore}/100` },
+            { label: "Bekleyen İşlem", value: sellerStore.pendingActions },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl bg-gray-50 p-3 text-center dark:bg-white/5">
+              <p className="text-[11px] text-gray-400">{s.label}</p>
+              <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{s.value}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

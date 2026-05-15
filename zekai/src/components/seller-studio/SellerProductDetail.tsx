@@ -2,330 +2,507 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import {
-  ArrowLeft,
   Bot,
   Check,
   ChevronRight,
-  Image as ImageIcon,
-  Layers,
+  Eye,
+  Lock,
   Loader2,
-  Package,
-  RefreshCw,
+  Pencil,
   Sparkles,
-  Star,
-  Tag,
-  TrendingDown,
-  Users,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { SellerProductPerformance } from "@/types/seller";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { formatSellerPrice } from "@/lib/mock-data/seller";
 
-/* ── Mock AI suggestions ─────────────────────────────────────────────────── */
-function getMockOptimization(product: SellerProductPerformance) {
-  return {
-    currentTitle: product.title,
-    suggestedTitle: `${product.title} | Garantili & Hızlı Kargo`,
-    currentDesc: "Ürün açıklaması çok kısa ve genel.",
-    suggestedDesc:
-      "Günlük kullanım, müzik ve online görüşmeler için geliştirilmiş Bluetooth 5.3 kulaklık. 20 saate kadar pil ömrü, dahili mikrofon ve hafif tasarımıyla uzun kullanım konforu sunar. USB-C ile hızlı şarj, 30 dakikada 3 saat kullanım.",
-    seoMeta:
-      "Bluetooth kulaklık, kablosuz kulaklık, mikrofonlu kulaklık, oyun kulaklığı, PulseWave Pro X1",
-    photoTips: [
-      "Yaşam tarzı fotoğrafı ekle (kişi kulaklık takıyor)",
-      "Mikrofon yakın çekimi göster",
-      "USB-C şarj portu detayı ekle",
-    ],
-  };
-}
+/* ─── AI mock content ─── */
+const AI_TITLES: Record<string, string> = {
+  "bluetooth-kulaklik-pro-x1": "Bluetooth 5.0 Kablosuz Kulaklık | 20 Saat Pil | Günlük Kullanım - Beyaz",
+  "spor-ayakkabi-runflex": "RunFlex Hafif Tabanlı Spor Ayakkabı | Nefes Alan Taban | Günlük Koşu",
+  "mutfak-robotu-compact": "CookMate 900W Kompakt Mutfak Robotu | 5 Hız | Paslanmaz Bıçak Seti",
+};
+const AI_DESCRIPTIONS: Record<string, string> = {
+  "bluetooth-kulaklik-pro-x1":
+    "Yüksek performanslı, düşük gecikmeli Bluetooth kulaklık. Gün boyu konforlu kullanım ve net ses deneyimi sunar. Hem iş hem de günlük kullanım için idealdir.",
+  "spor-ayakkabi-runflex": "Günlük yürüyüş ve hafif koşu için tasarlanan spor ayakkabı.",
+  "mutfak-robotu-compact": "Günlük mutfak kullanımı için 900W kompakt mutfak robotu.",
+};
+const AI_FEATURES: Record<string, string[]> = {
+  "bluetooth-kulaklik-pro-x1": ["Bluetooth 5.3", "15 saat pil ömrü", "Dokunmatik kontrol", "Bas güçlendirici"],
+  "spor-ayakkabi-runflex": ["Nefes alan taban", "Hafif tasarım", "Kaymaz taban"],
+  "mutfak-robotu-compact": ["900W motor", "5 hız ayarı", "Paslanmaz bıçak"],
+};
 
-const PERSONAS = [
-  { name: "Öğrenci Ayşe", age: 21, icon: "🎓", verdict: "Alırdı", match: 82, reason: "Fiyat ve kalite dengesi iyi. Mikrofon için endişeli ama risk almaya razı." },
-  { name: "Gamer Emre", age: 26, icon: "🎮", verdict: "Almadı", match: 38, reason: "Oyun gecikmesi bilgisi yok. Güven vermiyor." },
-  { name: "Uzaktan Çalışan Selin", age: 32, icon: "💼", verdict: "Almadı", match: 45, reason: "Mikrofon kalitesine dair detay eksik, toplantı için risk." },
-  { name: "Müzik Sever Hasan", age: 28, icon: "🎵", verdict: "Alırdı", match: 76, reason: "Ses kalitesi yeterli görünüyor, fiyat makul." },
-];
+type Tab = "content" | "photos" | "store";
 
-export function SellerProductDetail({ product }: { product: SellerProductPerformance }) {
-  const opt = getMockOptimization(product);
-  const [publishing, setPublishing] = useState(false);
-  const [published, setPublished] = useState(false);
+/* ─── Modal ─── */
+function SimulationModal({
+  productId,
+  product,
+  onClose,
+}: {
+  productId: string;
+  product: SellerProductPerformance;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-  async function handlePublish() {
-    setPublishing(true);
-    await new Promise((r) => setTimeout(r, 1800));
-    setPublishing(false);
-    setPublished(true);
-    toast.success("Değişiklikler mağazaya uygulandı.");
+  async function start() {
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 600));
+    router.push(`/seller/product/${productId}/simulation`);
   }
 
   return (
-    <div className="space-y-6">
-      {/* Back + title */}
-      <div>
-        <Link
-          href="/seller/products"
-          className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl dark:bg-gray-900">
+        <button
+          onClick={onClose}
+          className="absolute right-5 top-5 rounded-xl p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"
         >
-          <ArrowLeft className="size-4" />
-          Ürünlere Dön
-        </Link>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted">
-              <Image src={product.image} alt={product.title} fill sizes="64px" className="object-contain p-2" />
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-foreground leading-tight">{product.title}</h1>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{product.category}</span>
-                <span>·</span>
-                <span>₺{product.price.toLocaleString("tr-TR")}</span>
-                <span>·</span>
-                <span className="flex items-center gap-1 text-red-500 font-medium">
-                  <TrendingDown className="size-3" />
-                  ₺{product.lostProfitMonthly.toLocaleString("tr-TR")}/ay kayıp
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "rounded-full px-3 py-1.5 text-sm font-bold",
-                product.aiRiskScore >= 65
-                  ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                  : product.aiRiskScore >= 40
-                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-              )}
-            >
-              Risk: {product.aiRiskScore}/100
-            </div>
+          <X className="size-4" />
+        </button>
+
+        <div className="flex justify-center">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-green-50">
+            <Sparkles className="size-7 text-green-500" />
           </div>
         </div>
+
+        <h2 className="mt-5 text-center text-xl font-bold text-gray-900 dark:text-white">
+          Müşteri Simülasyonu Başlatılsın mı?
+        </h2>
+        <p className="mt-2 text-center text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+          ZekAI, bu ürünü 12 farklı sentetik müşteri profiline göstererek başlık, fotoğraflar, açıklama, fiyat ve yorumları nasıl değerlendirdiklerini analiz edecek.
+        </p>
+
+        {/* Product mini-card */}
+        <div className="mt-5 flex items-center gap-4 rounded-2xl bg-gray-50 p-4 dark:bg-white/5">
+          <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-white">
+            <Image src={product.image} alt={product.title} fill className="object-contain p-2" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-bold text-gray-900 dark:text-white">{product.title}</p>
+            <p className="mt-0.5 text-sm text-gray-400">OrnekStore</p>
+            <p className="mt-0.5 text-sm font-bold text-green-600 dark:text-green-400">
+              {formatSellerPrice(product.price)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            onClick={onClose}
+            className="h-12 rounded-2xl border-2 border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-white/15 dark:text-gray-300"
+          >
+            İptal
+          </button>
+          <button
+            onClick={start}
+            disabled={loading}
+            className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-green-500 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-60"
+          >
+            {loading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+            {loading ? "Başlatılıyor..." : "Simülasyonu Başlat"}
+          </button>
+        </div>
+
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
+          <Lock className="size-3" />
+          Simülasyon verileri gizlidir ve yalnızca sizinle paylaşılır.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main ─── */
+export function SellerProductDetail({ product }: { product: SellerProductPerformance }) {
+  const [tab, setTab] = useState<Tab>("content");
+  const [showModal, setShowModal] = useState(false);
+  const [title, setTitle] = useState(product.title);
+  const [description, setDescription] = useState(
+    AI_DESCRIPTIONS[product.id] ?? "Ürün açıklaması buraya gelecek.",
+  );
+  const [features] = useState<string[]>(AI_FEATURES[product.id] ?? []);
+  const [titleGenerating, setTitleGenerating] = useState(false);
+  const [descGenerating, setDescGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function generateTitle() {
+    setTitleGenerating(true);
+    await new Promise((r) => setTimeout(r, 900));
+    setTitle(AI_TITLES[product.id] ?? product.title);
+    setTitleGenerating(false);
+    toast.success("Başlık güncellendi");
+  }
+
+  async function generateDesc() {
+    setDescGenerating(true);
+    await new Promise((r) => setTimeout(r, 1000));
+    setDescription(AI_DESCRIPTIONS[product.id] ?? "");
+    setDescGenerating(false);
+    toast.success("Açıklama güncellendi");
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    setSaving(false);
+    setSaved(true);
+    toast.success("Ürün kaydedildi!");
+  }
+
+  if (saved) {
+    return (
+      <div className="mx-auto max-w-sm py-20 text-center">
+        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-green-50">
+          <Check className="size-7 text-green-500" />
+        </div>
+        <h2 className="mt-6 text-xl font-bold text-gray-900 dark:text-white">Kaydedildi!</h2>
+        <p className="mt-2 text-sm text-gray-500">Değişiklikler mağazana gönderildi.</p>
+        <Link
+          href="/seller/products"
+          className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-green-500 px-6 text-sm font-bold text-white hover:bg-green-600"
+        >
+          Ürünlere Dön
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {showModal && (
+        <SimulationModal productId={product.id} product={product} onClose={() => setShowModal(false)} />
+      )}
+
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-1.5 text-sm text-gray-400">
+        <Link href="/seller/products" className="hover:text-gray-700 dark:hover:text-gray-200">
+          Ürünlerim
+        </Link>
+        <ChevronRight className="size-3.5" />
+        <span className="font-medium text-gray-700 dark:text-gray-200">{product.title}</span>
+      </nav>
+
+      {/* Page title */}
+      <div className="mt-4">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">AI Product Studio</h1>
+        <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">
+          Bu ürünü geliştir, test et ve performansını artır.
+        </p>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="personas">
-        <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-2xl border border-border bg-card p-1.5 shadow-sm">
-          <TabsTrigger value="personas" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#ADFF41]/15 data-[state=active]:text-foreground">
-            <Users className="mr-1.5 size-4" />
-            Sentetik Müşteriler
-          </TabsTrigger>
-          <TabsTrigger value="optimize" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#ADFF41]/15 data-[state=active]:text-foreground">
-            <Bot className="mr-1.5 size-4" />
-            AI Optimizasyon
-          </TabsTrigger>
-          <TabsTrigger value="photos" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#ADFF41]/15 data-[state=active]:text-foreground">
-            <ImageIcon className="mr-1.5 size-4" />
-            Fotoğraf & SEO
-          </TabsTrigger>
-          <TabsTrigger value="publish" className="rounded-xl px-4 py-2 text-sm font-semibold data-[state=active]:bg-[#ADFF41]/15 data-[state=active]:text-foreground">
-            <Sparkles className="mr-1.5 size-4" />
-            Mağazaya Uygula
-          </TabsTrigger>
-        </TabsList>
+      {/* Two-column layout */}
+      <div className="mt-6 flex gap-6">
 
-        {/* ── Tab: Personas ─────────────────────────────────────────────── */}
-        <TabsContent value="personas" className="mt-5 space-y-5">
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-            <div className="mb-2 flex items-center gap-2">
-              <Sparkles className="size-4 text-[#ADFF41]" />
-              <h2 className="font-extrabold text-foreground">Sentetik Müşteri Paneli</h2>
-            </div>
-            <p className="mb-6 text-sm text-muted-foreground">
-              AI, 4 farklı alıcı profilini simüle etti. <strong className="text-foreground">2'si</strong> bu ürünü alırdı.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {PERSONAS.map((p) => (
-                <div
-                  key={p.name}
-                  className={cn(
-                    "rounded-2xl border p-5 transition-colors",
-                    p.verdict === "Alırdı"
-                      ? "border-emerald-500/20 bg-emerald-500/5"
-                      : "border-red-500/20 bg-red-500/5"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl">{p.icon}</span>
-                      <div>
-                        <p className="font-bold text-foreground">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">{p.age} yaş</p>
-                      </div>
-                    </div>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full px-2.5 py-1 text-xs font-bold",
-                        p.verdict === "Alırdı"
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                          : "bg-red-500/15 text-red-600 dark:text-red-400"
-                      )}
-                    >
-                      {p.verdict}
-                    </span>
+        {/* ══════ LEFT (main content) ══════ */}
+        <div className="min-w-0 flex-1">
+
+          {/* ── Product header card ── */}
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#111]">
+
+            {/* Product info row */}
+            <div className="flex gap-6 p-6 pb-5">
+              {/* Image */}
+              <div className="relative h-36 w-36 shrink-0 overflow-hidden rounded-2xl bg-gray-50 dark:bg-white/5">
+                <Image src={product.image} alt={product.title} fill className="object-contain p-4" />
+              </div>
+
+              {/* Info */}
+              <div className="flex flex-1 flex-col justify-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{product.title}</h2>
+
+                <div className="mt-2 flex items-center gap-3 text-sm text-gray-400">
+                  <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-bold text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                    Aktif
+                  </span>
+                  <span>·</span>
+                  <span>Oluşturulma: 21 May 2024</span>
+                  <span>·</span>
+                  <span>Güncelleme: 26 May 2024</span>
+                </div>
+
+                <div className="mt-4 flex items-center gap-8">
+                  <div>
+                    <p className="text-xs text-gray-400">Fiyat</p>
+                    <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">
+                      {formatSellerPrice(product.price)}
+                    </p>
                   </div>
-                  <div className="mt-4">
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Uyum</span>
-                      <span className="font-semibold text-foreground">%{p.match}</span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-border">
-                      <div
-                        className={cn("h-full rounded-full", p.match >= 65 ? "bg-emerald-500" : "bg-red-500")}
-                        style={{ width: `${p.match}%` }}
-                      />
-                    </div>
-                    <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{p.reason}</p>
+                  <div>
+                    <p className="text-xs text-gray-400">Stok</p>
+                    <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{product.stock}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Durum</p>
+                    <p className="mt-1 text-xl font-black text-green-600 dark:text-green-400">Aktif</p>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Tab bar — inside same card */}
+            <div className="flex border-t border-gray-100 dark:border-white/8">
+              {(
+                [
+                  { key: "content" as Tab, label: "Ürün İçeriği" },
+                  { key: "photos" as Tab, label: "Görseller" },
+                  { key: "store" as Tab, label: "Mağaza Bilgileri" },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    "flex-1 py-3.5 text-sm font-semibold transition-colors",
+                    tab === t.key
+                      ? "border-b-2 border-green-500 text-green-600 dark:text-green-400"
+                      : "text-gray-400 hover:text-gray-700 dark:hover:text-gray-300",
+                  )}
+                >
+                  {t.label}
+                </button>
               ))}
             </div>
           </div>
-        </TabsContent>
 
-        {/* ── Tab: Optimize ─────────────────────────────────────────────── */}
-        <TabsContent value="optimize" className="mt-5 space-y-5">
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
-            <div className="flex items-center gap-2">
-              <Bot className="size-4 text-[#ADFF41]" />
-              <h2 className="font-extrabold text-foreground">AI Başlık & Açıklama Önerisi</h2>
-            </div>
-
-            {/* Title */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mevcut Başlık</p>
-                <div className="rounded-2xl border border-border bg-background p-4 text-sm text-foreground">{opt.currentTitle}</div>
+          {/* ── Tab content — ONE white card, no separate boxes ── */}
+          {tab === "content" && (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white pb-6 dark:border-white/10 dark:bg-[#111]">
+              {/* Ürün Başlığı */}
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Ürün Başlığı</label>
+                  <button
+                    onClick={generateTitle}
+                    disabled={titleGenerating}
+                    className="flex items-center gap-1.5 text-sm font-semibold text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
+                  >
+                    {titleGenerating ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-3.5" />
+                    )}
+                    {titleGenerating ? "Üretiliyor..." : "AI ile Üret"}
+                  </button>
+                </div>
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="mt-3 h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm text-gray-900 outline-none transition focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                />
               </div>
-              <div>
-                <p className="mb-2 text-xs font-semibold text-[#ADFF41] uppercase tracking-wide">AI Önerisi</p>
-                <div className="rounded-2xl border border-[#ADFF41]/30 bg-[#ADFF41]/5 p-4 text-sm font-medium text-foreground">{opt.suggestedTitle}</div>
+
+              {/* Divider */}
+              <div className="h-px bg-gray-100 dark:bg-white/8" />
+
+              {/* Ürün Açıklaması */}
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Ürün Açıklaması</label>
+                  <button
+                    onClick={generateDesc}
+                    disabled={descGenerating}
+                    className="flex items-center gap-1.5 text-sm font-semibold text-green-600 hover:text-green-700 disabled:opacity-50 dark:text-green-400"
+                  >
+                    {descGenerating ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-3.5" />
+                    )}
+                    {descGenerating ? "Üretiliyor..." : "AI ile Üret"}
+                  </button>
+                </div>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={5}
+                  className="mt-3 w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-relaxed text-gray-900 outline-none transition focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                />
+                <p className="mt-1.5 text-right text-[11px] text-gray-300">
+                  {description.length} / 5000
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-gray-100 dark:bg-white/8" />
+
+              {/* Öne Çıkan Özellikler */}
+              <div className="p-6">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  Öne Çıkan Özellikler
+                </label>
+                <ul className="mt-4 space-y-3">
+                  {features.map((f) => (
+                    <li key={f} className="flex items-center gap-3">
+                      <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-green-500">
+                        <Check className="size-3 text-white" />
+                      </div>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
+          )}
 
-            {/* Description */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mevcut Açıklama</p>
-                <div className="rounded-2xl border border-border bg-background p-4 text-sm text-muted-foreground">{opt.currentDesc}</div>
+          {tab === "photos" && (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 dark:border-white/10 dark:bg-[#111]">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Ürün Görselleri</p>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" />
+              <div className="mt-4 grid grid-cols-4 gap-3">
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-gray-50">
+                  <Image src={product.image} alt="" fill className="object-contain p-2" />
+                </div>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-square rounded-xl border-2 border-dashed border-gray-200 text-2xl text-gray-300 hover:border-green-400 hover:text-green-400"
+                >
+                  +
+                </button>
               </div>
-              <div>
-                <p className="mb-2 text-xs font-semibold text-[#ADFF41] uppercase tracking-wide">AI Önerisi</p>
-                <div className="rounded-2xl border border-[#ADFF41]/30 bg-[#ADFF41]/5 p-4 text-sm leading-relaxed text-foreground">{opt.suggestedDesc}</div>
-              </div>
             </div>
-          </div>
-        </TabsContent>
+          )}
 
-        {/* ── Tab: Photos & SEO ─────────────────────────────────────────── */}
-        <TabsContent value="photos" className="mt-5 space-y-5">
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
-            <div className="flex items-center gap-2">
-              <Tag className="size-4 text-[#ADFF41]" />
-              <h2 className="font-extrabold text-foreground">SEO & Fotoğraf İyileştirme</h2>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs font-semibold text-[#ADFF41] uppercase tracking-wide">SEO Anahtar Kelimeler</p>
-              <div className="rounded-2xl border border-[#ADFF41]/30 bg-[#ADFF41]/5 p-4 text-sm text-foreground">{opt.seoMeta}</div>
-            </div>
-
-            <div>
-              <p className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fotoğraf Önerileri</p>
-              <div className="space-y-2">
-                {opt.photoTips.map((tip, i) => (
-                  <div key={i} className="flex items-center gap-3 rounded-xl border border-border bg-background px-4 py-3">
-                    <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#ADFF41]/15 text-xs font-bold text-[#ADFF41]">{i + 1}</div>
-                    <p className="text-sm text-foreground">{tip}</p>
+          {tab === "store" && (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 dark:border-white/10 dark:bg-[#111]">
+              <p className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-200">Mağaza Bilgileri</p>
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: "Fiyat (₺)", val: String(product.price), type: "number" },
+                  { label: "Stok", val: String(product.stock), type: "number" },
+                  { label: "Kategori", val: product.category, type: "text" },
+                ].map((f) => (
+                  <div key={f.label}>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-400">{f.label}</label>
+                    <input
+                      type={f.type}
+                      defaultValue={f.val}
+                      className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    />
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        </TabsContent>
+          )}
 
-        {/* ── Tab: Publish ──────────────────────────────────────────────── */}
-        <TabsContent value="publish" className="mt-5">
-          <div className="rounded-3xl border border-border bg-card p-8 shadow-sm text-center">
-            <AnimatePresence mode="wait">
-              {published ? (
-                <motion.div
-                  key="done"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex flex-col items-center gap-4"
-                >
-                  <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500/15">
-                    <Check className="size-8 text-emerald-500" />
-                  </div>
-                  <h3 className="text-xl font-extrabold text-foreground">Mağazaya Uygulandı!</h3>
-                  <p className="text-sm text-muted-foreground">
-                    AI önerileri başarıyla mağazana yansıtıldı. Ürün sayfasında güncel içeriği görebilirsin.
-                  </p>
-                  <div className="flex gap-3">
-                    <Button asChild variant="outline" className="rounded-xl border-border">
-                      <Link href={`/mock-shop/product/${product.id}`}>Ürünü Gör</Link>
-                    </Button>
-                    <Button asChild className="rounded-xl bg-[#ADFF41] text-[#0D0F0B] hover:bg-[#9AE635]">
-                      <Link href="/seller/products">Ürünlere Dön</Link>
-                    </Button>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="ready"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex flex-col items-center gap-5"
-                >
-                  <div className="flex size-16 items-center justify-center rounded-full bg-[#ADFF41]/15">
-                    <Sparkles className="size-7 text-[#ADFF41]" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-extrabold text-foreground">Değişiklikler Hazır</h3>
-                    <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                      AI&apos;nın ürettiği başlık, açıklama ve SEO içeriği mağazana uygulanacak. Onayladığında ürün sayfası güncellenecek.
-                    </p>
-                  </div>
-                  <div className="w-full max-w-sm space-y-2 text-left">
-                    {["Başlık güncellendi", "Açıklama iyileştirildi", "SEO etiketleri eklendi", "Fotoğraf önerileri eklendi"].map((item) => (
-                      <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="size-4 text-[#ADFF41]" />
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    onClick={handlePublish}
-                    disabled={publishing}
-                    className="h-12 w-full max-w-sm rounded-xl bg-[#ADFF41] text-[#0D0F0B] font-bold hover:bg-[#9AE635] disabled:opacity-70"
-                  >
-                    {publishing ? (
-                      <>
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                        Uygulanıyor...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 size-4" />
-                        Mağazaya Uygula
-                      </>
-                    )}
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          {/* Save button */}
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="mt-4 flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-green-500 py-4 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-60"
+          >
+            {saving && <Loader2 className="size-4 animate-spin" />}
+            {saving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
+          </button>
+        </div>
+
+        {/* ══════ RIGHT (sidebar) ══════ */}
+        <div className="hidden w-[280px] shrink-0 space-y-4 xl:block">
+
+          {/* Bu ürün için aksiyonlar */}
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#111]">
+            <p className="px-5 pt-5 pb-3 text-sm font-bold text-gray-900 dark:text-white">
+              Bu ürün için aksiyonlar
+            </p>
+
+            {/* AI ile Düzenle */}
+            <Link
+              href={`/seller/product/${product.id}/ai-edit`}
+              className="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-white/5"
+            >
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10">
+                <Pencil className="size-4 text-gray-500 dark:text-gray-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">AI ile Düzenle</p>
+                <p className="text-xs text-gray-400">Başlık, açıklama, fiyat ve görselleri iyileştir.</p>
+              </div>
+              <ChevronRight className="size-4 text-gray-300 shrink-0" />
+            </Link>
+
+            {/* Müşteri Simülasyonu — yeşil highlight */}
+            <div className="px-4 pb-2">
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex w-full items-center gap-3 rounded-2xl bg-green-500 p-4 text-left hover:bg-green-600"
+              >
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white/20">
+                  <Sparkles className="size-4 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">Müşteri Simülasyonuyla Test Et</p>
+                  <p className="mt-0.5 text-xs text-green-100">12 farklı müşteri profiliyle test et ve analiz al.</p>
+                </div>
+                <ChevronRight className="size-4 text-white/60 shrink-0" />
+              </button>
+            </div>
+
+            {/* Mağazada Gör */}
+            <Link
+              href={`/mock-shop/product/${product.id}`}
+              className="flex items-center gap-3 border-t border-gray-100 px-5 py-3.5 hover:bg-gray-50 dark:border-white/8 dark:hover:bg-white/5"
+            >
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10">
+                <Eye className="size-4 text-gray-500 dark:text-gray-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Mağazada Gör</p>
+                <p className="text-xs text-gray-400">Ürünün mağaza sayfasını görüntüle.</p>
+              </div>
+              <ChevronRight className="size-4 text-gray-300 shrink-0" />
+            </Link>
           </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+
+          {/* Mağaza Bilgileri */}
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#111]">
+            <p className="px-5 pt-5 pb-3 text-sm font-bold text-gray-900 dark:text-white">
+              Mağaza Bilgileri
+            </p>
+            {[
+              { label: "Mağaza Adı", value: "OrnekStore", green: false },
+              { label: "Mağaza Puanı", value: "★ 4.6 (1.642)", green: false },
+              { label: "Toplam Ürün", value: "128", green: false },
+              { label: "Hızlı Kargo", value: "✓ Evet", green: true },
+              { label: "İade Süresi", value: "14 gün", green: false },
+            ].map((row, i, arr) => (
+              <div
+                key={row.label}
+                className={cn(
+                  "flex items-center justify-between px-5 py-2.5",
+                  i < arr.length - 1 && "border-b border-gray-50 dark:border-white/5",
+                )}
+              >
+                <span className="text-xs text-gray-400">{row.label}</span>
+                <span className={cn("text-xs font-bold", row.green ? "text-green-600 dark:text-green-400" : "text-gray-800 dark:text-gray-200")}>
+                  {row.value}
+                </span>
+              </div>
+            ))}
+            <div className="p-1" />
+          </div>
+
+          {/* Varyantlar */}
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#111]">
+            <p className="text-sm font-bold text-gray-900 dark:text-white">Varyantlar</p>
+            <p className="mt-0.5 text-xs text-gray-400">Renk ve beden seçeneklerini yönet.</p>
+            <button className="mt-3 flex h-9 w-full items-center justify-center rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-gray-400">
+              + Varyant Ekle
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

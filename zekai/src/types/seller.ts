@@ -2,6 +2,27 @@ export type SellerId = string;
 
 export type SellerProductStatus = "urgent" | "watch" | "healthy";
 
+export type StorePlatform =
+  | "demo-store"
+  | "trendyol"
+  | "hepsiburada"
+  | "shopify"
+  | "woocommerce";
+
+export type StoreConnectionStatus = "connected" | "coming-soon" | "not-connected";
+
+export type StoreConnection = {
+  id: string;
+  platform: StorePlatform;
+  storeName: string;
+  status: StoreConnectionStatus;
+  lastSyncAt?: string;
+  productCount?: number;
+  reviewCount?: number;
+  returnRecordCount?: number;
+  permissions?: string[];
+};
+
 export type SellerStoreSummary = {
   id: SellerId;
   storeName: string;
@@ -28,7 +49,9 @@ export type SellerProductPerformance = {
   returnRate: number;
   conversionRate: number;
   aiRiskScore: number;
+  healthScore: number;
   lostProfitMonthly: number;
+  improvableRevenueMonthly: number;
   status: SellerProductStatus;
   mainIssue: string;
   lastAction: string;
