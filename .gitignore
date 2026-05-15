@@ -23,3 +23,5 @@ Thumbs.db
 # Private / not for repo
 docs/
 yarisma/
+
+DEST/
