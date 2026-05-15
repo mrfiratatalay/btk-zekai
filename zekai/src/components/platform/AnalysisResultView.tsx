@@ -22,6 +22,8 @@ import { PriceTab }      from "@/components/platform/PriceTab";
 import { ReturnRiskTab } from "@/components/platform/ReturnRiskTab";
 import { TrustTab }      from "@/components/platform/TrustTab";
 import { cn } from "@/lib/utils";
+import { AnalysisSaveBar } from "@/components/platform/AnalysisSaveBar";
+import { AskReportBox } from "@/components/platform/AskReportBox";
 
 /* ─────────────────────────────────────────────────────────────────────────
    Her level için renk 3 yerde: chip bg/text · büyük sayı · bar fill.
@@ -61,9 +63,9 @@ function SignalRow({ tone, text }: { tone: Tone; text: string }) {
   const Icon    = tone === "ok" ? CheckCircle2 : tone === "warn" ? AlertTriangle : XCircle;
   const iconCls = tone === "ok" ? "text-emerald-500" : tone === "warn" ? "text-amber-500" : "text-red-500";
   return (
-    <li className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
-      <Icon className={cn("size-4 shrink-0", iconCls)} />
-      <span className="text-sm text-foreground">{text}</span>
+    <li className="flex items-start gap-3">
+      <Icon className={cn("size-5 mt-0.5 shrink-0", iconCls)} />
+      <span className="text-sm font-medium text-foreground leading-relaxed">{text}</span>
     </li>
   );
 }
@@ -108,92 +110,83 @@ export function AnalysisResultView({
       transition={{ duration: 0.2 }}
     >
       {/* Top bar */}
-      <div className="flex items-center gap-3 border-b border-border bg-card/80 px-6 py-3 backdrop-blur-sm">
-        {product && (
-          <div className="relative size-9 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
-            <Image src={product.image} alt={product.title} fill sizes="36px" className="object-contain p-1.5" />
+      <div className="sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-4xl items-center gap-3 px-6 py-4">
+          {product && (
+            <div className="relative size-10 shrink-0 overflow-hidden rounded-xl border border-border/50 bg-background shadow-inner">
+              <Image src={product.image} alt={product.title} fill sizes="40px" className="object-contain p-1.5 mix-blend-multiply dark:mix-blend-normal" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-foreground">{product?.title ?? analysis.productId}</p>
+            <p className="text-xs text-muted-foreground">{product?.sellerName}</p>
           </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">{product?.title ?? analysis.productId}</p>
-          <p className="text-xs text-muted-foreground">{product?.sellerName}</p>
+          <Button asChild variant="outline" size="sm" className="shrink-0 gap-1.5 rounded-full border-border/50 font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+            <Link href={`/mock-shop/product/${analysis.productId}`}>
+              <ArrowLeft className="size-4" /> Ürüne Dön
+            </Link>
+          </Button>
         </div>
-        <Button asChild variant="ghost" size="sm" className="shrink-0 gap-1.5 text-muted-foreground hover:text-foreground">
-          <Link href={`/mock-shop/product/${analysis.productId}`}>
-            <ArrowLeft className="size-4" /> Ürüne dön
-          </Link>
-        </Button>
       </div>
 
-      {/* ── Verdict card — nötr arka plan, renk sadece chip+sayı+bar ──── */}
-      <div className="border-b border-border bg-card px-6 py-10">
-        <div className="mx-auto max-w-4xl">
-          <div className="grid gap-10 lg:grid-cols-[1fr_260px]">
-
-            {/* Sol */}
-            <div className="space-y-5">
-              {/* Sadece chip renkli */}
-              <span className={cn("inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold", lv.chip)}>
-                <span className={cn("size-2 rounded-full", lv.dot)} />
-                {lv.label}
+      {/* ── Hero Section (Compact & Premium) ──── */}
+      <div className="bg-background pb-10 pt-8 border-b border-border/40">
+        <div className="mx-auto max-w-3xl px-6">
+          
+          <div className="flex flex-col md:flex-row md:items-start gap-8 md:gap-12">
+            
+            {/* Sol: Risk Göstergesi (Circular Gauge) */}
+            <div className="flex flex-col items-center shrink-0">
+              <div className="relative flex size-32 items-center justify-center">
+                <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" fill="none" className="stroke-muted" strokeWidth="8" />
+                  <motion.circle 
+                    cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round"
+                    className={lv.num.split(" ")[0]}
+                    strokeDasharray="283"
+                    initial={{ strokeDashoffset: 283 }}
+                    animate={{ strokeDashoffset: 283 - (283 * pct) / 100 }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                  />
+                </svg>
+                <div className="text-center flex flex-col items-center">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Risk</span>
+                  <span className={cn("text-3xl font-black tabular-nums tracking-tighter leading-none", lv.num)}>%{pct}</span>
+                </div>
+              </div>
+              <span className={cn("mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold shadow-sm", lv.chip)}>
+                 <span className={cn("size-2 rounded-full", lv.dot)} />
+                 {lv.label}
               </span>
+            </div>
 
-              <h2 className="text-2xl font-bold leading-snug text-foreground md:text-3xl">
+            {/* Sağ: Başlık ve Sinyaller */}
+            <div className="flex-1">
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground leading-snug">
                 {analysis.finalAdvice}
               </h2>
-              <p className="text-sm text-muted-foreground">{lv.desc}</p>
-
-              {/* Sinyal listesi — nötr kart */}
-              <ul className="rounded-2xl border border-border bg-background px-5">
-                {signals.map((s, i) => (
-                  <SignalRow key={i} {...s} />
-                ))}
-              </ul>
+              <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                {lv.desc}
+              </p>
+              
+              <div className="mt-8 rounded-2xl bg-muted/30 p-5 border border-border/50">
+                <ul className="space-y-4">
+                  {signals.map((s, i) => (
+                    <SignalRow key={i} {...s} />
+                  ))}
+                </ul>
+              </div>
             </div>
 
-            {/* Sağ — risk gauge, nötr kart */}
-            <div className="flex flex-col items-center justify-center gap-5 rounded-2xl border border-border bg-background p-8 text-center">
-              <div>
-                <p className="mb-1 text-xs text-muted-foreground">Pişmanlık Riski</p>
-                {/* Renk sadece burada */}
-                <p className={cn("text-6xl font-black tabular-nums leading-none", lv.num)}>
-                  %{pct}
-                </p>
-              </div>
-
-              {/* Bar — renk sadece fill'de */}
-              <div className="w-full space-y-1.5">
-                <div className="h-2 overflow-hidden rounded-full bg-border">
-                  <motion.div
-                    className={cn("h-full rounded-full", lv.bar)}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ duration: 0.7, ease: "easeOut" }}
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>Düşük</span>
-                  <span>Orta</span>
-                  <span>Yüksek</span>
-                </div>
-              </div>
-
-              {product && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Star className="size-3.5 fill-amber-400 text-amber-400" />
-                  <span>{product.rating.toFixed(1)} · {product.reviewCount.toLocaleString("tr-TR")} yorum</span>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="fit">
-        <div className="sticky top-0 z-30 border-b border-border bg-background/95 px-6 py-3 backdrop-blur-sm">
+      <Tabs defaultValue="fit" className="w-full">
+        <div className="sticky top-[73px] z-30 border-b border-border/40 bg-background/95 px-6 py-3 backdrop-blur-md">
           <div className="mx-auto max-w-4xl">
-            <TabsList className="inline-flex h-10 gap-1 rounded-xl border border-border bg-muted p-1">
+            <TabsList className="flex h-12 w-full max-w-[500px] mx-auto items-center justify-between rounded-full bg-muted p-1">
               {([
                 { v: "fit",    label: "Uygunluk", score: fitScore,           inv: false },
                 { v: "trust",  label: "Güven",    score: trustScore,          inv: false },
@@ -206,9 +199,9 @@ export function AnalysisResultView({
                   <TabsTrigger
                     key={t.v}
                     value={t.v}
-                    className="flex items-center gap-1.5 rounded-lg px-4 text-xs font-semibold text-muted-foreground transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                    className="flex-1 rounded-full text-xs font-bold transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                   >
-                    <span className={`size-1.5 rounded-full ${dot}`} />
+                    <span className={`size-1.5 rounded-full ${dot} mr-1.5 hidden sm:inline-block`} />
                     {t.label}
                   </TabsTrigger>
                 );
@@ -217,32 +210,28 @@ export function AnalysisResultView({
           </div>
         </div>
 
-        <div className="mx-auto max-w-4xl px-6 py-10">
+        <div className="mx-auto max-w-4xl px-6 py-10 pb-20">
           <TabsContent value="fit"    className="mt-0"><FitTab    analysis={analysis} /></TabsContent>
           <TabsContent value="trust"  className="mt-0"><TrustTab  analysis={analysis} /></TabsContent>
           <TabsContent value="price"  className="mt-0"><PriceTab  analysis={analysis} /></TabsContent>
           <TabsContent value="return" className="mt-0"><ReturnRiskTab analysis={analysis} /></TabsContent>
+
+          <AskReportBox />
         </div>
 
-        <div className="sticky bottom-0 z-30 border-t border-border bg-background/95 px-6 py-3.5 backdrop-blur-sm">
-          <div className="mx-auto flex max-w-4xl items-center justify-end gap-2">
-            <Button asChild size="sm" className="rounded-xl bg-[#ADFF41] font-semibold text-black hover:bg-[#9AE635]">
+        {/* Bottom Actions */}
+        <div className="sticky bottom-0 z-40 border-t border-border/40 bg-background/95 px-6 py-4 backdrop-blur-md">
+          <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4">
+            <AnalysisSaveBar analysis={analysis} product={product!} />
+            <Button asChild className="rounded-full bg-foreground text-background hover:bg-foreground/90 shrink-0 font-bold px-8 h-12 shadow-lg transition-transform hover:scale-105">
               <Link href={`/platform?productId=${analysis.productId}`}>
-                <Zap className="mr-1.5 size-3.5" />
-                Yeniden Analiz
+                <Zap className="mr-2 size-4" />
+                Yeniden Analiz Et
               </Link>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl border-border font-semibold text-foreground hover:bg-muted"
-              onClick={() => toast.info("Ürün sepete eklendi.")}
-            >
-              <ShoppingCart className="mr-1.5 size-3.5" />
-              Yine de Al
             </Button>
           </div>
         </div>
+
       </Tabs>
     </motion.div>
   );

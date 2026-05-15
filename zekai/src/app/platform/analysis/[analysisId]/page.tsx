@@ -11,14 +11,17 @@ export default async function AnalysisPage({
 }) {
   const { analysisId } = await params;
 
-  const [productId, ...rest] = analysisId.split("--");
+  let [productId, ...rest] = analysisId.split("--");
+  if (productId.startsWith("analysis-")) {
+    productId = productId.replace("analysis-", "");
+  }
   const product = getProductById(productId);
   if (!product) notFound();
 
   const userNeed = rest.length > 0
     ? decodeURIComponent(rest.join("--").replace(/\+/g, " "))
     : "";
-  const analysis = getBuyerAnalysis(product, userNeed);
+  const analysis = getBuyerAnalysis(product, userNeed, analysisId);
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-[#0a0a0f]" />}>

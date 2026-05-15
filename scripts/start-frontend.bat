@@ -1,12 +1,10 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-title BTK Zekai - Frontend Dev Server
+title Zekai - Frontend Dev Server
 
-rem Always resolve paths from this script location so it works from double-click,
-rem PowerShell, cmd, VS Code terminal, or any current working directory.
 set "SCRIPT_DIR=%~dp0"
 set "ROOT_DIR=%SCRIPT_DIR%.."
-set "FRONTEND_DIR=%ROOT_DIR%\frontend"
+set "FRONTEND_DIR=%ROOT_DIR%\zekai"
 set "FRONTEND_ENV=%FRONTEND_DIR%\.env.local"
 set "DEFAULT_PORT=3000"
 set "PORT=%DEFAULT_PORT%"
@@ -14,72 +12,71 @@ set "DID_PUSHD=0"
 
 echo.
 echo ============================================================
-echo  BTK Zekai - Frontend Dev Server
+echo  Zekai - Frontend Dev Server  ^(Next.js^)
 echo ============================================================
 echo.
-echo [INFO] Project root : %ROOT_DIR%
-echo [INFO] Frontend dir : %FRONTEND_DIR%
+echo [INFO] Proje koku   : %ROOT_DIR%
+echo [INFO] Frontend klas: %FRONTEND_DIR%
 echo.
 
+rem ── Klasor kontrolu ──────────────────────────────────────────
 if not exist "%FRONTEND_DIR%\package.json" (
-  echo [ERROR] frontend\package.json was not found.
-  echo [HINT ] Run this script from the repository scripts folder, or keep the
-  echo        repository layout as: scripts\start-frontend.bat and frontend\package.json
+  echo [HATA] zekai\package.json bulunamadi.
+  echo [IPUCU] Bu script scripts\ klasorunden calistirilmali.
+  echo        Beklenen: scripts\start-frontend.bat  +  zekai\package.json
   goto :fail
 )
 
+rem ── Node.js ──────────────────────────────────────────────────
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] Node.js was not found in PATH.
-  echo [HINT ] Install Node.js LTS, then close and reopen the terminal.
+  echo [HATA] Node.js PATH'te bulunamadi.
+  echo [IPUCU] Node.js LTS yukle, terminali yeniden ac.
   goto :fail
 )
 
 where npm >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] npm was not found in PATH.
-  echo [HINT ] npm normally ships with Node.js LTS.
+  echo [HATA] npm PATH'te bulunamadi. Node.js ile birlikte gelir.
   goto :fail
 )
 
-echo [INFO] Node version:
-node -v
-if errorlevel 1 goto :fail
+echo [INFO] Node: & node -v
+echo [INFO] npm : & call npm -v
 
-echo [INFO] npm version:
-call npm -v
-if errorlevel 1 goto :fail
-
+rem ── Dizine gir ───────────────────────────────────────────────
 pushd "%FRONTEND_DIR%" >nul
 if errorlevel 1 (
-  echo [ERROR] Could not enter frontend directory.
+  echo [HATA] Frontend dizinine girilemedi.
   goto :fail
 )
 set "DID_PUSHD=1"
 
+rem ── Bagimliliklar ────────────────────────────────────────────
 if not exist "node_modules" (
   echo.
-  echo [INFO] node_modules not found. Installing dependencies...
+  echo [INFO] node_modules bulunamadi. Bagimliliklar yukleniyor...
   if exist "package-lock.json" (
     call npm ci
   ) else (
     call npm install
   )
-
   if errorlevel 1 (
     echo.
-    echo [ERROR] Dependency installation failed.
+    echo [HATA] Bagimlilik yuklemesi basarisiz.
     goto :fail
   )
 )
 
+rem ── .env.local ───────────────────────────────────────────────
 if not exist "%FRONTEND_ENV%" (
-  echo [INFO] Creating frontend .env.local with default ADK backend URL...
+  echo [INFO] .env.local olusturuluyor...
   > "%FRONTEND_ENV%" echo NEXT_PUBLIC_ADK_API_URL=http://localhost:8000
 )
 
+rem ── Port bul ─────────────────────────────────────────────────
 echo.
-echo [INFO] Checking preferred port %DEFAULT_PORT%...
+echo [INFO] Port %DEFAULT_PORT% kontrol ediliyor...
 for /l %%P in (%DEFAULT_PORT%,1,3010) do (
   netstat -ano | findstr /R /C:":%%P .*LISTENING" >nul 2>nul
   if errorlevel 1 (
@@ -88,19 +85,19 @@ for /l %%P in (%DEFAULT_PORT%,1,3010) do (
   )
 )
 
-echo [ERROR] No free port found between %DEFAULT_PORT% and 3010.
+echo [HATA] %DEFAULT_PORT%-3010 arasinda bos port bulunamadi.
 goto :fail
 
 :port_found
 if not "%PORT%"=="%DEFAULT_PORT%" (
-  echo [WARN ] Port %DEFAULT_PORT% is already in use. Using port %PORT% instead.
+  echo [UYARI] Port %DEFAULT_PORT% kullaniliyor, %PORT% portuna gecildi.
 )
 
 echo.
-echo [INFO] Starting frontend dev server...
-echo [INFO] URL: http://localhost:%PORT%
-echo [INFO] ADK API: http://localhost:8000
-echo [INFO] Press Ctrl+C to stop the server.
+echo [INFO] Frontend dev server baslatiliyor...
+echo [INFO] Adres  : http://localhost:%PORT%
+echo [INFO] API    : http://localhost:8000
+echo [INFO] Durdurmak icin Ctrl+C
 echo.
 
 set "PORT=%PORT%"
@@ -108,14 +105,14 @@ set "NEXT_PUBLIC_ADK_API_URL=http://localhost:8000"
 call npm run dev
 
 echo.
-echo [WARN ] The dev server stopped.
+echo [UYARI] Dev server durdu.
 goto :done
 
 :fail
 if "%DID_PUSHD%"=="1" popd >nul 2>nul
 echo.
 echo ============================================================
-echo  Startup failed. Read the message above for the cause.
+echo  Baslama basarisiz. Yukardaki mesaji oku.
 echo ============================================================
 echo.
 pause

@@ -75,6 +75,46 @@ export type AlternativeProduct = {
   price: string;
 };
 
+// ── Buyer Decision Center types ──────────────────────────────────────────────
+
+export type SavedAnalysisStatus =
+  | "thinking"       // Düşünüyorum
+  | "comparing"      // Karşılaştırıyorum
+  | "waiting"        // Fiyat bekleniyor
+  | "bought"         // Satın Aldım
+  | "passed";        // Vazgeçtim
+
+export type SavedAnalysis = {
+  id: string;                        // analysisId'den kopyalanır
+  productId: string;
+  productTitle: string;
+  productImage: string;
+  productPrice: string;              // formatlanmış TRY
+  sellerName: string;
+  userNeedText: string;
+  overallRiskPercent: number;
+  recommendationLevel: "safe" | "caution" | "risky";
+  scores: ScoreSummary;
+  savedAt: string;                   // ISO datetime
+  status: SavedAnalysisStatus;
+  userNote?: string;
+  projectId?: string;                // bağlı Karar Odası id'si
+};
+
+export type ShoppingProject = {
+  id: string;
+  title: string;                     // "Yeni Laptop Alacağım"
+  goal: string;                      // "Yazılım, okul, hafif oyun"
+  budget?: number;                   // TRY cinsinden
+  createdAt: string;                 // ISO datetime
+  savedAnalysisIds: string[];        // SavedAnalysis id referansları
+};
+
+export type BuyerProfile = {
+  name: string;
+  onboarded: boolean;
+};
+
 export type BuyerAnalysis = {
   analysisId: AnalysisId;
   productId: string;

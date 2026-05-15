@@ -397,7 +397,7 @@ export function getBuyerAnalysisById(analysisId: string, userNeedText?: string) 
   return buildBuyerAnalysis(analysisId, product, userNeedText || defaultNeed);
 }
 
-export function getBuyerAnalysis(product: Product, userNeedText?: string) {
-  const id = `analysis-${product.id}`;
+export function getBuyerAnalysis(product: Product, userNeedText?: string, customId?: string) {
+  const id = customId || `analysis-${product.id}`;
   return buildBuyerAnalysis(id, product, userNeedText || defaultNeed);
 }

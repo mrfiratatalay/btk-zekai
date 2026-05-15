@@ -5,6 +5,7 @@ import type { BuyerAnalysis } from "@/types/analysis";
 import type { Product } from "@/types/product";
 import { AnalysisLoadingView } from "@/components/platform/AnalysisLoadingView";
 import { AnalysisResultView } from "@/components/platform/AnalysisResultView";
+import { getSavedAnalyses } from "@/lib/buyer-store";
 import {
   applyVerifiedReport,
   extractVerifiedReport,
@@ -27,7 +28,13 @@ export function BuyerAnalysisExperience({
   analysis: BuyerAnalysis;
   product?: Product;
 }) {
-  const [status, setStatus] = useState<"running" | "completed">("running");
+  const [status, setStatus] = useState<"running" | "completed">(() => {
+    if (typeof window !== "undefined") {
+      const isSaved = getSavedAnalyses().some((a) => a.id === analysis.analysisId);
+      if (isSaved) return "completed";
+    }
+    return "running";
+  });
   const [liveAnalysis, setLiveAnalysis] = useState(analysis);
   const [completedStepIds, setCompletedStepIds] = useState<Set<string>>(() => new Set());
   const [useLiveAgent, setUseLiveAgent] = useState(Boolean(product) && !MOCK_MODE);
