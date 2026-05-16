@@ -367,72 +367,6 @@ namespace ZekAI.Infrastructure.Migrations
                     b.ToTable("Returns");
                 });
 
-            modelBuilder.Entity("ZekAI.Domain.Entities.SavedAnalysis", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("BuyerId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ExternalId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("OverallRiskPercent")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("ProductId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ProductImage")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ProductPrice")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ProductTitle")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RecommendationLevel")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("SavedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ScoresJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SellerName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("UserNeedText")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("UserNote")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BuyerId", "ExternalId")
-                        .IsUnique();
-
-                    b.ToTable("SavedAnalyses");
-                });
-
             modelBuilder.Entity("ZekAI.Domain.Entities.Seller", b =>
                 {
                     b.Property<Guid>("Id")
@@ -537,48 +471,6 @@ namespace ZekAI.Infrastructure.Migrations
                     b.ToTable("SellerProducts");
                 });
 
-            modelBuilder.Entity("ZekAI.Domain.Entities.ShoppingProject", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal?>("Budget")
-                        .HasColumnType("numeric(10,2)");
-
-                    b.Property<Guid>("BuyerId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ExternalId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Goal")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("SavedAnalysisIdsJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BuyerId", "ExternalId")
-                        .IsUnique();
-
-                    b.ToTable("ShoppingProjects");
-                });
-
             modelBuilder.Entity("ZekAI.Domain.Entities.StoreConnection", b =>
                 {
                     b.Property<int>("Id")
@@ -610,7 +502,7 @@ namespace ZekAI.Infrastructure.Migrations
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("StoreConnections");
+                    b.ToTable("StoreConnection");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.User", b =>
@@ -741,17 +633,6 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Navigation("Order");
                 });
 
-            modelBuilder.Entity("ZekAI.Domain.Entities.SavedAnalysis", b =>
-                {
-                    b.HasOne("ZekAI.Domain.Entities.User", "Buyer")
-                        .WithMany()
-                        .HasForeignKey("BuyerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Buyer");
-                });
-
             modelBuilder.Entity("ZekAI.Domain.Entities.Seller", b =>
                 {
                     b.HasOne("ZekAI.Domain.Entities.User", "User")
@@ -780,17 +661,6 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Seller");
-                });
-
-            modelBuilder.Entity("ZekAI.Domain.Entities.ShoppingProject", b =>
-                {
-                    b.HasOne("ZekAI.Domain.Entities.User", "Buyer")
-                        .WithMany()
-                        .HasForeignKey("BuyerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Buyer");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.StoreConnection", b =>

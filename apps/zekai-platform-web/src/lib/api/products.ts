@@ -1,5 +1,6 @@
-import { apiFetch } from "./client";
+import { commerceFetch } from "./commerce-client";
 import type { Product } from "@/types/product";
+const apiFetch = commerceFetch;
 
 export interface ProductListItem {
   id: string;

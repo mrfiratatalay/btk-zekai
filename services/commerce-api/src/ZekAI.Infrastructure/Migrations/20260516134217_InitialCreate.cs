@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ZekAI.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class Init : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -95,6 +95,28 @@ namespace ZekAI.Infrastructure.Migrations
                     table.ForeignKey(
                         name: "FK_Orders_Users_BuyerId",
                         column: x => x.BuyerId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RefreshTokens",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Token = table.Column<string>(type: "text", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsRevoked = table.Column<bool>(type: "boolean", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RefreshTokens", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RefreshTokens_Users_UserId",
+                        column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
@@ -290,7 +312,7 @@ namespace ZekAI.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "StoreConnections",
+                name: "StoreConnection",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
@@ -304,9 +326,9 @@ namespace ZekAI.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_StoreConnections", x => x.Id);
+                    table.PrimaryKey("PK_StoreConnection", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_StoreConnections_Sellers_SellerId",
+                        name: "FK_StoreConnection_Sellers_SellerId",
                         column: x => x.SellerId,
                         principalTable: "Sellers",
                         principalColumn: "Id",
@@ -355,6 +377,17 @@ namespace ZekAI.Infrastructure.Migrations
                 column: "CategoryId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_Token",
+                table: "RefreshTokens",
+                column: "Token",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_UserId",
+                table: "RefreshTokens",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Returns_OrderId",
                 table: "Returns",
                 column: "OrderId",
@@ -379,8 +412,8 @@ namespace ZekAI.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_StoreConnections_SellerId",
-                table: "StoreConnections",
+                name: "IX_StoreConnection_SellerId",
+                table: "StoreConnection",
                 column: "SellerId");
 
             migrationBuilder.CreateIndex(
@@ -406,13 +439,16 @@ namespace ZekAI.Infrastructure.Migrations
                 name: "ProductReviews");
 
             migrationBuilder.DropTable(
+                name: "RefreshTokens");
+
+            migrationBuilder.DropTable(
                 name: "Returns");
 
             migrationBuilder.DropTable(
                 name: "SellerProducts");
 
             migrationBuilder.DropTable(
-                name: "StoreConnections");
+                name: "StoreConnection");
 
             migrationBuilder.DropTable(
                 name: "Orders");

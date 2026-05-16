@@ -10,8 +10,6 @@ public class DataSeeder(AppDbContext db)
 {
     public async Task SeedAsync()
     {
-        await db.Database.MigrateAsync();
-
         if (await db.Categories.AnyAsync()) return; // already seeded
 
         // ── Categories ──
@@ -322,18 +320,6 @@ public class DataSeeder(AppDbContext db)
             ReturnDays = 14,
         };
         db.Sellers.Add(seller);
-        await db.SaveChangesAsync();
-
-        // ── Store Connection ──
-        db.StoreConnections.Add(new()
-        {
-            SellerId = seller.Id,
-            Platform = StorePlatform.DemoStore,
-            StoreName = "Mehmet Elektronik",
-            Status = StoreConnectionStatus.Connected,
-            LastSyncAt = DateTime.UtcNow,
-            ProductCount = 12,
-        });
         await db.SaveChangesAsync();
 
         // ── SellerProducts ──

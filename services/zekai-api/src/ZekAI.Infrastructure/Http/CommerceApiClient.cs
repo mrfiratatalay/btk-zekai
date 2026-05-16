@@ -1,12 +1,13 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using ZekAI.Application.DTOs;
 
 namespace ZekAI.Infrastructure.Http;
 
 public class CommerceApiClient(HttpClient http)
 {
-    public void SetBearerToken(string token)
+    private void SetBearerToken(string token)
         => http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
     public async Task<CommerceAuthResponse?> LoginAsync(string email, string password)
@@ -45,6 +46,34 @@ public class CommerceApiClient(HttpClient http)
         var response = await http.PutAsJsonAsync($"/api/seller/products/{productId}", updatePayload);
         return response.IsSuccessStatusCode;
     }
+
+    // Proxy: raw JSON pass-through for complex commerce responses
+    public async Task<JsonDocument?> ProxyGetAsync(string commerceToken, string path)
+    {
+        SetBearerToken(commerceToken);
+        var response = await http.GetAsync(path);
+        if (!response.IsSuccessStatusCode) return null;
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonDocument.Parse(json);
+    }
+
+    public async Task<JsonDocument?> ProxyPutAsync(string commerceToken, string path, object body)
+    {
+        SetBearerToken(commerceToken);
+        var response = await http.PutAsJsonAsync(path, body);
+        if (!response.IsSuccessStatusCode) return null;
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonDocument.Parse(json);
+    }
+
+    public async Task<CommerceSellerProfileDto?> GetSellerProfileAsync(string commerceToken)
+    {
+        SetBearerToken(commerceToken);
+        var response = await http.GetAsync("/api/seller/me");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<CommerceSellerProfileDto>();
+    }
 }
 
 public record CommerceAuthResponse(string Token, string RefreshToken, Guid UserId, string Email, string FullName, string Role);
+public record CommerceSellerProfileDto(Guid Id, string StoreName, string OwnerName, int TrustScore, double StoreRating, int TotalReviewCount, bool FastShipping, int ReturnDays);

@@ -13,6 +13,8 @@ public class SellerController(SellerService seller) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+    // ── Store ──────────────────────────────────────────────────────────────
+
     [HttpGet("store")]
     public async Task<IActionResult> GetStore()
     {
@@ -35,10 +37,43 @@ public class SellerController(SellerService seller) : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    // ── Profile (proxied from commerce-api) ───────────────────────────────
+
+    [HttpGet("me")]
+    public async Task<IActionResult> GetProfile()
+    {
+        try { return Ok(await seller.GetProfileAsync(UserId)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ── Products (proxied from commerce-api) ──────────────────────────────
+
     [HttpGet("products")]
     public async Task<IActionResult> GetProducts()
     {
         try { return Ok(await seller.GetProductsAsync(UserId)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpGet("products/{productId}")]
+    public async Task<IActionResult> GetProduct(string productId)
+    {
+        try
+        {
+            var product = await seller.GetProductAsync(UserId, productId);
+            return product is null ? NotFound() : Ok(product);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPut("products/{productId}")]
+    public async Task<IActionResult> UpdateProduct(string productId, [FromBody] object payload)
+    {
+        try
+        {
+            var success = await seller.PublishUpdateAsync(UserId, productId, payload);
+            return success ? Ok(new { message = "Ürün güncellendi." }) : BadRequest(new { message = "Güncelleme başarısız." });
+        }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
@@ -50,6 +85,38 @@ public class SellerController(SellerService seller) : ControllerBase
             var success = await seller.PublishUpdateAsync(UserId, productId, payload);
             return success ? Ok(new { message = "Ürün güncellendi." }) : BadRequest(new { message = "Güncelleme başarısız." });
         }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ── Analytics (proxied from commerce-api) ─────────────────────────────
+
+    [HttpGet("analytics/kpis")]
+    public async Task<IActionResult> GetKpis()
+    {
+        try { return Ok(await seller.ProxyGetAsync(UserId, "/api/seller/analytics/kpis")); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpGet("analytics/return-reasons")]
+    public async Task<IActionResult> GetReturnReasons()
+    {
+        try { return Ok(await seller.ProxyGetAsync(UserId, "/api/seller/analytics/return-reasons")); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ── Returns (proxied from commerce-api) ───────────────────────────────
+
+    [HttpGet("returns")]
+    public async Task<IActionResult> GetReturns()
+    {
+        try { return Ok(await seller.ProxyGetAsync(UserId, "/api/seller/returns")); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPut("returns/{id:guid}/respond")]
+    public async Task<IActionResult> RespondToReturn(Guid id, [FromBody] object req)
+    {
+        try { return Ok(await seller.ProxyPutAsync(UserId, $"/api/seller/returns/{id}/respond", req)); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 }

@@ -53,9 +53,12 @@ builder.Services.AddScoped<DataSeeder>();
 
 var app = builder.Build();
 
-// ── Seed database on startup ──
+// ── Migrate + Seed on startup ──
 using (var scope = app.Services.CreateScope())
 {
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+
     var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
     await seeder.SeedAsync();
 }

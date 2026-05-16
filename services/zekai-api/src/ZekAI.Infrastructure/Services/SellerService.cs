@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using ZekAI.Application.DTOs;
 using ZekAI.Domain.Entities;
@@ -21,7 +22,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
         var authResult = await commerce.LoginAsync(req.CommerceEmail, req.CommercePassword)
             ?? throw new UnauthorizedAccessException("Akıllı Market giriş bilgileri hatalı.");
 
-        if (authResult.Role.ToLower() != "seller")
+        if (!authResult.Role.Equals("seller", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Bu hesap bir satıcı hesabı değil.");
 
         var existing = await db.StoreConnections.FirstOrDefaultAsync(sc => sc.ZekaiUserId == userId);
@@ -50,10 +51,23 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
         return new StoreConnectionDto(existing.ProviderName, existing.CommerceSellerId, existing.Status, existing.ConnectedAt, existing.LastSyncedAt);
     }
 
+    public async Task<object?> GetProfileAsync(Guid userId)
+    {
+        var conn = await GetActiveConnectionAsync(userId);
+        return await commerce.GetSellerProfileAsync(conn.CommerceAccessToken);
+    }
+
     public async Task<List<CommerceProductDto>> GetProductsAsync(Guid userId)
     {
         var conn = await GetActiveConnectionAsync(userId);
         return await commerce.GetSellerProductsAsync(conn.CommerceAccessToken);
+    }
+
+    public async Task<object?> GetProductAsync(Guid userId, string productId)
+    {
+        var conn = await GetActiveConnectionAsync(userId);
+        var doc = await commerce.ProxyGetAsync(conn.CommerceAccessToken, $"/api/seller/products/{productId}");
+        return doc?.RootElement;
     }
 
     public async Task<bool> PublishUpdateAsync(Guid userId, string productId, object updatePayload)
@@ -67,6 +81,20 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
         var conn = await GetActiveConnectionAsync(userId);
         conn.LastSyncedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+    }
+
+    public async Task<object?> ProxyGetAsync(Guid userId, string path)
+    {
+        var conn = await GetActiveConnectionAsync(userId);
+        var doc = await commerce.ProxyGetAsync(conn.CommerceAccessToken, path);
+        return doc?.RootElement;
+    }
+
+    public async Task<object?> ProxyPutAsync(Guid userId, string path, object body)
+    {
+        var conn = await GetActiveConnectionAsync(userId);
+        var doc = await commerce.ProxyPutAsync(conn.CommerceAccessToken, path, body);
+        return doc?.RootElement;
     }
 
     private async Task<SellerStoreConnection> GetActiveConnectionAsync(Guid userId)

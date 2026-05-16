@@ -19,8 +19,8 @@ public class AuthService(ZekaiDbContext db, JwtService jwt)
             FullName = req.FullName,
             Role = req.Role.ToLowerInvariant() switch
             {
-                "seller" => "seller",
-                _ => "buyer"
+                "seller" => "Seller",
+                _ => "Buyer"
             },
         };
 
@@ -35,7 +35,7 @@ public class AuthService(ZekaiDbContext db, JwtService jwt)
         db.RefreshTokens.Add(refreshToken);
         await db.SaveChangesAsync();
 
-        return new AuthResponse(jwt.GenerateToken(user), refreshToken.Token, user.Id, user.Email, user.FullName, user.Role);
+        return ToAuthResponse(jwt.GenerateToken(user), refreshToken.Token, user);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest req)
@@ -55,7 +55,7 @@ public class AuthService(ZekaiDbContext db, JwtService jwt)
         db.RefreshTokens.Add(refreshToken);
         await db.SaveChangesAsync();
 
-        return new AuthResponse(jwt.GenerateToken(user), refreshToken.Token, user.Id, user.Email, user.FullName, user.Role);
+        return ToAuthResponse(jwt.GenerateToken(user), refreshToken.Token, user);
     }
 
     public async Task<AuthResponse> RefreshAsync(string refreshToken)
@@ -75,7 +75,7 @@ public class AuthService(ZekaiDbContext db, JwtService jwt)
         db.RefreshTokens.Add(newRefreshToken);
         await db.SaveChangesAsync();
 
-        return new AuthResponse(jwt.GenerateToken(token.User!), newRefreshToken.Token, token.User!.Id, token.User.Email, token.User.FullName, token.User.Role);
+        return ToAuthResponse(jwt.GenerateToken(token.User!), newRefreshToken.Token, token.User!);
     }
 
     public async Task<UserDto> GetMeAsync(Guid userId)
@@ -84,4 +84,7 @@ public class AuthService(ZekaiDbContext db, JwtService jwt)
             ?? throw new KeyNotFoundException("Kullanıcı bulunamadı.");
         return new UserDto(user.Id, user.Email, user.FullName, user.Role);
     }
+
+    private static AuthResponse ToAuthResponse(string token, string refreshToken, ZekaiUser user)
+        => new(token, refreshToken, new UserDto(user.Id, user.Email, user.FullName, user.Role));
 }

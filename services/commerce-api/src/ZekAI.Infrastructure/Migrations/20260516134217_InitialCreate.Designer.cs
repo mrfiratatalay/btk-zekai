@@ -12,8 +12,8 @@ using ZekAI.Infrastructure.Data;
 namespace ZekAI.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260515232235_Init")]
-    partial class Init
+    [Migration("20260516134217_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -299,6 +299,38 @@ namespace ZekAI.Infrastructure.Migrations
                     b.ToTable("ProductReviews");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RefreshTokens");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.Return", b =>
                 {
                     b.Property<Guid>("Id")
@@ -473,7 +505,7 @@ namespace ZekAI.Infrastructure.Migrations
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("StoreConnections");
+                    b.ToTable("StoreConnection");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.User", b =>
@@ -580,6 +612,17 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.Return", b =>
