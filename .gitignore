@@ -28,3 +28,6 @@ DEST/
 
 # Script logs
 scripts/logs/
+
+# IDE
+.claude/
