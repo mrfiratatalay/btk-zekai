@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, HelpCircle, LayoutDashboard, LogOut, Package, Sparkles } from "lucide-react";
+import { ArrowLeft, Bell, HelpCircle, LayoutDashboard, LogOut, Package, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -50,9 +50,9 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-[#0a0a0a] lg:h-screen lg:overflow-hidden">
       {/* ── Sidebar ── */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-white/8 dark:bg-[#111] lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-white/8 dark:bg-[#111] lg:flex">
 
         {/* Logo */}
         <div className="flex h-16 shrink-0 items-center gap-2.5 px-5">
@@ -61,7 +61,7 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-0.5 px-3 py-2">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
           {NAV.map((item) => {
             const Icon = item.icon;
             const active =
@@ -92,9 +92,26 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User footer */}
-        <div className="shrink-0 border-t border-gray-100 p-4 dark:border-white/8">
+        <div className="mt-auto shrink-0 p-4">
+          <div className="space-y-2">
+            <Link
+              href="/"
+              className="flex h-9 min-w-0 items-center gap-2 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+            >
+              <ArrowLeft className="size-3.5 shrink-0" />
+              <span className="truncate">ZekAI&apos;ye dön</span>
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex h-9 w-full min-w-0 items-center gap-2 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-white/10 dark:text-gray-400 dark:hover:border-red-500/30 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+            >
+              <LogOut className="size-3.5 shrink-0" />
+              <span className="truncate">Çıkış</span>
+            </button>
+          </div>
+          <div className="my-4 h-px bg-gray-100 dark:bg-white/8" />
           <div className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-green-500 text-[13px] font-black text-white">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-green-500 text-[13px] font-black text-white">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
@@ -102,29 +119,11 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
               <p className="truncate text-xs text-gray-400">{user?.email ?? "Satıcı"}</p>
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between">
-            <Link
-              href="/"
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M7.5 1L2.5 6L7.5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Zekai&apos;ye dön
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 transition-colors hover:text-red-500"
-            >
-              <LogOut className="size-3.5" />
-              Çıkış
-            </button>
-          </div>
         </div>
       </aside>
 
       {/* ── Main ── */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:h-screen">
         {/* Top bar */}
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 px-6 backdrop-blur-xl dark:border-white/8 dark:bg-[#111]/80">
           {/* Mobile logo */}
