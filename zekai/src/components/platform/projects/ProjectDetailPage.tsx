@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   getProjectById,
+  syncProjectsFromApi,
   getSavedAnalyses,
   deleteProject,
   addAnalysisToProject,
@@ -35,7 +36,7 @@ import { compareAnalyses } from "@/lib/compare-engine";
 import type { ShoppingProject, SavedAnalysis } from "@/types/analysis";
 import { PlatformNav } from "@/components/platform/PlatformNav";
 import { Button } from "@/components/ui/button";
-import { formatPrice } from "@/lib/mock-data/products";
+import { formatPrice } from "@/lib/format";
 
 /* ─── Level config ───────────────────────────────────────────────────────── */
 const LEVEL = {
@@ -213,6 +214,12 @@ export function ProjectDetailPage() {
     setProject(p);
     setAllAnalyses(getSavedAnalyses());
     setMounted(true);
+    syncProjectsFromApi()
+      .then(() => {
+        const synced = getProjectById(projectId);
+        if (synced) setProject(synced);
+      })
+      .catch(() => {});
 
     function refresh() {
       const p2 = getProjectById(projectId);

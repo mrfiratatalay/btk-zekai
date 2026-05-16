@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Eye, EyeOff, Lock, Mail, Sparkles, TrendingUp } from "lucide-react";
+import { login } from "@/lib/api/auth";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 type Role = "buyer" | "seller";
 
 export function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [role, setRole] = useState<Role>("buyer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,12 +25,21 @@ export function LoginPage() {
     if (!email.includes("@")) { setError("Geçerli bir e-posta gir."); return; }
     if (password.length < 4) { setError("Şifre çok kısa."); return; }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
-    router.push(role === "seller" ? "/seller" : "/platform");
+    try {
+      const res = await login(email, password);
+      const returnUrl = searchParams.get("returnUrl");
+      router.push(returnUrl ?? (res.user.role === "Seller" ? "/seller" : "/platform"));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Giriş başarısız. Bilgilerinizi kontrol edin.");
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="mb-8 flex items-center justify-center gap-2.5">

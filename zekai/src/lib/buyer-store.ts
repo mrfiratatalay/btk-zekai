@@ -1,7 +1,8 @@
 /**
  * buyer-store.ts
  *
- * Zekai Alıcı Karar Merkezi için localStorage tabanlı veri katmanı.
+ * Zekai Alıcı Karar Merkezi için hibrit veri katmanı.
+ * Giriş yapılmışsa API'ye yazar/okur; anonim kullanıcılar localStorage kullanır.
  * Yalnızca client tarafında (useEffect içinde) çağrılmalıdır — SSR-safe.
  */
 
@@ -11,6 +12,19 @@ import type {
   ShoppingProject,
   BuyerProfile,
 } from "@/types/analysis";
+import {
+  saveAnalysisToApi,
+  updateAnalysisInApi,
+  deleteAnalysisFromApi,
+  getProjectsFromApi,
+  createProjectInApi,
+  updateProjectInApi,
+  deleteProjectFromApi,
+  addAnalysisToProjectInApi,
+  removeAnalysisFromProjectInApi,
+  type ShoppingProjectApi,
+} from "@/lib/api/buyer";
+import { getCurrentUser } from "@/lib/api/auth";
 
 const STORAGE_VERSION = "v1";
 
@@ -73,9 +87,37 @@ export function saveAnalysis(analysis: SavedAnalysis): void {
   if (idx >= 0) {
     existing[idx] = analysis;
   } else {
-    existing.unshift(analysis); // en yeni başa
+    existing.unshift(analysis);
   }
   safeSet(KEYS.savedAnalyses, existing);
+
+  // Giriş yapılmışsa API'ye de kaydet (fire-and-forget)
+  const user = getCurrentUser();
+  if (user?.role === "Buyer") {
+    saveAnalysisToApi({
+      externalId: analysis.id,
+      productId: analysis.productId,
+      productTitle: analysis.productTitle,
+      productImage: analysis.productImage,
+      productPrice: analysis.productPrice,
+      sellerName: analysis.sellerName,
+      userNeedText: analysis.userNeedText,
+      overallRiskPercent: analysis.overallRiskPercent,
+      recommendationLevel: analysis.recommendationLevel,
+      scoresJson: JSON.stringify(analysis.scores),
+    }).then((saved) => setApiId(analysis.id, saved.id)).catch(() => { /* localStorage zaten kaydetti */ });
+  }
+}
+
+// API'deki Guid id'sini externalId'e göre bul (localStorage'dan)
+function getApiId(externalId: string): string | null {
+  if (typeof window === "undefined") return null;
+  const key = `zekai-api-id-${externalId}`;
+  return window.localStorage.getItem(key);
+}
+function setApiId(externalId: string, apiId: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(`zekai-api-id-${externalId}`, apiId);
 }
 
 export function updateAnalysisStatus(
@@ -88,6 +130,10 @@ export function updateAnalysisStatus(
     analyses[idx] = { ...analyses[idx], status };
     safeSet(KEYS.savedAnalyses, analyses);
   }
+  const apiId = getApiId(id);
+  if (apiId && getCurrentUser()?.role === "Buyer") {
+    updateAnalysisInApi(apiId, { status }).catch(() => {});
+  }
 }
 
 export function updateAnalysisNote(id: string, note: string): void {
@@ -97,21 +143,29 @@ export function updateAnalysisNote(id: string, note: string): void {
     analyses[idx] = { ...analyses[idx], userNote: note };
     safeSet(KEYS.savedAnalyses, analyses);
   }
+  const apiId = getApiId(id);
+  if (apiId && getCurrentUser()?.role === "Buyer") {
+    updateAnalysisInApi(apiId, { userNote: note }).catch(() => {});
+  }
 }
 
 export function deleteAnalysis(id: string): void {
   const analyses = getSavedAnalyses().filter((a) => a.id !== id);
   safeSet(KEYS.savedAnalyses, analyses);
-  // karşılaştırma kuyruğundan da çıkar
   removeFromCompareQueue(id);
-  // projedeki referansı da temizle
   const projects = getProjects();
   const updated = projects.map((p) => ({
     ...p,
     savedAnalysisIds: p.savedAnalysisIds.filter((sid) => sid !== id),
   }));
   safeSet(KEYS.projects, updated);
+  const apiId = getApiId(id);
+  if (apiId && getCurrentUser()?.role === "Buyer") {
+    deleteAnalysisFromApi(apiId).catch(() => {});
+  }
 }
+
+export { setApiId };
 
 export function isAnalysisSaved(id: string): boolean {
   return getSavedAnalyses().some((a) => a.id === id);
@@ -122,6 +176,24 @@ export function isAnalysisSaved(id: string): boolean {
 ──────────────────────────────────────────────────────────────────────────────*/
 export function getProjects(): ShoppingProject[] {
   return safeGet<ShoppingProject[]>(KEYS.projects, []);
+}
+
+function mapApiProject(project: ShoppingProjectApi): ShoppingProject {
+  return {
+    id: project.id,
+    title: project.title,
+    goal: project.goal,
+    budget: project.budget ?? undefined,
+    createdAt: project.createdAt,
+    savedAnalysisIds: project.savedAnalysisIds,
+  };
+}
+
+export async function syncProjectsFromApi(): Promise<ShoppingProject[]> {
+  if (getCurrentUser()?.role !== "Buyer") return getProjects();
+  const projects = (await getProjectsFromApi()).map(mapApiProject);
+  safeSet(KEYS.projects, projects);
+  return projects;
 }
 
 export function getProjectById(id: string): ShoppingProject | undefined {
@@ -139,6 +211,9 @@ export function createProject(
   };
   const existing = getProjects();
   safeSet(KEYS.projects, [project, ...existing]);
+  if (getCurrentUser()?.role === "Buyer") {
+    createProjectInApi({ ...data, externalId: project.id }).then(syncProjectsFromApi).catch(() => {});
+  }
   return project;
 }
 
@@ -151,6 +226,9 @@ export function updateProject(
   if (idx >= 0) {
     projects[idx] = { ...projects[idx], ...data };
     safeSet(KEYS.projects, projects);
+    if (getCurrentUser()?.role === "Buyer") {
+      updateProjectInApi(id, data).then(syncProjectsFromApi).catch(() => {});
+    }
   }
 }
 
@@ -164,6 +242,9 @@ export function deleteProject(id: string): void {
     KEYS.projects,
     getProjects().filter((p) => p.id !== id)
   );
+  if (getCurrentUser()?.role === "Buyer") {
+    deleteProjectFromApi(id).catch(() => {});
+  }
 }
 
 export function addAnalysisToProject(
@@ -179,6 +260,9 @@ export function addAnalysisToProject(
       savedAnalysisIds: [...projects[idx].savedAnalysisIds, analysisId],
     };
     safeSet(KEYS.projects, projects);
+    if (getCurrentUser()?.role === "Buyer") {
+      addAnalysisToProjectInApi(projectId, analysisId).then(syncProjectsFromApi).catch(() => {});
+    }
   }
   // analizin projectId'sini de güncelle
   updateAnalysisNote; // no-op, just referencing the util
@@ -204,6 +288,9 @@ export function removeAnalysisFromProject(
     ),
   };
   safeSet(KEYS.projects, projects);
+  if (getCurrentUser()?.role === "Buyer") {
+    removeAnalysisFromProjectInApi(projectId, analysisId).then(syncProjectsFromApi).catch(() => {});
+  }
   // analizin projectId'sini temizle
   const analyses = getSavedAnalyses();
   const aIdx = analyses.findIndex((a) => a.id === analysisId);

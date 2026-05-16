@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import type { Product } from "@/types/product";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/mock-data/products";
+import { formatPrice } from "@/lib/api/products";
 
 function pct(value: number) {
   return `%${value}`;
@@ -100,7 +100,7 @@ export function ProductEvidencePanel({ product }: { product: Product }) {
             <div>
               <h2 className="text-lg font-extrabold text-[#111827]">Musteri yorumlari</h2>
               <p className="mt-1 text-sm text-[#6B7280]">
-                Agentic analizde kullanilan temsilci yorumlar
+                Ürüne ait öne çıkan müşteri yorumları
               </p>
             </div>
             <Badge className="rounded-md bg-[#FFF4EC] text-[#FF6000]">

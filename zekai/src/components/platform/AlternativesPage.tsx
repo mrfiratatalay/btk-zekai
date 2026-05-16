@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Quote, ShoppingCart, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { Product } from "@/types/product";
-import { formatPrice } from "@/lib/mock-data/products";
+import { formatPrice } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -71,9 +71,9 @@ function getAlternatives(productId: string): Alternative[] {
 }
 
 function fitColor(n: number) {
-  if (n >= 80) return { text: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200" };
-  if (n >= 60) return { text: "text-amber-700",   bg: "bg-amber-50",   border: "border-amber-200"   };
-  return               { text: "text-red-700",     bg: "bg-red-50",     border: "border-red-200"     };
+  if (n >= 80) return { text: "text-emerald-700 dark:text-emerald-300", bg: "bg-emerald-50 dark:bg-emerald-500/10", border: "border-emerald-200 dark:border-emerald-500/20" };
+  if (n >= 60) return { text: "text-amber-700 dark:text-amber-300",   bg: "bg-amber-50 dark:bg-amber-500/10",   border: "border-amber-200 dark:border-amber-500/20"   };
+  return               { text: "text-red-700 dark:text-red-300",     bg: "bg-red-50 dark:bg-red-500/10",     border: "border-red-200 dark:border-red-500/20"     };
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -83,7 +83,7 @@ export function AlternativesPage({ product, need }: { product: Product; need: st
   const bestId  = alts.reduce((a, b) => a.fitScore > b.fitScore ? a : b).id;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
 
       {/* ── Top bar ──────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 border-b border-border px-6 py-4">
@@ -93,7 +93,7 @@ export function AlternativesPage({ product, need }: { product: Product; need: st
             Analiz raporuna dön
           </Link>
         </Button>
-        <div className="h-4 w-px bg-slate-200" />
+        <div className="h-4 w-px bg-border" />
         <div className="flex min-w-0 items-center gap-2">
           <div className="relative size-6 shrink-0 overflow-hidden rounded-md border border-border">
             <Image src={product.image} alt={product.title} fill sizes="24px" className="object-contain p-0.5" />
@@ -132,8 +132,8 @@ export function AlternativesPage({ product, need }: { product: Product; need: st
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.08, duration: 0.25 }}
               className={cn(
-                "group flex flex-col overflow-hidden rounded-2xl border bg-white transition-shadow hover:shadow-md",
-                isBest ? "border-emerald-200 shadow-sm shadow-emerald-50" : "border-border",
+                "group flex flex-col overflow-hidden rounded-2xl border bg-white transition-shadow hover:shadow-md dark:bg-card",
+                isBest ? "border-emerald-200 shadow-sm shadow-emerald-50 dark:border-emerald-500/30 dark:shadow-none" : "border-border",
               )}
             >
               {/* Image area */}
@@ -156,7 +156,7 @@ export function AlternativesPage({ product, need }: { product: Product; need: st
 
                 {/* Discount badge */}
                 {disc && (
-                  <div className="absolute right-3 top-3 rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-foreground">
+                  <div className="absolute right-3 top-3 rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-white dark:bg-foreground dark:text-background">
                     %{disc}
                   </div>
                 )}

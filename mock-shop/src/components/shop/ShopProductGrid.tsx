@@ -1,23 +1,27 @@
 "use client";
 
-import { ArrowRight, PackageSearch } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, Loader2, PackageSearch } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { products } from "@/lib/mock-data/products";
+import { getProducts, mapProductListItemToProduct } from "@/lib/api/products";
+import type { Product } from "@/types/product";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { Button } from "@/components/ui/button";
 
 export function ShopProductGrid() {
   const searchParams = useSearchParams();
   const activeCategory = searchParams.get("category") ?? "";
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = activeCategory
-    ? products.filter(
-        (p) =>
-          p.category.toLocaleLowerCase("tr-TR") ===
-          activeCategory.toLocaleLowerCase("tr-TR")
-      )
-    : products;
+  useEffect(() => {
+    setLoading(true);
+    getProducts(activeCategory ? { category: activeCategory } : undefined)
+      .then((items) => setProducts(items.map(mapProductListItemToProduct)))
+      .catch(() => setProducts([]))
+      .finally(() => setLoading(false));
+  }, [activeCategory]);
 
   return (
     <section className="space-y-4">
@@ -28,24 +32,25 @@ export function ShopProductGrid() {
           </h2>
           {activeCategory && (
             <p className="mt-1 text-sm text-[#6B7280]">
-              {filtered.length} ürün bulundu
+              {products.length} ürün bulundu
             </p>
           )}
         </div>
         {!activeCategory && (
-          <Link
-            href="/mock-shop"
-            className="inline-flex items-center gap-2 text-sm font-bold text-[#FF6000]"
-          >
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-[#FF6000]">
             Tümünü Gör
             <ArrowRight className="size-4" />
           </Link>
         )}
       </div>
 
-      {filtered.length > 0 ? (
+      {loading ? (
+        <div className="flex min-h-64 items-center justify-center rounded-2xl border border-[#E5E7EB]">
+          <Loader2 className="size-7 animate-spin text-[#FF6000]" />
+        </div>
+      ) : products.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {filtered.map((product) => (
+          {products.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
@@ -58,12 +63,8 @@ export function ShopProductGrid() {
               Farklı bir kategori seçmeyi deneyin.
             </p>
           </div>
-          <Button
-            asChild
-            variant="outline"
-            className="rounded-lg border-[#E5E7EB] font-bold"
-          >
-            <Link href="/mock-shop">Tüm Ürünleri Gör</Link>
+          <Button asChild variant="outline" className="rounded-lg border-[#E5E7EB] font-bold">
+            <Link href="/">Tüm Ürünleri Gör</Link>
           </Button>
         </div>
       )}

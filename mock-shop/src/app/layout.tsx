@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ZekAI Market — Alışveriş Sitesi",
+  title: "Akıllı Market — Alışveriş Sitesi",
   description: "Binlerce ürün, uygun fiyatlar, güvenli alışveriş.",
 };
 

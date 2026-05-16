@@ -20,7 +20,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { SellerProductPerformance } from "@/types/seller";
-import { formatSellerPrice, sellerImprovements } from "@/lib/mock-data/seller";
+import { formatSellerPrice } from "@/lib/format";
+import { getSellerImprovements } from "@/lib/seller-improvements";
 
 type Tab = "info" | "photos" | "store";
 
@@ -98,11 +99,12 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
   }
 
   const rating = (5 - product.returnRate / 20).toFixed(1);
+  const sellerImprovements = getSellerImprovements(product);
 
   if (saved) {
     return (
       <div className="mx-auto max-w-md py-20 text-center">
-        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-green-50">
+        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-green-50 dark:bg-green-500/10">
           <Check className="size-7 text-green-600" />
         </div>
         <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">Kaydedildi!</h1>
@@ -154,7 +156,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
 
       {/* Product header */}
       <div className="mt-5 flex items-center gap-4 rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm dark:border-white/8 dark:bg-white/4">
-        <div className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-gray-50">
+        <div className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-gray-50 dark:bg-white/5">
           <Image src={product.image} alt={product.title} fill className="object-contain p-1.5" />
         </div>
         <p className="min-w-0 flex-1 truncate font-bold text-gray-900 dark:text-white">{product.title}</p>
@@ -330,11 +332,11 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                 <p className="text-sm font-bold text-gray-900 dark:text-white">Mevcut Görseller</p>
                 <div className="mt-3 grid grid-cols-4 gap-3">
                   {[product.image, product.image, product.image].map((src, i) => (
-                    <div key={i} className="relative aspect-square overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                    <div key={i} className="relative aspect-square overflow-hidden rounded-2xl border border-gray-100 bg-white dark:border-white/8 dark:bg-white/4">
                       <Image src={src} alt="" fill className="object-contain p-2" />
                     </div>
                   ))}
-                  <div className="flex aspect-square items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 text-gray-300">
+                  <div className="flex aspect-square items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 text-gray-300 dark:border-white/10">
                     <Camera className="size-6" />
                   </div>
                 </div>
@@ -347,7 +349,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                   {MISSING_PHOTOS.filter((p) => !p.done).map((photo) => (
                     <div key={photo.label} className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-4 py-3.5 shadow-sm dark:border-white/8 dark:bg-white/4">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-8 items-center justify-center rounded-lg bg-amber-50">
+                        <div className="flex size-8 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-500/10">
                           <ImageIcon className="size-4 text-amber-500" />
                         </div>
                         <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{photo.label}</p>
@@ -478,7 +480,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                 <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">Ürün Görselleri</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[product.image, product.image, product.image].map((src, i) => (
-                    <div key={i} className="relative aspect-square overflow-hidden rounded-xl bg-gray-50">
+                    <div key={i} className="relative aspect-square overflow-hidden rounded-xl bg-gray-50 dark:bg-white/5">
                       <Image src={src} alt="" fill className="object-contain p-1.5" />
                     </div>
                   ))}

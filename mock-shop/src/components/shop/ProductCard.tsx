@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Heart, Star } from "lucide-react";
 import type { Product } from "@/types/product";
-import { formatPrice } from "@/lib/mock-data/products";
+import { formatPrice } from "@/lib/api/products";
 import { Badge } from "@/components/ui/badge";
 
 export function ProductCard({ product }: { product: Product }) {

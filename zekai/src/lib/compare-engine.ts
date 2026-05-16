@@ -2,7 +2,7 @@
  * compare-engine.ts
  *
  * Birden fazla SavedAnalysis'i karşılaştırıp kazanan + açıklama üretir.
- * Tüm hesaplama client-side, mock data'ya dayanır.
+ * Hesaplama, API'de kaydedilen analiz skorlarına dayanır.
  */
 
 import type { SavedAnalysis } from "@/types/analysis";

@@ -1,69 +1,64 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
-title Zekai - Frontend Dev Server
+title ZekAI Platform - Port 3000
 
 set "SCRIPT_DIR=%~dp0"
 set "ROOT_DIR=%SCRIPT_DIR%.."
 set "FRONTEND_DIR=%ROOT_DIR%\zekai"
 set "FRONTEND_ENV=%FRONTEND_DIR%\.env.local"
-set "DEFAULT_PORT=3000"
-set "PORT=%DEFAULT_PORT%"
-set "DID_PUSHD=0"
+set "PORT=3000"
 
 echo.
 echo ============================================================
-echo  Zekai - Frontend Dev Server  ^(Next.js^)
+echo   ZekAI Platform - Frontend Dev Server
+echo   Port: %PORT%
 echo ============================================================
-echo.
-echo [INFO] Proje koku   : %ROOT_DIR%
-echo [INFO] Frontend klas: %FRONTEND_DIR%
 echo.
 
 rem ── Klasor kontrolu ──────────────────────────────────────────
 if not exist "%FRONTEND_DIR%\package.json" (
   echo [HATA] zekai\package.json bulunamadi.
-  echo [IPUCU] Bu script scripts\ klasorunden calistirilmali.
-  echo        Beklenen: scripts\start-frontend.bat  +  zekai\package.json
   goto :fail
 )
 
-rem ── Node.js ──────────────────────────────────────────────────
+rem ── Node.js kontrolu ─────────────────────────────────────────
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [HATA] Node.js PATH'te bulunamadi.
-  echo [IPUCU] Node.js LTS yukle, terminali yeniden ac.
+  echo [HATA] Node.js bulunamadi. Yukle ve terminali yeniden ac.
   goto :fail
 )
+echo [OK] Node: & node -v
 
-where npm >nul 2>nul
-if errorlevel 1 (
-  echo [HATA] npm PATH'te bulunamadi. Node.js ile birlikte gelir.
-  goto :fail
+rem ── Port %PORT% dolu mu? Doluysa kill et ─────────────────────
+echo.
+echo [INFO] Port %PORT% kontrol ediliyor...
+set "PORT_PID="
+for /f "tokens=5" %%A in ('netstat -ano 2^>nul ^| findstr ":%PORT% " ^| findstr "LISTENING"') do (
+  if not defined PORT_PID set "PORT_PID=%%A"
 )
-
-echo [INFO] Node: & node -v
-echo [INFO] npm : & call npm -v
+if defined PORT_PID (
+  echo [UYARI] Port %PORT% PID !PORT_PID! tarafindan kullaniliyor.
+  echo [INFO]  Islem sonlandiriliyor...
+  taskkill /PID !PORT_PID! /F >nul 2>nul
+  timeout /t 2 /nobreak >nul
+  echo [OK]   Port %PORT% serbest birakildi.
+)
 
 rem ── Dizine gir ───────────────────────────────────────────────
-pushd "%FRONTEND_DIR%" >nul
+pushd "%FRONTEND_DIR%"
 if errorlevel 1 (
-  echo [HATA] Frontend dizinine girilemedi.
+  echo [HATA] zekai dizinine girilemedi.
   goto :fail
 )
-set "DID_PUSHD=1"
 
-rem ── Bagimliliklar ────────────────────────────────────────────
+rem ── node_modules kontrolu ────────────────────────────────────
 if not exist "node_modules" (
   echo.
-  echo [INFO] node_modules bulunamadi. Bagimliliklar yukleniyor...
-  if exist "package-lock.json" (
-    call npm ci
-  ) else (
-    call npm install
-  )
+  echo [INFO] node_modules bulunamadi. Yukleniyor...
+  call npm install
   if errorlevel 1 (
-    echo.
-    echo [HATA] Bagimlilik yuklemesi basarisiz.
+    echo [HATA] npm install basarisiz.
+    popd
     goto :fail
   )
 )
@@ -71,55 +66,32 @@ if not exist "node_modules" (
 rem ── .env.local ───────────────────────────────────────────────
 if not exist "%FRONTEND_ENV%" (
   echo [INFO] .env.local olusturuluyor...
-  > "%FRONTEND_ENV%" echo NEXT_PUBLIC_ADK_API_URL=http://localhost:8000
+  > "%FRONTEND_ENV%" echo NEXT_PUBLIC_API_URL=http://localhost:5224
+  echo [OK] .env.local olusturuldu.
 )
 
-rem ── Port bul ─────────────────────────────────────────────────
+rem ── Baslat ───────────────────────────────────────────────────
 echo.
-echo [INFO] Port %DEFAULT_PORT% kontrol ediliyor...
-for /l %%P in (%DEFAULT_PORT%,1,3010) do (
-  netstat -ano | findstr /R /C:":%%P .*LISTENING" >nul 2>nul
-  if errorlevel 1 (
-    set "PORT=%%P"
-    goto :port_found
-  )
-)
-
-echo [HATA] %DEFAULT_PORT%-3010 arasinda bos port bulunamadi.
-goto :fail
-
-:port_found
-if not "%PORT%"=="%DEFAULT_PORT%" (
-  echo [UYARI] Port %DEFAULT_PORT% kullaniliyor, %PORT% portuna gecildi.
-)
-
-echo.
-echo [INFO] Frontend dev server baslatiliyor...
-echo [INFO] Adres  : http://localhost:%PORT%
-echo [INFO] API    : http://localhost:8000
-echo [INFO] Durdurmak icin Ctrl+C
+echo ============================================================
+echo   ZekAI Platform baslatiliyor
+echo   http://localhost:%PORT%
+echo   API: http://localhost:5224
+echo   Durdurmak icin Ctrl+C
+echo ============================================================
 echo.
 
-set "PORT=%PORT%"
-set "NEXT_PUBLIC_ADK_API_URL=http://localhost:8000"
+set "NEXT_PUBLIC_API_URL=http://localhost:5224"
 call npm run dev
 
 echo.
-echo [UYARI] Dev server durdu.
-goto :done
+echo [UYARI] Platform dev server durdu.
+popd
+pause
+exit /b 0
 
 :fail
-if "%DID_PUSHD%"=="1" popd >nul 2>nul
 echo.
-echo ============================================================
-echo  Baslama basarisiz. Yukardaki mesaji oku.
-echo ============================================================
+echo [HATA] Baslatma basarisiz. Yukardaki mesajlari oku.
 echo.
 pause
 exit /b 1
-
-:done
-popd >nul 2>nul
-echo.
-pause
-exit /b 0

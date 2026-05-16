@@ -22,6 +22,7 @@ import {
   getBuyerProfile,
   getSavedAnalyses,
   getProjects,
+  syncProjectsFromApi,
   getCompareQueue,
   STATUS_LABELS,
 } from "@/lib/buyer-store";
@@ -139,6 +140,7 @@ export function BuyerDashboard() {
     }
     setSavedAnalyses(getSavedAnalyses());
     setProjects(getProjects());
+    syncProjectsFromApi().then(setProjects).catch(() => {});
     setCompareCount(getCompareQueue().length);
     setMounted(true);
 

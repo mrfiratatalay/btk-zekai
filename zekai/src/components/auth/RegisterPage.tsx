@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRight, CheckCircle, Eye, EyeOff, Lock, Mail, Phone, Sparkles, Store, User } from "lucide-react";
+import { register } from "@/lib/api/auth";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 type Role = "buyer" | "seller";
 
@@ -51,10 +53,17 @@ export function RegisterPage() {
   }
 
   async function finish() {
+    setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setStep(3);
-    setLoading(false);
+    try {
+      const fullName = `${form.firstName} ${form.lastName}`.trim();
+      await register(form.email, form.password, fullName, role);
+      setStep(3);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Kayıt başarısız. Lütfen tekrar deneyin.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const inputCls = "w-full border-0 py-3 text-sm text-foreground outline-none transition-all focus:ring-2 focus:ring-black dark:focus:ring-[#ADFF41] bg-muted";
@@ -73,7 +82,10 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="mb-8 flex items-center justify-center gap-2.5">

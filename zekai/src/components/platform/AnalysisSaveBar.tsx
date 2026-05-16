@@ -31,7 +31,7 @@ import {
   addAnalysisToProject,
 } from "@/lib/buyer-store";
 import { notifyStoreUpdate } from "@/components/platform/PlatformNav";
-import { formatPrice } from "@/lib/mock-data/products";
+import { formatPrice } from "@/lib/format";
 import type { BuyerAnalysis } from "@/types/analysis";
 import type { Product } from "@/types/product";
 

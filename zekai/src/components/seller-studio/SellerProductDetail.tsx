@@ -18,21 +18,22 @@ import {
 import { toast } from "sonner";
 import type { SellerProductPerformance } from "@/types/seller";
 import { cn } from "@/lib/utils";
-import { formatSellerPrice } from "@/lib/mock-data/seller";
+import { formatSellerPrice } from "@/lib/format";
+import { updateProductContent } from "@/lib/api/seller";
 
-/* ─── AI mock content ─── */
-const AI_TITLES: Record<string, string> = {
+/* ─── Product suggestion content ─── */
+const TITLE_SUGGESTIONS: Record<string, string> = {
   "bluetooth-kulaklik-pro-x1": "Bluetooth 5.0 Kablosuz Kulaklık | 20 Saat Pil | Günlük Kullanım - Beyaz",
   "spor-ayakkabi-runflex": "RunFlex Hafif Tabanlı Spor Ayakkabı | Nefes Alan Taban | Günlük Koşu",
   "mutfak-robotu-compact": "CookMate 900W Kompakt Mutfak Robotu | 5 Hız | Paslanmaz Bıçak Seti",
 };
-const AI_DESCRIPTIONS: Record<string, string> = {
+const DESCRIPTION_SUGGESTIONS: Record<string, string> = {
   "bluetooth-kulaklik-pro-x1":
     "Yüksek performanslı, düşük gecikmeli Bluetooth kulaklık. Gün boyu konforlu kullanım ve net ses deneyimi sunar. Hem iş hem de günlük kullanım için idealdir.",
   "spor-ayakkabi-runflex": "Günlük yürüyüş ve hafif koşu için tasarlanan spor ayakkabı.",
   "mutfak-robotu-compact": "Günlük mutfak kullanımı için 900W kompakt mutfak robotu.",
 };
-const AI_FEATURES: Record<string, string[]> = {
+const FEATURE_SUGGESTIONS: Record<string, string[]> = {
   "bluetooth-kulaklik-pro-x1": ["Bluetooth 5.3", "15 saat pil ömrü", "Dokunmatik kontrol", "Bas güçlendirici"],
   "spor-ayakkabi-runflex": ["Nefes alan taban", "Hafif tasarım", "Kaymaz taban"],
   "mutfak-robotu-compact": ["900W motor", "5 hız ayarı", "Paslanmaz bıçak"],
@@ -71,7 +72,7 @@ function SimulationModal({
         </button>
 
         <div className="flex justify-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl bg-green-50">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-green-50 dark:bg-green-500/10">
             <Sparkles className="size-7 text-green-500" />
           </div>
         </div>
@@ -85,7 +86,7 @@ function SimulationModal({
 
         {/* Product mini-card */}
         <div className="mt-5 flex items-center gap-4 rounded-2xl bg-gray-50 p-4 dark:bg-white/5">
-          <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-white">
+          <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-white dark:bg-white/5">
             <Image src={product.image} alt={product.title} fill className="object-contain p-2" />
           </div>
           <div className="min-w-0">
@@ -129,9 +130,9 @@ export function SellerProductDetail({ product }: { product: SellerProductPerform
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState(product.title);
   const [description, setDescription] = useState(
-    AI_DESCRIPTIONS[product.id] ?? "Ürün açıklaması buraya gelecek.",
+    DESCRIPTION_SUGGESTIONS[product.id] ?? "Ürün açıklaması API verisiyle güncellenebilir.",
   );
-  const [features] = useState<string[]>(AI_FEATURES[product.id] ?? []);
+  const [features] = useState<string[]>(FEATURE_SUGGESTIONS[product.id] ?? [product.category, `${product.stock} stok`, formatSellerPrice(product.price)]);
   const [titleGenerating, setTitleGenerating] = useState(false);
   const [descGenerating, setDescGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -141,7 +142,7 @@ export function SellerProductDetail({ product }: { product: SellerProductPerform
   async function generateTitle() {
     setTitleGenerating(true);
     await new Promise((r) => setTimeout(r, 900));
-    setTitle(AI_TITLES[product.id] ?? product.title);
+    setTitle(TITLE_SUGGESTIONS[product.id] ?? product.title);
     setTitleGenerating(false);
     toast.success("Başlık güncellendi");
   }
@@ -149,23 +150,28 @@ export function SellerProductDetail({ product }: { product: SellerProductPerform
   async function generateDesc() {
     setDescGenerating(true);
     await new Promise((r) => setTimeout(r, 1000));
-    setDescription(AI_DESCRIPTIONS[product.id] ?? "");
+    setDescription(DESCRIPTION_SUGGESTIONS[product.id] ?? description);
     setDescGenerating(false);
     toast.success("Açıklama güncellendi");
   }
 
   async function handleSave() {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setSaving(false);
-    setSaved(true);
-    toast.success("Ürün kaydedildi!");
+    try {
+      await updateProductContent(product.id, { title, description });
+      setSaved(true);
+      toast.success("Ürün kaydedildi!");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Kayıt başarısız.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (saved) {
     return (
       <div className="mx-auto max-w-sm py-20 text-center">
-        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-green-50">
+        <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-green-50 dark:bg-green-500/10">
           <Check className="size-7 text-green-500" />
         </div>
         <h2 className="mt-6 text-xl font-bold text-gray-900 dark:text-white">Kaydedildi!</h2>
@@ -362,12 +368,12 @@ export function SellerProductDetail({ product }: { product: SellerProductPerform
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Ürün Görselleri</p>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" />
               <div className="mt-4 grid grid-cols-4 gap-3">
-                <div className="relative aspect-square overflow-hidden rounded-xl bg-gray-50">
+                <div className="relative aspect-square overflow-hidden rounded-xl bg-gray-50 dark:bg-white/5">
                   <Image src={product.image} alt="" fill className="object-contain p-2" />
                 </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="aspect-square rounded-xl border-2 border-dashed border-gray-200 text-2xl text-gray-300 hover:border-green-400 hover:text-green-400"
+                  className="aspect-square rounded-xl border-2 border-dashed border-gray-200 text-2xl text-gray-300 hover:border-green-400 hover:text-green-400 dark:border-white/10"
                 >
                   +
                 </button>

@@ -25,3 +25,6 @@ docs/
 yarisma/
 
 DEST/
+
+# Script logs
+scripts/logs/

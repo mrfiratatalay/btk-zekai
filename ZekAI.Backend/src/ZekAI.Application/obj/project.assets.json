@@ -1,11 +1,30 @@
 {
   "version": 3,
   "targets": {
-    "net10.0": {}
+    "net10.0": {
+      "ZekAI.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "compile": {
+          "bin/placeholder/ZekAI.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/ZekAI.Domain.dll": {}
+        }
+      }
+    }
   },
-  "libraries": {},
+  "libraries": {
+    "ZekAI.Domain/1.0.0": {
+      "type": "project",
+      "path": "../ZekAI.Domain/ZekAI.Domain.csproj",
+      "msbuildProject": "../ZekAI.Domain/ZekAI.Domain.csproj"
+    }
+  },
   "projectFileDependencyGroups": {
-    "net10.0": []
+    "net10.0": [
+      "ZekAI.Domain >= 1.0.0"
+    ]
   },
   "packageFolders": {
     "C:\\Users\\FIRAT\\.nuget\\packages\\": {},
@@ -38,7 +57,11 @@
       "frameworks": {
         "net10.0": {
           "targetAlias": "net10.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\ZekAI.Backend\\src\\ZekAI.Domain\\ZekAI.Domain.csproj": {
+              "projectPath": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\ZekAI.Backend\\src\\ZekAI.Domain\\ZekAI.Domain.csproj"
+            }
+          }
         }
       },
       "warningProperties": {

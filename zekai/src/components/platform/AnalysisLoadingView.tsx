@@ -74,25 +74,25 @@ function AgentNode({ data }: NodeProps<Node<AgentND>>) {
   const Icon = ICON[data.type] ?? PackageSearch;
   return (
     <div className={cn(
-      "w-56 rounded-2xl border bg-white p-4 shadow-sm transition-all duration-300",
-      data.state === "completed" && "border-emerald-200 bg-emerald-50 shadow-emerald-100",
-      data.state === "active"    && "border-violet-300 bg-violet-50 shadow-lg shadow-violet-100",
-      data.state === "pending"   && "border-slate-100 opacity-50",
+      "w-56 rounded-2xl border bg-white p-4 shadow-sm transition-all duration-300 dark:bg-card",
+      data.state === "completed" && "border-emerald-200 bg-emerald-50 shadow-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:shadow-none",
+      data.state === "active"    && "border-violet-300 bg-violet-50 shadow-lg shadow-violet-100 dark:border-violet-500/30 dark:bg-violet-500/10 dark:shadow-none",
+      data.state === "pending"   && "border-slate-100 opacity-50 dark:border-white/10",
     )}>
-      <Handle type="target" position={Position.Left} className="!border-0 !bg-slate-200" />
+      <Handle type="target" position={Position.Left} className="!border-0 !bg-slate-200 dark:!bg-white/20" />
       <div className="flex items-start gap-3">
         <span className={cn(
           "flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors duration-300",
-          data.state === "completed" && "bg-emerald-500 text-foreground",
-          data.state === "active"    && "bg-violet-600 text-foreground",
-          data.state === "pending"   && "bg-slate-100 text-slate-400",
+          data.state === "completed" && "bg-emerald-500 text-white",
+          data.state === "active"    && "bg-violet-600 text-white",
+          data.state === "pending"   && "bg-slate-100 text-slate-400 dark:bg-white/10 dark:text-slate-500",
         )}>
           {data.state === "completed" ? <CheckCircle2 className="size-5" />
            : data.state === "active"  ? <Loader2 className="size-5 animate-spin" />
            : <Icon className="size-5" />}
         </span>
         <div className="min-w-0">
-          <p className="text-xs font-semibold leading-4 text-slate-800">{data.label}</p>
+          <p className="text-xs font-semibold leading-4 text-slate-800 dark:text-slate-100">{data.label}</p>
           <p className="mt-1 text-[11px] leading-4 text-slate-400 line-clamp-3">
             {data.state === "completed" ? data.summary : data.description}
           </p>
@@ -101,9 +101,9 @@ function AgentNode({ data }: NodeProps<Node<AgentND>>) {
       {/* Status row */}
       <div className={cn(
         "mt-3 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium",
-        data.state === "completed" && "bg-emerald-100 text-emerald-700",
-        data.state === "active"    && "bg-violet-100 text-violet-700",
-        data.state === "pending"   && "bg-slate-50 text-slate-400",
+        data.state === "completed" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+        data.state === "active"    && "bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
+        data.state === "pending"   && "bg-slate-50 text-slate-400 dark:bg-white/5 dark:text-slate-500",
       )}>
         {data.state === "completed" ? <CheckCircle2 className="size-3" />
          : data.state === "active"  ? <Loader2 className="size-3 animate-spin" />
@@ -112,7 +112,7 @@ function AgentNode({ data }: NodeProps<Node<AgentND>>) {
          : data.state === "active"  ? "Çalışıyor..."
          : "Sırada"}
       </div>
-      <Handle type="source" position={Position.Right} className="!border-0 !bg-slate-200" />
+      <Handle type="source" position={Position.Right} className="!border-0 !bg-slate-200 dark:!bg-white/20" />
     </div>
   );
 }

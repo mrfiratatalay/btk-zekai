@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Bell, Bookmark, HelpCircle, LayoutDashboard, Package, Settings, Sparkles } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Bell, Bookmark, HelpCircle, LayoutDashboard, LogOut, Package, RotateCcw, Settings, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getCurrentUser, logout } from "@/lib/api/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const NAV = [
   { label: "Dashboard", href: "/seller", icon: LayoutDashboard },
   { label: "Ürünlerim", href: "/seller/products", icon: Package },
   { label: "AI Studio", href: "/seller/ai-studio", icon: Sparkles },
+  { label: "İadeler", href: "/seller/returns", icon: RotateCcw },
   { label: "Kaydedilen Çıktılar", href: "/seller/saved", icon: Bookmark },
   { label: "Ayarlar", href: "/seller/settings", icon: Settings },
 ];
@@ -28,6 +30,17 @@ function ZekAILogo({ size = 28 }: { size?: number }) {
 
 export function SellerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const user = getCurrentUser();
+  const initials = user?.fullName
+    ? user.fullName.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
+    : "ME";
+  const displayName = user?.fullName ?? "Mehmet Elektronik";
+
+  function handleLogout() {
+    logout();
+    router.push("/login");
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
@@ -74,24 +87,32 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
         {/* User footer */}
         <div className="shrink-0 border-t border-gray-100 p-4 dark:border-white/8">
           <div className="flex items-center gap-3">
-            {/* Avatar */}
             <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-green-500 text-[13px] font-black text-white">
-              ME
+              {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-gray-900 dark:text-white">Mehmet Elektronik</p>
-              <p className="truncate text-xs text-gray-400">Demo Store</p>
+              <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{displayName}</p>
+              <p className="truncate text-xs text-gray-400">{user?.email ?? "Satıcı"}</p>
             </div>
           </div>
-          <Link
-            href="/"
-            className="mt-3 flex items-center gap-2 text-xs font-medium text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M7.5 1L2.5 6L7.5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Zekai'ye dön
-          </Link>
+          <div className="mt-3 flex items-center justify-between">
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M7.5 1L2.5 6L7.5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Zekai&apos;ye dön
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 transition-colors hover:text-red-500"
+            >
+              <LogOut className="size-3.5" />
+              Çıkış
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -114,8 +135,9 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
             <button className="flex size-9 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/5">
               <Bell className="size-4" />
             </button>
+            <ThemeToggle className="text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5" />
             <div className="ml-1 flex size-9 items-center justify-center rounded-full bg-green-500 text-[12px] font-black text-white">
-              BY
+              {initials}
             </div>
           </div>
         </header>

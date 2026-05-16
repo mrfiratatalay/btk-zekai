@@ -11,10 +11,9 @@ import {
   extractVerifiedReport,
   runBuyerAgentStream,
   stepIdFromAuthor,
-} from "@/lib/mock-adk/buyer-agent";
+} from "@/lib/adk/buyer-agent";
 
-// In mock/prototype mode there is no backend — disable live agent
-const MOCK_MODE = true;
+const LIVE_AGENT_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ADK_AGENT !== "false";
 
 function getCacheKey(analysis: BuyerAnalysis, product?: Product) {
   if (!product) return undefined;
@@ -37,12 +36,12 @@ export function BuyerAnalysisExperience({
   });
   const [liveAnalysis, setLiveAnalysis] = useState(analysis);
   const [completedStepIds, setCompletedStepIds] = useState<Set<string>>(() => new Set());
-  const [useLiveAgent, setUseLiveAgent] = useState(Boolean(product) && !MOCK_MODE);
+  const [useLiveAgent, setUseLiveAgent] = useState(Boolean(product) && LIVE_AGENT_ENABLED);
   const startedRef = useRef(false);
   const handleComplete = useCallback(() => setStatus("completed"), []);
 
   useEffect(() => {
-    if (!product || startedRef.current || MOCK_MODE) return;
+    if (!product || startedRef.current || !LIVE_AGENT_ENABLED) return;
 
     startedRef.current = true;
     let cancelled = false;

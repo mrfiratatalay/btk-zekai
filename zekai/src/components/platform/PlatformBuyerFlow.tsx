@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -19,24 +19,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { getProductById, formatPrice } from "@/lib/mock-data/products";
+import { getProduct, type ProductDetail } from "@/lib/api/products";
 
 const LINK_PREFIX = "https://zekai.market/urun/";
 
+function formatPrice(v: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(v);
+}
+
 function resolveProductId(url: string): string | null {
-  const slugs = [
-    "bluetooth-kulaklik-pro-x1",
-    "akilli-saat-fit-neo",
-    "ergonomik-calisma-sandalyesi",
-    "seramik-taki-seti-beyaz",
-    "spor-ayakkabi-ultra-boost",
-    "kamera-lensli-akilli-robot-supurge",
-  ];
-  for (const slug of slugs) {
-    if (url.includes(slug)) return slug;
-  }
-  const m = url.match(/\/product\/([^/?#]+)/);
-  return m ? m[1] : null;
+  // Try /product/<slug> pattern
+  const m = url.match(/\/(?:product|urun)\/([^/?#]+)/);
+  if (m) return m[1];
+  // Try bare slug (no protocol)
+  if (!url.includes("/") && url.trim().length > 0) return url.trim();
+  return null;
 }
 
 function encodeAnalysisId(productId: string, need: string) {
@@ -48,21 +49,26 @@ export function PlatformBuyerFlow() {
   const searchParams = useSearchParams();
   const preloadedId = searchParams.get("productId");
 
-  const [url, setUrl] = useState(
-    preloadedId ? `${LINK_PREFIX}${preloadedId}` : ""
-  );
+  const [url, setUrl] = useState(preloadedId ? `${LINK_PREFIX}${preloadedId}` : "");
   const [linkError, setLinkError] = useState("");
-  const [product, setProduct] = useState(
-    preloadedId ? getProductById(preloadedId) : null
-  );
-  const [step, setStep] = useState<"link" | "need" | "launching">(
-    preloadedId && getProductById(preloadedId) ? "need" : "link"
-  );
+  const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [loadingProduct, setLoadingProduct] = useState(false);
+  const [step, setStep] = useState<"link" | "need" | "launching">("link");
   const [userNeed, setUserNeed] = useState("");
   const [needError, setNeedError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  function handleLinkSubmit(e: React.FormEvent) {
+  // Preload product from query param
+  useEffect(() => {
+    if (!preloadedId) return;
+    setLoadingProduct(true);
+    getProduct(preloadedId)
+      .then((p) => { setProduct(p); setStep("need"); })
+      .catch(() => { /* stay on link step if preload fails */ })
+      .finally(() => setLoadingProduct(false));
+  }, [preloadedId]);
+
+  async function handleLinkSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLinkError("");
     const id = resolveProductId(url.trim());
@@ -70,13 +76,16 @@ export function PlatformBuyerFlow() {
       setLinkError("Link tanınamadı. Demo mağazadan bir ürün linki kopyala.");
       return;
     }
-    const found = getProductById(id);
-    if (!found) {
-      setLinkError("Ürün bulunamadı.");
-      return;
+    setLoadingProduct(true);
+    try {
+      const found = await getProduct(id);
+      setProduct(found);
+      setStep("need");
+    } catch {
+      setLinkError("Ürün bulunamadı. Lütfen geçerli bir ürün linki girin.");
+    } finally {
+      setLoadingProduct(false);
     }
-    setProduct(found);
-    setStep("need");
   }
 
   function handleAnalyze(e: React.FormEvent) {
@@ -176,10 +185,17 @@ export function PlatformBuyerFlow() {
                 )}
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-[#adff41] text-[#0a0a0f] font-bold hover:bg-[#9aef30]"
+                  disabled={loadingProduct}
+                  className="w-full h-12 bg-[#adff41] text-[#0a0a0f] font-bold hover:bg-[#9aef30] disabled:opacity-70"
                 >
-                  Ürünü Getir
-                  <ArrowRight className="ml-2 size-4" />
+                  {loadingProduct ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <>
+                      Ürünü Getir
+                      <ArrowRight className="ml-2 size-4" />
+                    </>
+                  )}
                 </Button>
               </form>
 
@@ -233,7 +249,7 @@ export function PlatformBuyerFlow() {
                 <div className="flex gap-4 p-5">
                   <div className="relative size-20 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
                     <Image
-                      src={product.image}
+                      src={product.images[0] ?? product.primaryImage}
                       alt={product.title}
                       fill
                       sizes="80px"

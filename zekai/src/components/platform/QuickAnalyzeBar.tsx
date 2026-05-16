@@ -32,30 +32,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { getProductById, formatPrice } from "@/lib/mock-data/products";
+import { getProduct, mapProductDetailToProduct } from "@/lib/api/products";
+import { formatPrice } from "@/lib/format";
 import type { Product } from "@/types/product";
 import { cn } from "@/lib/utils";
 
 const LINK_PREFIX = "https://zekai.market/urun/";
 
-const PRODUCT_SLUGS = [
-  "bluetooth-kulaklik-pro-x1",
-  "akilli-saat-fit-neo",
-  "ergonomik-calisma-sandalyesi",
-  "seramik-taki-seti-beyaz",
-  "spor-ayakkabi-runflex",
-  "kamera-lensli-akilli-robot-supurge",
-  "hava-temizleyici-mini",
-  "mutfak-robotu-compact",
-  "bebek-kamerasi-nightview",
-];
-
 function resolveProductId(url: string): string | null {
-  for (const slug of PRODUCT_SLUGS) {
-    if (url.includes(slug)) return slug;
-  }
-  const m = url.match(/\/product\/([^/?#]+)/);
-  return m ? m[1] : null;
+  const m = url.match(/\/(?:product|urun)\/([^/?#]+)/);
+  if (m) return m[1];
+  if (!url.includes("/") && url.trim().length > 0) return url.trim();
+  return null;
 }
 
 function encodeAnalysisId(productId: string, need: string) {
@@ -91,27 +79,31 @@ export function QuickAnalyzeBar() {
   const [url, setUrl] = useState("");
   const [linkError, setLinkError] = useState("");
   const [product, setProduct] = useState<Product | null>(null);
+  const [loadingProduct, setLoadingProduct] = useState(false);
   const [step, setStep] = useState<Step>("link");
   const [userNeed, setUserNeed] = useState("");
   const [giftTarget, setGiftTarget] = useState<string>("kendim");
   const [needError, setNeedError] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  function handleLinkSubmit(e: React.FormEvent) {
+  async function handleLinkSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLinkError("");
     const id = resolveProductId(url.trim());
     if (!id) {
-      setLinkError("Link tanınamadı. Demo mağazadan bir ürün linki kopyala.");
+      setLinkError("Link taninamadi. Demo magazadan bir urun linki kopyala.");
       return;
     }
-    const found = getProductById(id);
-    if (!found) {
-      setLinkError("Ürün bulunamadı.");
-      return;
+    setLoadingProduct(true);
+    try {
+      const found = await getProduct(id);
+      setProduct(mapProductDetailToProduct(found));
+      setStep("need");
+    } catch {
+      setLinkError("Urun bulunamadi.");
+    } finally {
+      setLoadingProduct(false);
     }
-    setProduct(found);
-    setStep("need");
   }
 
   function handleAnalyze(e: React.FormEvent) {
@@ -167,10 +159,11 @@ export function QuickAnalyzeBar() {
               />
               <Button
                 type="submit"
+                disabled={loadingProduct}
                 className="absolute right-2 top-2 h-12 rounded-[24px] bg-[#adff41] px-6 font-bold text-[#0a0a0f] transition-all hover:bg-[#9aef30] hover:scale-105 shadow-lg shadow-[#adff41]/20"
               >
-                Analiz Et
-                <ArrowRight className="ml-1.5 size-4" />
+                {loadingProduct ? "Getiriliyor" : "Analiz Et"}
+                {loadingProduct ? <Loader2 className="ml-1.5 size-4 animate-spin" /> : <ArrowRight className="ml-1.5 size-4" />}
               </Button>
             </form>
 
@@ -366,3 +359,4 @@ export function QuickAnalyzeBar() {
     </div>
   );
 }
+

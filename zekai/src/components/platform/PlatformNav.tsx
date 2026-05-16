@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSavedAnalyses, getCompareQueue } from "@/lib/buyer-store";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/platform", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -95,6 +96,8 @@ export function PlatformNav() {
               </Link>
             );
           })}
+
+          <ThemeToggle />
 
           {/* Bildirim Zili (Mock) */}
           <div className="relative ml-2">

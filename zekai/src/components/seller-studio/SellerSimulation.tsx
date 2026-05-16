@@ -17,7 +17,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SellerProductPerformance } from "@/types/seller";
-import { formatSellerPrice, sellerImprovements, syntheticPersonas } from "@/lib/mock-data/seller";
+import { formatSellerPrice } from "@/lib/format";
+import { SYNTHETIC_PERSONAS } from "@/lib/constants/personas";
+import { getSellerImprovements } from "@/lib/seller-improvements";
 
 const COMPLETE_DELAY_MS = 4200;
 const STREAM_INTERVAL_MS = 320;
@@ -67,8 +69,8 @@ const earlyInsights = [
 /* ═════════════════ Running State ═════════════════ */
 
 function SimulationRunning({ product, visible }: { product: SellerProductPerformance; visible: number }) {
-  const total = syntheticPersonas.length;
-  const visiblePersonas = syntheticPersonas.slice(0, visible);
+  const total = SYNTHETIC_PERSONAS.length;
+  const visiblePersonas = SYNTHETIC_PERSONAS.slice(0, visible);
   const buyV = visiblePersonas.filter((p) => p.decision === "buy").length;
   const skipV = visiblePersonas.filter((p) => p.decision === "skip").length;
   const undecV = visiblePersonas.filter((p) => p.decision === "undecided").length;
@@ -239,10 +241,10 @@ function SimulationRunning({ product, visible }: { product: SellerProductPerform
 /* ═════════════════ Completed State ═════════════════ */
 
 function SimulationCompleted({ product }: { product: SellerProductPerformance }) {
-  const buy = syntheticPersonas.filter((p) => p.decision === "buy").length;
-  const undecided = syntheticPersonas.filter((p) => p.decision === "undecided").length;
-  const skip = syntheticPersonas.filter((p) => p.decision === "skip").length;
-  const top3 = sellerImprovements.slice(0, 3);
+  const buy = SYNTHETIC_PERSONAS.filter((p) => p.decision === "buy").length;
+  const undecided = SYNTHETIC_PERSONAS.filter((p) => p.decision === "undecided").length;
+  const skip = SYNTHETIC_PERSONAS.filter((p) => p.decision === "skip").length;
+  const top3 = getSellerImprovements(product).slice(0, 3);
   const nextStepSuggestions = [
     "Simülasyon sonuçlarına göre başlığı iyileştir",
     "Eksik fotoğrafları ekle ve düzenle",
@@ -269,7 +271,7 @@ function SimulationCompleted({ product }: { product: SellerProductPerformance })
         <div className="hidden items-center gap-6 sm:flex">
           {[
             { label: "Fiyat", value: formatSellerPrice(product.price) },
-            { label: "Müşteri", value: String(syntheticPersonas.length) },
+            { label: "Müşteri", value: String(SYNTHETIC_PERSONAS.length) },
             { label: "Puan", value: (5 - product.returnRate / 20).toFixed(1) },
             { label: "Skor", value: String(product.healthScore) },
           ].map((s) => (
@@ -286,7 +288,7 @@ function SimulationCompleted({ product }: { product: SellerProductPerformance })
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Müşteri Simülasyonu Tamamlandı</h1>
           <p className="mt-1 text-sm text-gray-500">
-            {syntheticPersonas.length} müşteri profili incelendi ve sonuçlar hazır.
+            {SYNTHETIC_PERSONAS.length} müşteri profili incelendi ve sonuçlar hazır.
           </p>
         </div>
         <div className="hidden flex-col items-end gap-1 sm:flex">
@@ -349,7 +351,7 @@ function SimulationCompleted({ product }: { product: SellerProductPerformance })
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/8 dark:bg-white/4">
             <p className="mb-4 font-bold text-gray-900 dark:text-white">Öneri Sıralaması</p>
             <div className="flex gap-3 overflow-x-auto pb-1">
-              {syntheticPersonas.map((p, i) => {
+              {SYNTHETIC_PERSONAS.map((p, i) => {
                 const badge = decisionBadge[p.decision];
                 return (
                   <div key={p.id} className="w-36 shrink-0 rounded-2xl border border-gray-100 bg-gray-50 p-3 dark:border-white/8 dark:bg-white/3">
@@ -429,7 +431,7 @@ export function SellerSimulation({ product }: { product: SellerProductPerformanc
   const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
-    if (visible < syntheticPersonas.length) {
+    if (visible < SYNTHETIC_PERSONAS.length) {
       const t = setTimeout(() => setVisible((v) => v + 1), STREAM_INTERVAL_MS);
       return () => clearTimeout(t);
     }

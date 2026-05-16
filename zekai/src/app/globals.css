@@ -166,6 +166,7 @@ body {
   color:            var(--color-foreground);
   font-family:      var(--font-body);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* ── Focus ring ─────────────────────────────────────────────────────────── */

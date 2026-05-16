@@ -2,34 +2,114 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bot, Eye, Package, Search, Sparkles, Star, Tag, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatSellerPrice, sellerProducts } from "@/lib/mock-data/seller";
+import { getSellerProducts, type SellerProduct } from "@/lib/api/seller";
+import { getProducts, type ProductListItem } from "@/lib/api/products";
+import { getCurrentUser } from "@/lib/api/auth";
+
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 type FilterKey = "all" | "active" | "draft";
 
-/* products with low stock treated as draft */
 function isDraft(stock: number) {
   return stock < 15;
 }
+
+// Merge API product list (images, stock) with seller metrics
+type MergedProduct = SellerProduct & { primaryImage?: string };
 
 export function SellerProducts() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [bannerVisible, setBannerVisible] = useState(true);
+  const [sellerProducts, setSellerProducts] = useState<SellerProduct[]>([]);
+  const [publicProducts, setPublicProducts] = useState<ProductListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const user = getCurrentUser();
+  const isSeller = user?.role === "Seller";
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Always fetch public products for images
+        const pub = await getProducts();
+        setPublicProducts(pub);
+
+        // Fetch seller-specific metrics if logged in as seller
+        if (isSeller) {
+          const sel = await getSellerProducts();
+          setSellerProducts(sel);
+        }
+      } catch (e) {
+        console.error("Failed to fetch products:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [isSeller]);
+
+  // Merge seller metrics with public product images
+  const merged: MergedProduct[] = useMemo(() => {
+    if (isSeller && sellerProducts.length > 0) {
+      return sellerProducts.map((sp) => ({
+        ...sp,
+        primaryImage: publicProducts.find((p) => p.id === sp.id)?.primaryImage ?? sp.primaryImage,
+      }));
+    }
+    // Fallback: show public products as seller products
+    return publicProducts.map((p) => ({
+      id: p.id,
+      title: p.title,
+      primaryImage: p.primaryImage,
+      category: p.category,
+      price: p.price,
+      stock: p.stock,
+      sales30d: 0,
+      returnRate: 0,
+      conversionRate: 0,
+      healthScore: 70,
+      lostProfitMonthly: 0,
+      improvableRevenueMonthly: 0,
+      status: "Healthy" as const,
+      mainIssue: "",
+      updatedAt: new Date().toISOString(),
+    }));
+  }, [isSeller, sellerProducts, publicProducts]);
 
   const filtered = useMemo(() => {
-    return sellerProducts
-      .filter((p) =>
-        p.title.toLocaleLowerCase("tr-TR").includes(search.toLocaleLowerCase("tr-TR")),
-      )
+    return merged
+      .filter((p) => p.title.toLocaleLowerCase("tr-TR").includes(search.toLocaleLowerCase("tr-TR")))
       .filter((p) => {
         if (filter === "active") return !isDraft(p.stock);
         if (filter === "draft") return isDraft(p.stock);
         return true;
       });
-  }, [search, filter]);
+  }, [merged, search, filter]);
+
+  const urgentCount = merged.filter((p) => p.status === "Urgent").length;
+
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <div className="h-8 w-48 animate-pulse rounded-xl bg-gray-100 dark:bg-white/8" />
+        <div className="grid gap-4 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-64 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/8" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -38,12 +118,10 @@ export function SellerProducts() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ürünlerim</h1>
           <p className="mt-1 text-sm text-gray-400">
-            Ürünlerini yönet, test et ve Zekai ile geliştir.
+            {merged.length} ürün · Ürünlerini yönet, test et ve Zekai ile geliştir.
           </p>
         </div>
-
-        {/* Banner pill */}
-        {bannerVisible && (
+        {bannerVisible && urgentCount > 0 && (
           <div className="flex shrink-0 items-center gap-2.5 rounded-full border border-green-200 bg-green-50 py-2 pl-3 pr-3 dark:border-green-500/20 dark:bg-green-500/10">
             <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-green-500">
               <Zap className="size-3.5 text-white" />
@@ -51,10 +129,7 @@ export function SellerProducts() {
             <p className="text-sm text-gray-700 dark:text-gray-300">
               <span className="font-bold">Öneri:</span> Satışa çıkmadan önce ürünlerini müşteri simülasyonuyla test et.
             </p>
-            <button
-              onClick={() => setBannerVisible(false)}
-              className="ml-1 text-gray-400 hover:text-gray-600"
-            >
+            <button onClick={() => setBannerVisible(false)} className="ml-1 text-gray-400 hover:text-gray-600">
               <X className="size-3.5" />
             </button>
           </div>
@@ -63,7 +138,6 @@ export function SellerProducts() {
 
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-3">
-        {/* Search */}
         <div className="relative w-64">
           <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-300" />
           <input
@@ -73,8 +147,6 @@ export function SellerProducts() {
             className="h-10 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-4 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
         </div>
-
-        {/* Filter tabs */}
         <div className="flex items-center gap-1">
           {(["all", "active", "draft"] as FilterKey[]).map((key) => {
             const label = key === "all" ? "Tümü" : key === "active" ? "Aktif" : "Taslak";
@@ -108,18 +180,17 @@ export function SellerProducts() {
             <div
               key={product.id}
               className={cn(
-                "flex flex-col overflow-hidden rounded-2xl bg-white transition-all hover:shadow-lg dark:bg-[#111]",
+                "flex flex-col overflow-hidden rounded-2xl bg-white transition-all hover:shadow-md dark:bg-[#111]",
                 featured
                   ? "border-2 border-green-500 shadow-md"
                   : "border border-gray-200 shadow-sm dark:border-white/10",
               )}
             >
-              {/* ── Clickable body ── */}
+              {/* Clickable body → product detail */}
               <Link
                 href={`/seller/product/${product.id}`}
                 className="relative flex gap-0 hover:bg-gray-50/50 dark:hover:bg-white/3 transition-colors"
               >
-                {/* Featured badge */}
                 {featured && (
                   <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-1 text-[11px] font-bold text-white shadow">
                     <Sparkles className="size-3" />
@@ -127,68 +198,56 @@ export function SellerProducts() {
                   </div>
                 )}
 
-                {/* Product image */}
+                {/* Image */}
                 <div className="relative m-4 size-36 shrink-0 overflow-hidden rounded-xl bg-gray-50 dark:bg-white/5">
-                  <Image
-                    src={product.image}
-                    alt={product.title}
-                    fill
-                    sizes="144px"
-                    className="object-contain p-3"
-                  />
+                  {product.primaryImage ? (
+                    <Image
+                      src={product.primaryImage}
+                      alt={product.title}
+                      fill
+                      sizes="144px"
+                      className="object-contain p-3"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-gray-300">
+                      <Package className="size-10" />
+                    </div>
+                  )}
                 </div>
 
-                {/* Product content */}
+                {/* Content */}
                 <div className="flex min-w-0 flex-1 flex-col justify-center py-4 pr-4">
                   <h3 className="line-clamp-2 text-[15px] font-bold leading-snug text-gray-900 dark:text-white">
                     {product.title}
                   </h3>
 
-                  {/* Status badge */}
                   <div className="mt-2 flex items-center gap-1.5">
-                    <span
-                      className={cn(
-                        "text-sm font-bold",
-                        draft ? "text-gray-400" : "text-green-600 dark:text-green-400",
-                      )}
-                    >
+                    <span className={cn("text-sm font-bold", draft ? "text-gray-400" : "text-green-600 dark:text-green-400")}>
                       {draft ? "Taslak" : "Aktif"}
                     </span>
-                    <span
-                      className={cn(
-                        "size-1.5 rounded-full",
-                        draft ? "bg-gray-300" : "bg-green-500",
-                      )}
-                    />
+                    <span className={cn("size-1.5 rounded-full", draft ? "bg-gray-300" : "bg-green-500")} />
                   </div>
 
-                  {/* Stats row */}
                   <div className="mt-3 grid grid-cols-3 gap-1">
                     {[
-                      { icon: <Tag className="size-3" />, label: "Fiyat", value: formatSellerPrice(product.price) },
+                      { icon: <Tag className="size-3" />, label: "Fiyat", value: formatPrice(product.price) },
                       { icon: <Package className="size-3" />, label: "Stok", value: stockDisplay },
                       { icon: <Star className="size-3" />, label: "Puan", value: rating },
                     ].map((stat) => (
                       <div key={stat.label}>
-                        <div className="flex items-center gap-1 text-gray-400">
-                          {stat.icon}
-                          <span className="text-[11px]">{stat.label}</span>
-                        </div>
-                        <p className="mt-0.5 text-sm font-bold text-gray-900 dark:text-white">
-                          {stat.value}
-                        </p>
+                        <div className="flex items-center gap-1 text-gray-400">{stat.icon}<span className="text-[11px]">{stat.label}</span></div>
+                        <p className="mt-0.5 text-sm font-bold text-gray-900 dark:text-white">{stat.value}</p>
                       </div>
                     ))}
                   </div>
 
-                  {/* Son test */}
                   <p className="mt-2.5 text-[11px] text-gray-400">
-                    Son test: {product.updatedAt}
+                    Son güncelleme: {new Date(product.updatedAt).toLocaleDateString("tr-TR")}
                   </p>
                 </div>
               </Link>
 
-              {/* ── Buttons ── */}
+              {/* Buttons */}
               <div className="flex flex-col gap-2 border-t border-gray-100 px-4 pb-4 pt-3 dark:border-white/8">
                 <Link
                   href={`/seller/product/${product.id}/simulation`}
@@ -197,7 +256,6 @@ export function SellerProducts() {
                   Müşteri Simülasyonuyla Test Et
                   <span className="text-green-200">›</span>
                 </Link>
-
                 <div className="grid grid-cols-2 gap-2">
                   <Link
                     href={`/seller/product/${product.id}/ai-edit`}
@@ -220,7 +278,7 @@ export function SellerProducts() {
         })}
       </div>
 
-      {filtered.length === 0 && (
+      {filtered.length === 0 && !loading && (
         <div className="py-24 text-center">
           <Package className="mx-auto mb-3 size-8 text-gray-200" />
           <p className="text-sm text-gray-400">Ürün bulunamadı.</p>

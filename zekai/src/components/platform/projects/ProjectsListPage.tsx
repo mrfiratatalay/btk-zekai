@@ -17,12 +17,13 @@ import {
   getSavedAnalyses,
   createProject,
   deleteProject,
+  syncProjectsFromApi,
 } from "@/lib/buyer-store";
 import { notifyStoreUpdate } from "@/components/platform/PlatformNav";
 import type { ShoppingProject, SavedAnalysis } from "@/types/analysis";
 import { PlatformNav } from "@/components/platform/PlatformNav";
 import { Button } from "@/components/ui/button";
-import { formatPrice } from "@/lib/mock-data/products";
+import { formatPrice } from "@/lib/format";
 
 /* ─── Create Project Modal ────────────────────────────────────────────────── */
 function CreateProjectModal({ onClose, onCreate }: {
@@ -257,6 +258,7 @@ export function ProjectsListPage() {
 
   useEffect(() => {
     setProjects(getProjects());
+    syncProjectsFromApi().then(setProjects).catch(() => {});
     setAnalyses(getSavedAnalyses());
     setMounted(true);
 

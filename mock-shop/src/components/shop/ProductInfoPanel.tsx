@@ -1,13 +1,12 @@
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatPrice } from "@/lib/mock-data/products";
+import { formatPrice } from "@/lib/api/products";
 import type { Product } from "@/types/product";
 import {
   BatteryCharging,
   Bluetooth,
   Copy,
-  ExternalLink,
+
   Info,
   Mic,
   PackageCheck,
@@ -142,18 +141,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         </Button>
       </div>
 
-      {/* Zekai CTA */}
-      <div className="rounded-xl border border-[#adff41]/30 bg-[#0a0a0f]/5 p-4">
-        <p className="mb-2 text-xs font-medium text-slate-500">
-          Bu ürünü satın almadan önce analiz ettirmek ister misin?
-        </p>
-        <Link href={`http://localhost:3001/platform?productId=${product.id}`}>
-          <Button className="w-full h-10 rounded-lg bg-[#0a0a0f] text-sm font-bold text-[#adff41] hover:bg-[#111118]">
-            <ExternalLink className="mr-2 size-4" />
-            Zekai&apos;de Pişmanlık Riskini Öğren
-          </Button>
-        </Link>
-      </div>
+
 
       {/* Seller row */}
       <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
