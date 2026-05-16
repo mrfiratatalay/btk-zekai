@@ -188,13 +188,15 @@ export function QuickAnalyzeBar() {
                   {item.label}
                 </button>
               ))}
-              <Link
-                href="/mock-shop"
+              <a
+                href={process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000"}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold text-[#5a8a00] dark:text-[#adff41] hover:underline"
               >
                 <ExternalLink className="size-3.5" />
                 Demo Mağaza
-              </Link>
+              </a>
             </div>
           </motion.div>
         )}

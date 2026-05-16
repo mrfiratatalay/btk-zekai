@@ -285,11 +285,28 @@ public class DataSeeder(AppDbContext db)
         // ── Reviews for Bluetooth Kulaklık ──
         var reviews = new List<ProductReview>
         {
+            // Bluetooth Kulaklık
             new() { ProductId = "bluetooth-kulaklik-pro-x1", Rating = 4, Title = "Günlük kullanım için yeterli", Text = "Müzik dinlemek için harika, ama online toplantılarda mikrofon biraz zayıf kalıyor.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-10), HelpfulCount = 24, TagsJson = """["mikrofon","ses kalitesi"]""" },
             new() { ProductId = "bluetooth-kulaklik-pro-x1", Rating = 2, Title = "Oyun için uygun değil", Text = "Low latency bekliyordum ama gecikme var. Müzik için fena değil.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-20), HelpfulCount = 41, TagsJson = """["gecikme","oyun"]""" },
             new() { ProductId = "bluetooth-kulaklik-pro-x1", Rating = 5, Title = "Pil ömrü mükemmel", Text = "20 saat gerçekten doğru, şarj etmeyi unutuyorum. Tavsiye ederim.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-5), HelpfulCount = 18, TagsJson = """["pil","konfor"]""" },
+            new() { ProductId = "bluetooth-kulaklik-pro-x1", Rating = 3, Title = "Fiyatına göre makul", Text = "Bu fiyat aralığında beklentileri karşılıyor. Premium ses kalitesi isteyenler daha üst segmenti düşünmeli.", VerifiedPurchase = false, Date = DateTime.UtcNow.AddDays(-30), HelpfulCount = 7, TagsJson = """["fiyat","kalite"]""" },
+            // Spor Ayakkabı
             new() { ProductId = "spor-ayakkabi-runflex",     Rating = 3, Title = "Beden kalıbı farklı", Text = "Yarım numara büyük aldım, doğru karar.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-15), HelpfulCount = 32, TagsJson = """["beden","kalıp"]""" },
+            new() { ProductId = "spor-ayakkabi-runflex",     Rating = 5, Title = "Hafif ve rahat", Text = "Sabah koşusunda nefes alan tabanı sayesinde ayak terlemeden 10km koştum.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-7), HelpfulCount = 19, TagsJson = """["hafiflik","nefes alan"]""" },
+            new() { ProductId = "spor-ayakkabi-runflex",     Rating = 2, Title = "Uzun süre dayanmadı", Text = "3 ay sonra taban ayrıldı. Fiyatına göre hayal kırıklığı.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-45), HelpfulCount = 28, TagsJson = """["dayanıklılık","taban"]""" },
+            // Mutfak Robotu
             new() { ProductId = "mutfak-robotu-compact",     Rating = 4, Title = "Kompakt ve güçlü", Text = "Küçük mutfak için ideal. Ses biraz yüksek ama performans iyi.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-8), HelpfulCount = 11, TagsJson = """["ses","güç"]""" },
+            new() { ProductId = "mutfak-robotu-compact",     Rating = 5, Title = "Her sabah kullanıyorum", Text = "Smoothie, hamur, sebze doğrama hepsi çok hızlı. Temizliği de kolay.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-12), HelpfulCount = 22, TagsJson = """["çok amaçlı","temizlik"]""" },
+            new() { ProductId = "mutfak-robotu-compact",     Rating = 3, Title = "Kutu içeriği eksik", Text = "Reklam görselindeki ekstra aparatlar kutuda yoktu. Müşteri hizmetleri çözdü ama yine de can sıkıcı.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-25), HelpfulCount = 15, TagsJson = """["kutu içeriği","müşteri hizmetleri"]""" },
+            // Akıllı Saat
+            new() { ProductId = "akilli-saat-fit-neo",       Rating = 4, Title = "Spor takibi çok iyi", Text = "Adım sayar, kalp atışı, uyku takibi hepsi doğru çalışıyor. Batarya 5 gün gidiyor.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-18), HelpfulCount = 34, TagsJson = """["spor","batarya"]""" },
+            new() { ProductId = "akilli-saat-fit-neo",       Rating = 3, Title = "Uygulama biraz karmaşık", Text = "Saat güzel ama telefon uygulaması Türkçe değil ve menüler karmaşık.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-22), HelpfulCount = 16, TagsJson = """["uygulama","arayüz"]""" },
+            // Ergonomik Sandalye
+            new() { ProductId = "ergonomik-calisma-sandalyesi", Rating = 5, Title = "Sırt ağrıları geçti", Text = "8 saatlik iş günü sonunda artık sırt ağrısı yaşamıyorum. Bel desteği çok iyi.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-35), HelpfulCount = 52, TagsJson = """["bel desteği","konfor"]""" },
+            new() { ProductId = "ergonomik-calisma-sandalyesi", Rating = 2, Title = "Montaj çok zor", Text = "Montaj talimatları yetersiz, 3 saat uğraştım. İçerik iyi ama süreç sinir bozucu.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-40), HelpfulCount = 29, TagsJson = """["montaj","talimат"]""" },
+            // USB-C Hub
+            new() { ProductId = "usb-c-hub-pro",             Rating = 5, Title = "MacBook için mükemmel", Text = "7 port aynı anda çalışıyor. 4K ekran, ethernet, 3 USB-A, kart okuyucu hepsi sorunsuz.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-14), HelpfulCount = 47, TagsJson = """["uyumluluk","çok port"]""" },
+            new() { ProductId = "usb-c-hub-pro",             Rating = 3, Title = "Windows'ta sorun var", Text = "Mac'te harika ama Windows'ta bazı portlar tanınmıyor. Sürücü güncellemesiyle kısmen çözüldü.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-28), HelpfulCount = 21, TagsJson = """["Windows","sürücü"]""" },
         };
         db.ProductReviews.AddRange(reviews);
         await db.SaveChangesAsync();
@@ -359,16 +376,11 @@ public class DataSeeder(AppDbContext db)
         }
         await db.SaveChangesAsync();
 
-        // ── Buyer User ──
-        var buyerUser = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = "burak@ornekstore.com",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Buyer123!"),
-            FullName = "Burak Yılmaz",
-            Role = UserRole.Buyer,
-        };
-        db.Users.Add(buyerUser);
+        // ── Buyer Users ──
+        db.Users.AddRange(
+            new User { Id = Guid.NewGuid(), Email = "burak@ornekstore.com", PasswordHash = BCrypt.Net.BCrypt.HashPassword("Buyer123!"), FullName = "Burak Yılmaz", Role = UserRole.Buyer },
+            new User { Id = Guid.NewGuid(), Email = "ali@test.com",         PasswordHash = BCrypt.Net.BCrypt.HashPassword("Buyer123!"), FullName = "Ali Demir",    Role = UserRole.Buyer }
+        );
         await db.SaveChangesAsync();
 
         Console.WriteLine("✅ Database seeded successfully.");

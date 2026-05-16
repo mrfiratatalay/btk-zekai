@@ -264,13 +264,15 @@ export function SellerProducts() {
                     <Bot className="size-4 text-gray-400" />
                     AI ile Düzenle
                   </Link>
-                  <Link
-                    href={`/mock-shop/product/${product.id}`}
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000"}/product/${product.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex h-9 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/5"
                   >
                     <Eye className="size-4 text-gray-400" />
                     Mağazada Gör
-                  </Link>
+                  </a>
                 </div>
               </div>
             </div>

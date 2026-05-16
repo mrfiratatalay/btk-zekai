@@ -118,6 +118,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:5002"
       NEXT_PUBLIC_COMMERCE_API_URL: "http://localhost:5001"
+      NEXT_PUBLIC_COMMERCE_WEB_URL: "http://localhost:3000"
       NEXT_PUBLIC_ADK_API_URL: "http://localhost:8000"
       NEXT_PUBLIC_ENABLE_ADK_AGENT: "true"
     ports:

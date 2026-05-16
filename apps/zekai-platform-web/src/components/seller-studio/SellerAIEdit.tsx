@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 import { getSellerImprovements } from "@/lib/seller-improvements";
+import { updateProductContent } from "@/lib/api/seller";
 
 type Tab = "info" | "photos" | "store";
 
@@ -93,9 +94,19 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
 
   async function handleSave() {
     setSaving(true);
-    await delay(1200);
-    setSaving(false);
-    setSaved(true);
+    try {
+      await updateProductContent(product.id, {
+        title,
+        description,
+        price: Number(price),
+        stock: Number(stock),
+      });
+      setSaved(true);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Kaydetme başarısız oldu.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const rating = (5 - product.returnRate / 20).toFixed(1);
