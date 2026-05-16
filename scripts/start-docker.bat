@@ -21,6 +21,28 @@ echo   Komut: docker compose up --build
 echo   Durdurmak icin CTRL+C
 echo.
 
+where docker >nul 2>nul
+if errorlevel 1 (
+  echo [HATA] Docker komutu bulunamadi.
+  echo [HATA] Docker Desktop kurulu ve PATH'e ekli olmalidir.
+  pause
+  exit /b 1
+)
+
+docker compose version >nul 2>nul
+if errorlevel 1 (
+  echo [HATA] Docker Compose calismiyor.
+  echo [HATA] Docker Desktop'i acin ve tekrar deneyin.
+  pause
+  exit /b 1
+)
+
+if not exist "%ROOT_DIR%\docker-compose.yml" (
+  echo [HATA] docker-compose.yml bulunamadi: %ROOT_DIR%
+  pause
+  exit /b 1
+)
+
 pushd "%ROOT_DIR%"
 if errorlevel 1 (
   echo [HATA] Proje dizinine girilemedi: %ROOT_DIR%
