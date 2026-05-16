@@ -21,6 +21,34 @@ const BUDGET_OPTIONS = [
 
 const CATEGORY_OPTIONS = ["Elektronik", "Giyim", "Ev & Yaşam", "Spor", "Aksesuar", "Diğer"];
 
+const inputCls = "w-full rounded-2xl border border-border bg-muted py-3 text-sm text-foreground outline-none transition-all focus:border-foreground focus:ring-2 focus:ring-foreground/20 dark:focus:border-[#ADFF41] dark:focus:ring-[#ADFF41]/20";
+
+// Field bileşeni RegisterPage dışında tanımlanmalı —
+// içeride tanımlanırsa her render'da yeni tip olarak algılanır ve unmount/remount olur.
+function Field({
+  label,
+  iconEl,
+  children,
+}: {
+  label: string;
+  iconEl?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block pl-1 text-xs font-semibold text-foreground/70">{label}</label>
+      <div className="relative">
+        {iconEl && (
+          <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+            {iconEl}
+          </div>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function RegisterPage() {
   const router = useRouter();
   const [role, setRole] = useState<Role>("buyer");
@@ -66,20 +94,7 @@ export function RegisterPage() {
     }
   }
 
-  const inputCls = "w-full border-0 py-3 text-sm text-foreground outline-none transition-all focus:ring-2 focus:ring-black dark:focus:ring-[#ADFF41] bg-muted";
   const inputStyle = { borderRadius: "16px" };
-
-  function Field({ label, iconEl, children }: { label: string; iconEl?: React.ReactNode; children: React.ReactNode }) {
-    return (
-      <div>
-        <label className="mb-1.5 block pl-1 text-xs font-semibold text-foreground/70">{label}</label>
-        <div className="relative">
-          {iconEl && <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">{iconEl}</div>}
-          {children}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
@@ -232,7 +247,7 @@ export function RegisterPage() {
                     <div>
                       <label className="mb-1.5 block pl-1 text-xs font-semibold text-foreground/70">Ana Kategori</label>
                       <select value={form.category} onChange={f("category")}
-                        className="w-full border-0 py-3 px-4 text-sm text-foreground outline-none bg-muted focus:ring-2 focus:ring-black dark:focus:ring-[#ADFF41]"
+                        className="w-full rounded-2xl border border-border bg-muted py-3 px-4 text-sm text-foreground outline-none transition-all focus:border-foreground dark:focus:border-[#ADFF41]"
                         style={inputStyle}>
                         <option value="">Kategori seçin</option>
                         {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}

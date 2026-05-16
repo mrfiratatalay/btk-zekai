@@ -65,5 +65,10 @@ export async function apiFetch<T>(
     throw new Error(err.message ?? `HTTP ${res.status}`);
   }
 
+  // 204 No Content (DELETE gibi) — body yok, parse etme
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as T;
+  }
+
   return res.json() as Promise<T>;
 }

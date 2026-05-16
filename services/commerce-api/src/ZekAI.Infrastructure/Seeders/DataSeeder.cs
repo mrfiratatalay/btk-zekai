@@ -307,6 +307,45 @@ public class DataSeeder(AppDbContext db)
             // USB-C Hub
             new() { ProductId = "usb-c-hub-pro",             Rating = 5, Title = "MacBook için mükemmel", Text = "7 port aynı anda çalışıyor. 4K ekran, ethernet, 3 USB-A, kart okuyucu hepsi sorunsuz.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-14), HelpfulCount = 47, TagsJson = """["uyumluluk","çok port"]""" },
             new() { ProductId = "usb-c-hub-pro",             Rating = 3, Title = "Windows'ta sorun var", Text = "Mac'te harika ama Windows'ta bazı portlar tanınmıyor. Sürücü güncellemesiyle kısmen çözüldü.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-28), HelpfulCount = 21, TagsJson = """["Windows","sürücü"]""" },
+            new() { ProductId = "usb-c-hub-pro",             Rating = 4, Title = "İyi fiyat/performans", Text = "Fiyatına göre çok iyi. Isınma sorunu biraz var ama kabul edilebilir.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-9), HelpfulCount = 14, TagsJson = """["fiyat","ısınma"]""" },
+
+            // Akıllı Saat (ek)
+            new() { ProductId = "akilli-saat-fit-neo",       Rating = 5, Title = "Fiyatına göre harika", Text = "Bu fiyatta bu özellikleri bulmak zor. Nabız ve uyku takibi çok doğru.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-6), HelpfulCount = 27, TagsJson = """["fiyat","hassasiyet"]""" },
+            new() { ProductId = "akilli-saat-fit-neo",       Rating = 4, Title = "Şık tasarım", Text = "Günlük kullanımda çok rahat, kayış kalitesi de iyi.", VerifiedPurchase = false, Date = DateTime.UtcNow.AddDays(-33), HelpfulCount = 9, TagsJson = """["tasarım","kayış"]""" },
+
+            // Hava Temizleyici
+            new() { ProductId = "hava-temizleyici-mini",     Rating = 5, Title = "Allerji sorunum azaldı", Text = "Kullanmaya başladıktan sonra sabah burun tıkanıklığı geçti. Kesinlikle tavsiye ederim.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-12), HelpfulCount = 38, TagsJson = """["allerji","etkinlik"]""" },
+            new() { ProductId = "hava-temizleyici-mini",     Rating = 4, Title = "Sessiz çalışıyor", Text = "Gece boyunca açık bırakıyorum, hiç rahatsız etmiyor. Filtre değişimi kolay.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-20), HelpfulCount = 22, TagsJson = """["ses","filtre"]""" },
+            new() { ProductId = "hava-temizleyici-mini",     Rating = 5, Title = "Bebek odasında kullanıyoruz", Text = "Cocuk odasında kullandık, koku ve toz sorunu tamamen çözüldü.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-8), HelpfulCount = 45, TagsJson = """["bebek","güvenlik"]""" },
+            new() { ProductId = "hava-temizleyici-mini",     Rating = 4, Title = "Kompakt ama güçlü", Text = "30m² oda için yeterli. Sadece en yüksek modda biraz ses çıkarıyor.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-35), HelpfulCount = 17, TagsJson = """["alan","ses"]""" },
+
+            // Telefon Kılıfı
+            new() { ProductId = "telefon-kilifi-magsafe",    Rating = 5, Title = "Sararmıyor gerçekten", Text = "2 ay oldu, hiç sararma yok. MagSafe mıknatısı çok güçlü tutuyor.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-60), HelpfulCount = 67, TagsJson = """["sararma","mıknatıs"]""" },
+            new() { ProductId = "telefon-kilifi-magsafe",    Rating = 4, Title = "Şeffaf ve ince", Text = "Telefon tasarımını bozmadan koruyor. Düşürme testi yapmadım ama sağlam hissettiriyor.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-14), HelpfulCount = 31, TagsJson = """["şeffaf","ince"]""" },
+            new() { ProductId = "telefon-kilifi-magsafe",    Rating = 4, Title = "Uyumlu modeller dikkat", Text = "iPhone 15 Pro Max için tam oturdu. Ama diğer modeller için kontrol etmenizi öneririm.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-7), HelpfulCount = 19, TagsJson = """["uyumluluk","model"]""" },
+
+            // Seramik Takı Seti
+            new() { ProductId = "seramik-taki-seti-beyaz",   Rating = 5, Title = "Hediye olarak aldım, çok beğenildi", Text = "Annem için doğum günü hediyesi aldım. Hediye paketi çok özenli, ürün çok şık.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-18), HelpfulCount = 44, TagsJson = """["hediye","şıklık"]""" },
+            new() { ProductId = "seramik-taki-seti-beyaz",   Rating = 5, Title = "El işçiliği belli", Text = "Her parça farklı, bu benzersizlik çok güzel. Kırılganlık uyarısı yerinde, nazik taşıyın.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-30), HelpfulCount = 28, TagsJson = """["el yapımı","benzersiz"]""" },
+            new() { ProductId = "seramik-taki-seti-beyaz",   Rating = 4, Title = "Güzel ama hassas", Text = "Çok beğendim ama günlük kullanım için değil, özel günlere sakladım.", VerifiedPurchase = false, Date = DateTime.UtcNow.AddDays(-10), HelpfulCount = 12, TagsJson = """["hassas","özel gün"]""" },
+
+            // Bebek Kamerası
+            new() { ProductId = "bebek-kamerasi-nightview",  Rating = 5, Title = "Gece görüşü mükemmel", Text = "Gecenin karanlığında odayı net görüntülüyor. Uygulama çok basit ve hızlı bağlanıyor.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-22), HelpfulCount = 53, TagsJson = """["gece görüşü","uygulama"]""" },
+            new() { ProductId = "bebek-kamerasi-nightview",  Rating = 4, Title = "İki yönlü ses harika", Text = "Bebeğim ağladığında sesimle sakinleştiriyorum. WiFi bağlantısı güçlü.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-45), HelpfulCount = 38, TagsJson = """["ses","wifi"]""" },
+            new() { ProductId = "bebek-kamerasi-nightview",  Rating = 5, Title = "Gönül rahatlığı", Text = "Bebeği izlemek artık çok kolay. 1080p görüntü çok net, memnunum.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-11), HelpfulCount = 29, TagsJson = """["güvenlik","görüntü kalitesi"]""" },
+
+            // Masa Lambası
+            new() { ProductId = "masa-lambasi-led",          Rating = 5, Title = "Her gece kullanıyorum", Text = "Dokunmatik kontrol çok pratik. 3 renk modu gece okuma için ideal.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-16), HelpfulCount = 41, TagsJson = """["dokunmatik","renk modu"]""" },
+            new() { ProductId = "masa-lambasi-led",          Rating = 4, Title = "USB şarj çok uygun", Text = "Priz aramaya gerek yok, powerbank'ten şarj ediyorum. Pil ömrü de iyi.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-27), HelpfulCount = 24, TagsJson = """["şarj","pil ömrü"]""" },
+            new() { ProductId = "masa-lambasi-led",          Rating = 5, Title = "Hediye için aldım ama kendim kullanıyorum", Text = "Çok beğendim, kendim kullanmaya başladım. Kompakt tasarım çalışma masası için ideal.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-5), HelpfulCount = 18, TagsJson = """["tasarım","kompakt"]""" },
+
+            // Kahve Değirmeni
+            new() { ProductId = "kahve-degirmeni-burr",      Rating = 5, Title = "Sabah kahvesi bambaşka oldu", Text = "Taze öğütülmüş kahvenin farkı inanılmaz. Espresso için ince, French Press için kaba ayar mükemmel.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-19), HelpfulCount = 56, TagsJson = """["öğütme","espresso"]""" },
+            new() { ProductId = "kahve-degirmeni-burr",      Rating = 4, Title = "18 kademe yeterli", Text = "Her demleme yöntemi için doğru kıvamı bulabildim. Temizlemesi biraz zaman alıyor.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-38), HelpfulCount = 33, TagsJson = """["kademe","temizlik"]""" },
+            new() { ProductId = "kahve-degirmeni-burr",      Rating = 4, Title = "Manuel ama keyifli", Text = "Her sabah öğütmek bir ritüele dönüştü. Kalite ve fiyat dengesi çok iyi.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-9), HelpfulCount = 22, TagsJson = """["manuel","ritüel"]""" },
+
+            // Ergonomik Sandalye (ek)
+            new() { ProductId = "ergonomik-calisma-sandalyesi", Rating = 4, Title = "Ev ofisi için biçilmiş kaftan", Text = "Uzaktan çalışıyorum, 8 saat oturuyorum. Sandalye bel ve boyun ağrısını çözdü.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-22), HelpfulCount = 37, TagsJson = """["ev ofisi","uzun kullanım"]""" },
         };
         db.ProductReviews.AddRange(reviews);
         await db.SaveChangesAsync();

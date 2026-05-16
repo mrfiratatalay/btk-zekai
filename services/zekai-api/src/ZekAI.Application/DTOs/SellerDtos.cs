@@ -1,6 +1,6 @@
 namespace ZekAI.Application.DTOs;
 
-public record StoreConnectRequest(string CommerceEmail, string CommercePassword);
+public record StoreConnectRequest(string Platform, string ApiKey);
 
 // Matches the frontend StoreConnection interface (platform, storeName, status, lastSyncAt, productCount)
 public record StoreConnectionDto(
@@ -11,6 +11,7 @@ public record StoreConnectionDto(
     int ProductCount
 );
 
+// Mirrors commerce-api's SellerProductDto — must stay in sync
 public record CommerceProductDto(
     string Id,
     string Title,
@@ -18,5 +19,13 @@ public record CommerceProductDto(
     string Category,
     decimal Price,
     int Stock,
-    string Status
+    int Sales30d,
+    int ReturnRate,
+    int ConversionRate,
+    int HealthScore,
+    decimal LostProfitMonthly,
+    decimal ImprovableRevenueMonthly,
+    string Status,
+    string MainIssue,
+    DateTime UpdatedAt
 );

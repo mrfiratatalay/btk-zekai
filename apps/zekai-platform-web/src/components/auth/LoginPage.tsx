@@ -95,8 +95,7 @@ export function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="ornek@mail.com"
                   required
-                  className="w-full border-0 py-3 pl-10 pr-4 text-sm text-foreground outline-none transition-all focus:ring-2 focus:ring-black dark:focus:ring-[#ADFF41] bg-muted"
-                  style={{ borderRadius: "16px" }}
+                  className="w-full rounded-2xl border border-border bg-muted py-3 pl-10 pr-4 text-sm text-foreground outline-none transition-all focus:border-foreground focus:ring-2 focus:ring-foreground/20 dark:focus:border-[#ADFF41] dark:focus:ring-[#ADFF41]/20"
                 />
               </div>
             </div>
@@ -112,8 +111,7 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Şifrenizi girin"
                   required
-                  className="w-full border-0 py-3 pl-10 pr-12 text-sm text-foreground outline-none transition-all focus:ring-2 focus:ring-black dark:focus:ring-[#ADFF41] bg-muted"
-                  style={{ borderRadius: "16px" }}
+                  className="w-full rounded-2xl border border-border bg-muted py-3 pl-10 pr-12 text-sm text-foreground outline-none transition-all focus:border-foreground focus:ring-2 focus:ring-foreground/20 dark:focus:border-[#ADFF41] dark:focus:ring-[#ADFF41]/20"
                 />
                 <button type="button" onClick={() => setShow(!show)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -135,6 +133,15 @@ export function LoginPage() {
             >
               {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
             </button>
+
+            <div className="text-center text-xs text-muted-foreground mt-2">
+              <p>
+                <strong>Demo Satıcı:</strong> <code className="text-[#C1F25D] dark:text-[#ADFF41]">seller@zekai.com</code> / <code className="text-[#C1F25D] dark:text-[#ADFF41]">Seller123!</code>
+              </p>
+              <p className="mt-1">
+                <strong>Demo Alıcı:</strong> <code className="text-[#C1F25D] dark:text-[#ADFF41]">buyer@zekai.com</code> / <code className="text-[#C1F25D] dark:text-[#ADFF41]">Buyer123!</code>
+              </p>
+            </div>
 
             <div className="flex items-center gap-3">
               <div className="flex-1 border-t border-border" />

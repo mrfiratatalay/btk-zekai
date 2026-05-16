@@ -92,11 +92,17 @@ public class SellerService(AppDbContext db)
             .FirstOrDefaultAsync(sp => sp.SellerId == seller.Id && sp.ProductId == productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
-        var product = await db.Products.Include(p => p.Images)
+        var product = await db.Products
+            .Include(p => p.Images)
+            .Include(p => p.Reviews)
+            .Include(p => p.PriceHistory)
             .FirstOrDefaultAsync(p => p.Id == productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
+        // FK constraint'leri bozmamak için ilişkili tüm kayıtlar önce silinir
         db.ProductImages.RemoveRange(product.Images);
+        db.ProductReviews.RemoveRange(product.Reviews);
+        db.ProductPriceHistories.RemoveRange(product.PriceHistory);
         db.SellerProducts.Remove(sp);
         db.Products.Remove(product);
         await db.SaveChangesAsync();

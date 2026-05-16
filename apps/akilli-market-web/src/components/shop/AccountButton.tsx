@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LogOut, Store, UserRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useRouter } from "next/navigation";
@@ -24,48 +23,45 @@ export function AccountButton() {
     router.push("/");
   }
 
+  // Giriş yapılmış
   if (user) {
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
+        {/* Satıcı Paneli — sadece satıcılar */}
         {user.role === "Seller" && (
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="hidden h-9 gap-1.5 rounded-xl px-3 text-xs font-semibold text-green-700 hover:bg-green-50 hover:text-green-800 lg:flex"
+          <Link
+            href="/seller"
+            className="hidden cursor-pointer items-center gap-1.5 rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm font-semibold text-[#374151] transition-colors hover:border-[#FF6000] hover:text-[#FF6000] lg:flex"
           >
-            <Link href="/seller">
-              <Store className="size-3.5" />
-              Satıcı Paneli
-            </Link>
-          </Button>
+            <Store className="size-4" />
+            Satıcı Paneli
+          </Link>
         )}
-        <span className="hidden max-w-[100px] truncate text-sm font-semibold text-[#111827] lg:inline">
-          {user.fullName.split(" ")[0]}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
+
+        {/* İsim + Çıkış — tek bordered buton */}
+        <button
           onClick={handleLogout}
-          className="h-9 w-9 rounded-xl text-[#9CA3AF] hover:text-[#DC2626]"
           title="Çıkış Yap"
+          className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm font-semibold text-[#374151] transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-500"
         >
-          <LogOut className="size-4" />
-        </Button>
+          <UserRound className="size-4" />
+          <span className="hidden max-w-[80px] truncate lg:inline">
+            {user.fullName.split(" ")[0]}
+          </span>
+          <LogOut className="size-3.5 text-[#9CA3AF] transition-colors group-hover:text-red-400" />
+        </button>
       </div>
     );
   }
 
+  // Giriş yapılmamış
   return (
-    <Button
-      asChild
-      variant="ghost"
-      className="h-11 gap-2 rounded-xl px-3 font-semibold text-[#111827]"
+    <Link
+      href="/login"
+      className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm font-semibold text-[#374151] transition-colors hover:border-[#FF6000] hover:text-[#FF6000]"
     >
-      <Link href="/login">
-        <UserRound className="size-5" />
-        <span className="hidden lg:inline">Giriş Yap</span>
-      </Link>
-    </Button>
+      <UserRound className="size-4" />
+      <span className="hidden lg:inline">Giriş Yap</span>
+    </Link>
   );
 }

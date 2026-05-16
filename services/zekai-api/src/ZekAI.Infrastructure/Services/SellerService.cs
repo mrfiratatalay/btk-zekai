@@ -15,35 +15,36 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
             .FirstOrDefaultAsync(sc => sc.ZekaiUserId == userId && sc.Status == "connected");
         if (conn is null) return null;
 
-        var productCount = await commerce.GetSellerProductsAsync(conn.CommerceAccessToken);
-        return new StoreConnectionDto("Akıllı Market", "Demo Store", "Connected", conn.LastSyncedAt, productCount.Count);
+        var profile = await commerce.GetSellerProfileAsync(conn.CommerceAccessToken);
+        var products = await commerce.GetSellerProductsAsync(conn.CommerceAccessToken);
+        var storeName = profile?.StoreName ?? "Mağaza";
+        return new StoreConnectionDto("Akıllı Market", storeName, "Connected", conn.LastSyncedAt, products.Count);
     }
 
     public async Task<StoreConnectionDto> ConnectStoreAsync(Guid userId, StoreConnectRequest req)
     {
-        var authResult = await commerce.LoginAsync(req.CommerceEmail, req.CommercePassword)
-            ?? throw new UnauthorizedAccessException("Akıllı Market giriş bilgileri hatalı.");
-
-        if (!authResult.User.Role.Equals("seller", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Bu hesap bir satıcı hesabı değil. Akıllı Market'te satıcı olarak kayıt olun.");
+        // Validate the API key by calling the commerce platform with it as Bearer token
+        var profile = await commerce.GetSellerProfileAsync(req.ApiKey)
+            ?? throw new UnauthorizedAccessException("API anahtarı geçersiz veya süresi dolmuş.");
 
         var existing = await db.StoreConnections.FirstOrDefaultAsync(sc => sc.ZekaiUserId == userId);
         if (existing is not null)
         {
-            existing.CommerceAccessToken = authResult.Token;
-            existing.CommerceSellerId = authResult.User.Id.ToString();
+            existing.CommerceAccessToken = req.ApiKey;
+            existing.CommerceSellerId = profile.Id.ToString();
             existing.Status = "connected";
             existing.ConnectedAt = DateTime.UtcNow;
             existing.LastSyncedAt = null;
+            existing.ProviderName = req.Platform;
         }
         else
         {
             existing = new SellerStoreConnection
             {
                 ZekaiUserId = userId,
-                ProviderName = "akilli-market-demo",
-                CommerceSellerId = authResult.User.Id.ToString(),
-                CommerceAccessToken = authResult.Token,
+                ProviderName = req.Platform,
+                CommerceSellerId = profile.Id.ToString(),
+                CommerceAccessToken = req.ApiKey,
                 Status = "connected",
             };
             db.StoreConnections.Add(existing);
@@ -51,7 +52,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
 
         await db.SaveChangesAsync();
         var products = await commerce.GetSellerProductsAsync(existing.CommerceAccessToken);
-        return new StoreConnectionDto("Akıllı Market", "Demo Store", "Connected", null, products.Count);
+        return new StoreConnectionDto(req.Platform, profile.StoreName, "Connected", null, products.Count);
     }
 
     public async Task<object?> GetProfileAsync(Guid userId)

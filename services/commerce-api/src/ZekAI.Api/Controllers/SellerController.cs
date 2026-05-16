@@ -65,6 +65,7 @@ public class SellerController(SellerService seller) : ControllerBase
             return NoContent();
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     [HttpPut("products/{productId}/publish")]

@@ -1,91 +1,66 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Menu, Percent } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const categories = [
-  "Elektronik",
-  "Giyim",
-  "Ev & Yaşam",
-  "Anne & Bebek",
-  "Kozmetik",
-  "Spor & Outdoor",
-  "Kitap",
-  "Mutfak",
-  "Aksesuar",
-  "Kişisel Bakım",
-];
+import { getCategories, type Category } from "@/lib/api/products";
 
 export function CategoryStrip() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeCategory = searchParams.get("category") ?? "";
+  const activeSlug = searchParams.get("category") ?? "";
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  function selectCategory(cat: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (cat === activeCategory) {
-      params.delete("category");
+  useEffect(() => {
+    getCategories().then(setCategories).catch(() => {});
+  }, []);
+
+  function selectCategory(slug: string) {
+    if (slug === activeSlug) {
+      router.push("/");
     } else {
-      params.set("category", cat);
+      router.push(`/?category=${slug}`);
     }
-    router.push(`/shop?${params.toString()}`);
-  }
-
-  function clearCategory() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("category");
-    router.push(`/shop?${params.toString()}`);
   }
 
   return (
     <nav className="border-t border-[#E5E7EB] bg-white">
       <div className="mx-auto flex max-w-[1440px] items-center gap-6 overflow-x-auto px-6 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {/* suppressHydrationWarning on each button — browser extensions (LastPass/Roboform)
-            inject fdprocessedid on buttons which causes harmless hydration mismatch */}
         <button
           type="button"
-          onClick={clearCategory}
+          onClick={() => router.push("/")}
           suppressHydrationWarning
           className={cn(
             "flex min-w-max items-center gap-2 text-sm font-bold transition",
-            activeCategory === "" ? "text-[#FF6000]" : "text-[#111827] hover:text-[#FF6000]"
+            activeSlug === "" ? "text-[#FF6000]" : "text-[#111827] hover:text-[#FF6000]"
           )}
         >
-          <Menu className="size-5" />
-          Tüm Kategoriler
+          <LayoutGrid className="size-4" />
+          Tüm Ürünler
         </button>
 
-        <div className="flex min-w-max flex-1 items-center justify-center gap-8">
-          {categories.map((category) => (
+        <div className="flex min-w-max items-center gap-8">
+          {categories.map((cat) => (
             <button
-              key={category}
+              key={cat.id}
               type="button"
               suppressHydrationWarning
-              onClick={() => selectCategory(category)}
+              onClick={() => selectCategory(cat.slug)}
               className={cn(
-                "relative text-sm font-semibold transition",
-                activeCategory === category
+                "relative whitespace-nowrap text-sm font-semibold transition",
+                activeSlug === cat.slug
                   ? "text-[#FF6000]"
                   : "text-[#111827] hover:text-[#FF6000]"
               )}
             >
-              {category}
-              {activeCategory === category && (
+              {cat.name}
+              {activeSlug === cat.slug && (
                 <span className="absolute -bottom-2.5 left-0 right-0 h-0.5 rounded-full bg-[#FF6000]" />
               )}
             </button>
           ))}
         </div>
-
-        <button
-          type="button"
-          suppressHydrationWarning
-          className="ml-auto flex min-w-max items-center gap-2 text-sm font-bold text-[#FF6000]"
-        >
-          <Percent className="size-5" />
-          Fırsatlar
-        </button>
       </div>
     </nav>
   );

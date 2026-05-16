@@ -67,6 +67,14 @@ export const getProductReviews = (id: string) =>
 export const getProductPriceHistory = (id: string) =>
   apiFetch<ProductPricePoint[]>(`/api/products/${id}/price-history`, []);
 
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export const getCategories = () => apiFetch<Category[]>("/api/categories", []);
+
 export function mapProductDetailToProduct(product: ProductDetail): Product {
   const primaryImage = product.images[0] ?? product.primaryImage ?? "";
   return {

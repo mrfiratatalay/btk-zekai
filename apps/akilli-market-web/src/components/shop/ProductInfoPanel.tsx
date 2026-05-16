@@ -1,12 +1,15 @@
+"use client";
+
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/api/products";
 import type { Product } from "@/types/product";
+import { useCartStore } from "@/lib/store/cart-store";
 import {
   BatteryCharging,
   Bluetooth,
-  Copy,
-
+  Check,
   Info,
   Mic,
   PackageCheck,
@@ -28,11 +31,26 @@ function getFeatureIcon(label: string): LucideIcon {
 }
 
 export function ProductInfoPanel({ product }: { product: Product }) {
+  const [addedToCart, setAddedToCart] = useState(false);
+  const addItem = useCartStore((s) => s.addItem);
+
   const savings =
     product.originalPrice && product.originalPrice > product.price
       ? product.originalPrice - product.price
       : 0;
   const specs = Object.entries(product.features).slice(0, 4);
+
+  function handleAddToCart() {
+    addItem({
+      productId: product.id,
+      title: product.title,
+      price: product.price,
+      image: product.image,
+      stock: product.stock,
+    });
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 2000);
+  }
 
   return (
     <section className="flex flex-col gap-6">
@@ -92,29 +110,37 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         )}
       </div>
 
-      {/* Key specs — icon pills */}
-      <div className="grid grid-cols-2 gap-2">
-        {specs.map(([label, value]) => {
-          const Icon = getFeatureIcon(label);
-          return (
-            <div key={label} className="flex items-start gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
-              <Icon className="mt-0.5 size-4 shrink-0 text-slate-400" />
-              <div className="min-w-0">
-                <p className="text-[11px] font-medium text-slate-400">{label}</p>
-                <p className="text-xs font-semibold text-slate-800">{value}</p>
+      {/* Key specs */}
+      {specs.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {specs.map(([label, value]) => {
+            const Icon = getFeatureIcon(label);
+            return (
+              <div key={label} className="flex items-start gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+                <Icon className="mt-0.5 size-4 shrink-0 text-slate-400" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-slate-400">{label}</p>
+                  <p className="text-xs font-semibold text-slate-800">{value}</p>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Stock urgency */}
-      {product.stock <= 20 && (
+      {/* Stock */}
+      {product.stock <= 20 && product.stock > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
           <span className="size-2 shrink-0 rounded-full bg-amber-500" />
           <p className="text-sm font-medium text-amber-700">
             Son <strong>{product.stock} adet</strong> kaldı
           </p>
+        </div>
+      )}
+      {product.stock === 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5">
+          <span className="size-2 shrink-0 rounded-full bg-red-500" />
+          <p className="text-sm font-medium text-red-700">Stokta yok</p>
         </div>
       )}
 
@@ -130,18 +156,18 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         </div>
       </div>
 
-      {/* CTAs */}
-      <div className="flex gap-2.5">
-        <Button className="h-12 flex-1 rounded-xl bg-[#FF6000] text-base font-bold text-white hover:bg-[#E65700]">
-          <PackageCheck className="size-5" />
-          Sepete Ekle
-        </Button>
-        <Button variant="outline" className="h-12 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50">
-          <Copy className="size-4" />
-        </Button>
-      </div>
-
-
+      {/* CTA */}
+      <Button
+        onClick={handleAddToCart}
+        disabled={product.stock === 0}
+        className="h-12 w-full rounded-xl bg-[#FF6000] text-base font-bold text-white hover:bg-[#E65700] disabled:opacity-50"
+      >
+        {addedToCart ? (
+          <><Check className="size-5" /> Eklendi!</>
+        ) : (
+          <><PackageCheck className="size-5" /> Sepete Ekle</>
+        )}
+      </Button>
 
       {/* Seller row */}
       <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-sm">

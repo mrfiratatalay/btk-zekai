@@ -49,10 +49,10 @@ export const getSellerProfile = () => apiFetch<SellerProfile>("/api/seller/me");
 
 export const getSellerStore = () => apiFetch<StoreConnection>("/api/seller/store");
 
-export const connectStore = (commerceEmail: string, commercePassword: string) =>
+export const connectStore = (platform: string, apiKey: string) =>
   apiFetch<StoreConnection>("/api/seller/store/connect", {
     method: "POST",
-    body: JSON.stringify({ commerceEmail, commercePassword }),
+    body: JSON.stringify({ platform, apiKey }),
   });
 
 export const syncStore = () =>

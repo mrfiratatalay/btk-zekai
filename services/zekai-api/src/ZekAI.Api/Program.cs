@@ -71,6 +71,32 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ZekaiDbContext>();
     db.Database.Migrate();
+
+    // Seed Demo Seller
+    if (!db.Users.Any(u => u.Email == "seller@zekai.com"))
+    {
+        db.Users.Add(new ZekAI.Domain.Entities.ZekaiUser
+        {
+            Email = "seller@zekai.com",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Seller123!"),
+            FullName = "Demo Seller",
+            Role = "Seller"
+        });
+        db.SaveChanges();
+    }
+
+    // Seed Demo Buyer
+    if (!db.Users.Any(u => u.Email == "buyer@zekai.com"))
+    {
+        db.Users.Add(new ZekAI.Domain.Entities.ZekaiUser
+        {
+            Email = "buyer@zekai.com",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Buyer123!"),
+            FullName = "Demo Buyer",
+            Role = "Buyer"
+        });
+        db.SaveChanges();
+    }
 }
 
 app.UseCors();

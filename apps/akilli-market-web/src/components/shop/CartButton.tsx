@@ -10,20 +10,17 @@ export function CartButton() {
   const count = cartItemCount(items);
 
   return (
-    <Button
-      asChild
-      variant="ghost"
-      className="relative h-11 gap-2 rounded-xl px-3 font-semibold text-[#111827]"
+    <Link
+      href="/cart"
+      className="relative flex cursor-pointer items-center gap-2 rounded-xl border border-[#E5E7EB] px-3 py-2 text-sm font-semibold text-[#374151] transition-colors hover:border-[#FF6000] hover:text-[#FF6000]"
     >
-      <Link href="/cart">
-        <ShoppingCart className="size-5" />
-        <span className="hidden lg:inline">Sepetim</span>
-        {count > 0 && (
-          <span className="absolute -right-0.5 top-0 flex size-5 items-center justify-center rounded-full bg-[#FF6000] text-[11px] font-bold text-white">
-            {count}
-          </span>
-        )}
-      </Link>
-    </Button>
+      <ShoppingCart className="size-5" />
+      <span className="hidden lg:inline">Sepetim</span>
+      {count > 0 && (
+        <span className="absolute -right-1.5 -top-1 flex size-5 items-center justify-center rounded-full bg-[#FF6000] text-[11px] font-bold text-white">
+          {count}
+        </span>
+      )}
+    </Link>
   );
 }

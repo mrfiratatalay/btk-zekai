@@ -12,6 +12,7 @@ public class ProductService(AppDbContext db)
         var query = db.Products
             .Include(p => p.Images)
             .Include(p => p.Category)
+            .Include(p => p.Reviews)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(category))
@@ -28,8 +29,8 @@ public class ProductService(AppDbContext db)
             p.Category!.Name,
             p.Price,
             p.OriginalPrice,
-            p.Rating,
-            p.ReviewCount,
+            p.Reviews.Any() ? Math.Round(p.Reviews.Average(r => (double)r.Rating), 1) : 0.0,
+            p.Reviews.Count,
             p.Stock,
             p.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault() ?? "",
             p.ShortDescription,
@@ -42,6 +43,7 @@ public class ProductService(AppDbContext db)
         var p = await db.Products
             .Include(p => p.Images)
             .Include(p => p.Category)
+            .Include(p => p.Reviews)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (p is null) return null;
@@ -49,11 +51,14 @@ public class ProductService(AppDbContext db)
         var features = JsonSerializer.Deserialize<Dictionary<string, string>>(p.FeaturesJson) ?? [];
         var badges = JsonSerializer.Deserialize<List<string>>(p.BadgesJson) ?? [];
 
+        var rating = p.Reviews.Any() ? Math.Round(p.Reviews.Average(r => (double)r.Rating), 1) : 0.0;
+        var reviewCount = p.Reviews.Count;
+
         return new ProductDetailDto(
             p.Id, p.Title, p.Brand, p.SellerName,
             p.Category?.Name ?? "",
             p.Price, p.OriginalPrice,
-            p.Rating, p.ReviewCount, p.Stock,
+            rating, reviewCount, p.Stock,
             p.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).ToList(),
             p.ShortDescription, p.Description,
             features, badges, p.CargoText, p.UpdatedAt
@@ -90,8 +95,6 @@ public class ProductService(AppDbContext db)
 
     public async Task<ProductDetailDto?> GetByUrlAsync(string url)
     {
-        // Desteklenen formatlar:
-        // /product/{id}  veya  /urun/{id}  veya  /products/{id}
         var match = System.Text.RegularExpressions.Regex.Match(
             url, @"/(?:product|urun|products)/([^/?#]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 

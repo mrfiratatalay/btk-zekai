@@ -1,15 +1,32 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, Star } from "lucide-react";
 import type { Product } from "@/types/product";
 import { formatPrice } from "@/lib/api/products";
 import { Badge } from "@/components/ui/badge";
+import { useFavoritesStore } from "@/lib/store/favorites-store";
 
 export function ProductCard({ product }: { product: Product }) {
+  const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
+  const isFavorite = useFavoritesStore((s) => s.isFavorite(product.id));
+
   const savings =
     product.originalPrice && product.originalPrice > product.price
       ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
       : product.discountPercent;
+
+  function handleFavorite(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleFavorite({
+      productId: product.id,
+      title: product.title,
+      price: product.price,
+      image: product.image,
+    });
+  }
 
   return (
     <Link href={`/product/${product.id}`} className="group block">
@@ -22,12 +39,19 @@ export function ProductCard({ product }: { product: Product }) {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             className="object-contain p-4 transition duration-300 group-hover:scale-105"
           />
-          <span
-            className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full border border-[#E5E7EB] bg-white text-[#6B7280] shadow-sm transition hover:text-[#FF6000]"
-            aria-hidden="true"
+          {/* Favorites button */}
+          <button
+            onClick={handleFavorite}
+            className={`absolute right-3 top-3 flex size-8 items-center justify-center rounded-full border shadow-sm transition ${
+              isFavorite
+                ? "border-[#FF6000] bg-orange-50 text-[#FF6000]"
+                : "border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#FF6000] hover:text-[#FF6000]"
+            }`}
+            aria-label={isFavorite ? "Favorilerden çıkar" : "Favorilere ekle"}
           >
-            <Heart className="size-4" />
-          </span>
+            <Heart className={`size-4 ${isFavorite ? "fill-[#FF6000]" : ""}`} />
+          </button>
+
           {product.discountPercent ? (
             <Badge className="absolute left-3 top-3 rounded-md bg-[#DC2626] px-2.5 py-1 text-xs text-white">
               %{product.discountPercent} indirim
@@ -53,7 +77,7 @@ export function ProductCard({ product }: { product: Product }) {
             <span className="text-[#6B7280]">({product.reviewCount} yorum)</span>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex flex-wrap items-baseline gap-2">
               <span className="text-xl font-bold text-[#FF6000]">
                 {formatPrice(product.price)}
@@ -69,10 +93,6 @@ export function ProductCard({ product }: { product: Product }) {
                 %{savings} tasarruf
               </p>
             ) : null}
-          </div>
-
-          <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-2.5 py-2 text-xs text-[#6B7280]">
-            {product.category}
           </div>
         </div>
       </article>

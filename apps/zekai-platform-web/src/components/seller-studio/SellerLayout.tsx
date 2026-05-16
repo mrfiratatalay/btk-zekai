@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Bell, HelpCircle, LayoutDashboard, LogOut, Package, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCurrentUser, logout } from "@/lib/api/auth";
+import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const NAV = [
@@ -29,11 +29,13 @@ function ZekAILogo({ size = 28 }: { size?: number }) {
 export function SellerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const user = getCurrentUser();
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    if (!user) router.replace("/login");
-  }, [user, router]);
+    const u = getCurrentUser();
+    if (!u) { router.replace("/login"); return; }
+    setUser(u);
+  }, [router]);
 
   if (!user) return null;
 
