@@ -1,63 +1,34 @@
 @echo off
 setlocal EnableExtensions
-title Zekai - Full Stack Launcher
+title BTK Zekai - Docker Compose
 
 set "SCRIPT_DIR=%~dp0"
-set "BACKEND_SCRIPT=%SCRIPT_DIR%start-backend.bat"
-set "FRONTEND_SCRIPT=%SCRIPT_DIR%start-frontend.bat"
-set "MARKET_SCRIPT=%SCRIPT_DIR%start-market.bat"
+set "ROOT_DIR=%SCRIPT_DIR%.."
 
-echo.
-echo ============================================================
-echo   Zekai - Full Stack Launcher
-echo ============================================================
-echo.
-echo   .NET Backend   : http://localhost:5224
-echo   ZekAI Platform : http://localhost:3000
-echo   ZekAI Market   : http://localhost:3002
-echo.
-echo   Her biri ayri terminal penceresinde acilacak.
-echo.
-
-if not exist "%BACKEND_SCRIPT%" (
-  echo [HATA] start-backend.bat bulunamadi.
-  goto :fail
-)
-if not exist "%FRONTEND_SCRIPT%" (
-  echo [HATA] start-frontend.bat bulunamadi.
-  goto :fail
-)
-if not exist "%MARKET_SCRIPT%" (
-  echo [HATA] start-market.bat bulunamadi.
-  goto :fail
+pushd "%ROOT_DIR%"
+if errorlevel 1 (
+  echo [HATA] Repo kok dizinine girilemedi.
+  pause
+  exit /b 1
 )
 
-echo [1/3] .NET Backend baslatiliyor...
-start "Zekai - .NET Backend"   cmd /k ""%BACKEND_SCRIPT%""
-timeout /t 5 /nobreak >nul
-
-echo [2/3] ZekAI Platform baslatiliyor...
-start "Zekai - Platform"       cmd /k ""%FRONTEND_SCRIPT%""
-timeout /t 3 /nobreak >nul
-
-echo [3/3] ZekAI Market baslatiliyor...
-start "Zekai - Market"         cmd /k ""%MARKET_SCRIPT%""
-
 echo.
 echo ============================================================
-echo   Tum servisler baslatildi!
+echo   BTK Zekai - Full Docker Compose
 echo ============================================================
 echo.
-echo   .NET Backend   -> http://localhost:5224
-echo   ZekAI Platform -> http://localhost:3000
-echo   ZekAI Market   -> http://localhost:3002
+echo   Akilli Market      : http://localhost:3000
+echo   Zekai Platform     : http://localhost:3001
+echo   commerce-api       : http://localhost:5001/swagger
+echo   zekai-api          : http://localhost:5002/swagger
+echo   ai-service         : http://localhost:8000
 echo.
+echo   Komut: docker compose up --build
+echo.
+
+docker compose up --build
+set "EXIT_CODE=%ERRORLEVEL%"
+
+popd
 pause
-exit /b 0
-
-:fail
-echo.
-echo [HATA] Baslatma basarisiz.
-echo.
-pause
-exit /b 1
+exit /b %EXIT_CODE%

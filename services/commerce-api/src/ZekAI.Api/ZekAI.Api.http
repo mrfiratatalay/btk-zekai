@@ -1,4 +1,4 @@
-@ZekAI.Api_HostAddress = http://localhost:5224
+@ZekAI.Api_HostAddress = http://localhost:5001
 
 GET {{ZekAI.Api_HostAddress}}/weatherforecast/
 Accept: application/json

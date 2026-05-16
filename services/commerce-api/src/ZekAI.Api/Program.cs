@@ -38,7 +38,7 @@ builder.Services.AddAuthorization();
 // ── CORS — Next.js frontend ──
 builder.Services.AddCors(opt => opt.AddPolicy("NextJs", policy =>
     policy
-        .WithOrigins("http://localhost:3000", "http://localhost:3001", "http://localhost:3002")
+        .WithOrigins("http://localhost:3000", "http://localhost:3001")
         .AllowAnyHeader()
         .AllowAnyMethod()
         .AllowCredentials()));

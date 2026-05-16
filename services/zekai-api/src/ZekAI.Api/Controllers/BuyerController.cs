@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ZekAI.Application.DTOs;
@@ -78,5 +80,67 @@ public class BuyerController(BuyerService buyer) : ControllerBase
     {
         try { return Ok(await buyer.RemoveAnalysisFromProjectAsync(UserId, id, analysisId)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("agent/sessions/{sessionId}")]
+    public async Task<IActionResult> EnsureAgentSession(
+        string sessionId,
+        [FromBody] EnsureAgentSessionRequest req,
+        [FromServices] IHttpClientFactory httpClientFactory)
+    {
+        if (string.IsNullOrWhiteSpace(req.AppName) || string.IsNullOrWhiteSpace(req.UserId))
+            return BadRequest(new { message = "appName ve userId zorunludur." });
+
+        var client = httpClientFactory.CreateClient("AiService");
+        var path = $"/apps/{Uri.EscapeDataString(req.AppName)}/users/{Uri.EscapeDataString(req.UserId)}/sessions/{Uri.EscapeDataString(sessionId)}";
+        using var existing = await client.GetAsync(path);
+        if (existing.IsSuccessStatusCode)
+            return Ok(new { status = "ready" });
+
+        if (existing.StatusCode != System.Net.HttpStatusCode.NotFound)
+            return StatusCode((int)existing.StatusCode, new { message = "AI session kontrolu basarisiz." });
+
+        using var created = await client.PostAsync(
+            path,
+            new StringContent("{}", Encoding.UTF8, "application/json"));
+
+        if (!created.IsSuccessStatusCode)
+            return StatusCode((int)created.StatusCode, new { message = "AI session olusturulamadi." });
+
+        return Ok(new { status = "created" });
+    }
+
+    [HttpPost("agent/run-sse")]
+    public async Task RunAgentSse(
+        [FromBody] AgentRunRequest req,
+        [FromServices] IHttpClientFactory httpClientFactory)
+    {
+        if (string.IsNullOrWhiteSpace(req.App_Name) ||
+            string.IsNullOrWhiteSpace(req.User_Id) ||
+            string.IsNullOrWhiteSpace(req.Session_Id))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            await Response.WriteAsJsonAsync(new { message = "app_name, user_id ve session_id zorunludur." });
+            return;
+        }
+
+        var client = httpClientFactory.CreateClient("AiService");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/run_sse")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(req), Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Accept.ParseAdd("text/event-stream");
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, HttpContext.RequestAborted);
+        if (!response.IsSuccessStatusCode)
+        {
+            Response.StatusCode = (int)response.StatusCode;
+            await Response.WriteAsJsonAsync(new { message = "AI servisinden stream alinamadi." });
+            return;
+        }
+
+        Response.ContentType = "text/event-stream";
+        await using var stream = await response.Content.ReadAsStreamAsync(HttpContext.RequestAborted);
+        await stream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
     }
 }

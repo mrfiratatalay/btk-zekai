@@ -75,5 +75,6 @@ public class CommerceApiClient(HttpClient http)
     }
 }
 
-public record CommerceAuthResponse(string Token, string RefreshToken, Guid UserId, string Email, string FullName, string Role);
+public record CommerceAuthResponse(string Token, string RefreshToken, CommerceUserDto User);
+public record CommerceUserDto(Guid Id, string Email, string FullName, string Role);
 public record CommerceSellerProfileDto(Guid Id, string StoreName, string OwnerName, int TrustScore, double StoreRating, int TotalReviewCount, bool FastShipping, int ReturnDays);

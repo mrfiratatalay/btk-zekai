@@ -1,40 +1,19 @@
-# Zekai ADK Backend
+# Zekai AI Service
 
-Bu backend, alici karar analizini Google ADK uzerinde calisan cok ajanli bir workflow olarak sunar.
+FastAPI ve Google ADK tabanli AI analiz servisidir.
 
-## Kurulum
+Standart calisma sekli root dizinden Docker Compose'tur:
 
-```powershell
-cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item buyer_agent\.env.example buyer_agent\.env
+```bash
+docker compose up --build
 ```
 
-`buyer_agent\.env` icine Google AI Studio API anahtarini yaz:
+Servis disaridan `http://localhost:8000`, container network icinden `http://ai-service:8000` adresindedir.
 
-```env
-GOOGLE_GENAI_USE_VERTEXAI=FALSE
-GOOGLE_API_KEY=...
+Frontend bu servisi dogrudan cagirmamalidir. Standart akis:
+
+```txt
+zekai-platform-web -> zekai-api -> ai-service
 ```
 
-## Calistirma
-
-```powershell
-python main.py
-```
-
-Varsayilan adres: `http://localhost:8000`
-
-ADK dev UI icin:
-
-```powershell
-adk web --agents_dir .
-```
-
-Frontend tarafinda gerekirse:
-
-```env
-NEXT_PUBLIC_ADK_API_URL=http://localhost:8000
-```
+`GOOGLE_API_KEY` root `.env` icinde tanimli degilse AI endpointleri 503 ve net hata mesaji doner.

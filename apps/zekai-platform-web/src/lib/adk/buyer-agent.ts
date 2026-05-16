@@ -23,7 +23,10 @@ export type VerifiedReport = {
   verification_quality?: string;
 };
 
-const ADK_API_URL = process.env.NEXT_PUBLIC_ADK_API_URL ?? "http://localhost:8000";
+const ZEKAI_API_URL =
+  process.env.NEXT_PUBLIC_ZEKAI_API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5002";
 const APP_NAME = "buyer_agent";
 const USER_ID = "zekai-demo-user";
 
@@ -190,6 +193,11 @@ export function buildAgentMessage(product: Product, buyerNeed: string) {
 
 const ADK_TIMEOUT_MS = 8000;
 
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window === "undefined" ? null : localStorage.getItem("zekai_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function runBuyerAgentStream({
   product,
   buyerNeed,
@@ -203,11 +211,12 @@ export async function runBuyerAgentStream({
 }) {
   await ensureAdkSession(analysisId);
 
-  const response = await fetch(`${ADK_API_URL}/run_sse`, {
+  const response = await fetch(`${ZEKAI_API_URL}/api/buyer/agent/run-sse`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
+      ...getAuthHeaders(),
     },
     signal: AbortSignal.timeout(ADK_TIMEOUT_MS),
     body: JSON.stringify({
@@ -252,28 +261,21 @@ export async function runBuyerAgentStream({
 }
 
 async function ensureAdkSession(sessionId: string) {
-  const path = `/apps/${encodeURIComponent(APP_NAME)}/users/${encodeURIComponent(
-    USER_ID,
-  )}/sessions/${encodeURIComponent(sessionId)}`;
-  const existing = await fetch(`${ADK_API_URL}${path}`, {
-    method: "GET",
-    signal: AbortSignal.timeout(ADK_TIMEOUT_MS),
-  });
-
-  if (existing.ok) return;
-  if (existing.status !== 404) {
-    throw new Error(`ADK session check failed: ${existing.status}`);
-  }
-
-  const created = await fetch(`${ADK_API_URL}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-    signal: AbortSignal.timeout(ADK_TIMEOUT_MS),
-  });
+  const created = await fetch(
+    `${ZEKAI_API_URL}/api/buyer/agent/sessions/${encodeURIComponent(sessionId)}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({ appName: APP_NAME, userId: USER_ID }),
+      signal: AbortSignal.timeout(ADK_TIMEOUT_MS),
+    },
+  );
 
   if (!created.ok) {
-    throw new Error(`ADK session create failed: ${created.status}`);
+    throw new Error(`ADK session ensure failed: ${created.status}`);
   }
 }
 
@@ -368,15 +370,6 @@ export function applyVerifiedReport(
         { label: "Pazar medyani", value: formatPrice(medianPrice) },
         { label: "ADK fiyat skoru", value: `${priceScore}/100` },
       ],
-    },
-    returnRiskAnalysis: {
-      ...base.returnRiskAnalysis,
-      summary: `ADK dogrulama sonrasi iade/pismanlik riski %${returnRiskPercent}.`,
-      reasons: fallbackReasons(report),
-      personalWarning:
-        warnings[0]?.warning ??
-        report.user_dependent_claims?.[0] ??
-        base.returnRiskAnalysis.personalWarning,
     },
     finalAdvice:
       report.final_summary ??

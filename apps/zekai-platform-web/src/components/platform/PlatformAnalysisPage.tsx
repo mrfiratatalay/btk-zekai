@@ -6,6 +6,8 @@ import type { BuyerAnalysis } from "@/types/analysis";
 import type { Product } from "@/types/product";
 import { BuyerAnalysisExperience } from "@/components/platform/BuyerAnalysisExperience";
 
+const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
+
 export function PlatformAnalysisPage({
   analysis,
   product,
@@ -29,7 +31,7 @@ export function PlatformAnalysisPage({
             Zek<span className="text-[#5a8a00] dark:text-[#adff41]">AI</span>{" "}
             <span className="font-normal text-muted-foreground/70">Pişmanlık Riski Raporu</span>
           </span>
-          <Link href="/mock-shop" className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+          <Link href={COMMERCE_WEB_URL} className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
             Demo Mağaza
           </Link>
         </div>

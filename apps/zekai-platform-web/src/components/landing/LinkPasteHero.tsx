@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Link2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
+
 const EXAMPLE_LINKS = [
-  { url: "https://zekai.market/urun/bluetooth-kulaklik-pro-x1", label: "Bluetooth Kulaklık Pro X1" },
-  { url: "https://zekai.market/urun/akilli-saat-fit-neo", label: "Akıllı Saat FitNeo S3" },
-  { url: "https://zekai.market/urun/ergonomik-calisma-sandalyesi", label: "Ergonomik Sandalye" },
+  { url: `${COMMERCE_WEB_URL}/product/bluetooth-kulaklik-pro-x1`, label: "Bluetooth Kulaklık Pro X1" },
+  { url: `${COMMERCE_WEB_URL}/product/akilli-saat-fit-neo`, label: "Akıllı Saat FitNeo S3" },
+  { url: `${COMMERCE_WEB_URL}/product/ergonomik-calisma-sandalyesi`, label: "Ergonomik Sandalye" },
 ];
 
 function resolveProductId(url: string): string | null {
@@ -25,8 +27,6 @@ function resolveProductId(url: string): string | null {
   }
   const match = url.match(/\/product\/([^/?#]+)/);
   if (match) return match[1];
-  const mockShopMatch = url.match(/\/mock-shop\/product\/([^/?#]+)/);
-  if (mockShopMatch) return mockShopMatch[1];
   return null;
 }
 

@@ -24,14 +24,14 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
         var authResult = await commerce.LoginAsync(req.CommerceEmail, req.CommercePassword)
             ?? throw new UnauthorizedAccessException("Akıllı Market giriş bilgileri hatalı.");
 
-        if (!authResult.Role.Equals("seller", StringComparison.OrdinalIgnoreCase))
+        if (!authResult.User.Role.Equals("seller", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Bu hesap bir satıcı hesabı değil. Akıllı Market'te satıcı olarak kayıt olun.");
 
         var existing = await db.StoreConnections.FirstOrDefaultAsync(sc => sc.ZekaiUserId == userId);
         if (existing is not null)
         {
             existing.CommerceAccessToken = authResult.Token;
-            existing.CommerceSellerId = authResult.UserId.ToString();
+            existing.CommerceSellerId = authResult.User.Id.ToString();
             existing.Status = "connected";
             existing.ConnectedAt = DateTime.UtcNow;
             existing.LastSyncedAt = null;
@@ -42,7 +42,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
             {
                 ZekaiUserId = userId,
                 ProviderName = "akilli-market-demo",
-                CommerceSellerId = authResult.UserId.ToString(),
+                CommerceSellerId = authResult.User.Id.ToString(),
                 CommerceAccessToken = authResult.Token,
                 Status = "connected",
             };

@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
+const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
+
 /* ── Data ────────────────────────────────────────────────────────────────── */
 const STATS = [
   { value: "8", label: "AI Ajan" },
@@ -109,7 +111,7 @@ export function ZekaiLanding() {
             {["Özellikler", "Nasıl Çalışır", "Market", "Fiyatlandırma"].map((item) => (
               <Link
                 key={item}
-                href={item === "Market" ? "/mock-shop" : "#"}
+                href={item === "Market" ? COMMERCE_WEB_URL : "#"}
                 className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 {item}
@@ -155,7 +157,7 @@ export function ZekaiLanding() {
                   Hemen Başla
                   <ArrowRight className="size-4" />
                 </Link>
-                <Link href="/mock-shop" className="flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-foreground" style={{ borderWidth: "1.5px" }}>
+                <Link href={COMMERCE_WEB_URL} className="flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-foreground" style={{ borderWidth: "1.5px" }}>
                   <Store className="size-4" />
                   Market&apos;e Bak
                 </Link>
@@ -390,7 +392,7 @@ export function ZekaiLanding() {
                   Ücretsiz Başla
                   <ArrowRight className="size-4" />
                 </Link>
-                <Link href="/mock-shop" className="flex items-center gap-2 rounded-full border border-white/25 px-7 py-3 text-sm font-semibold text-white transition-colors hover:border-white/60" style={{ borderWidth: "1.5px" }}>
+                <Link href={COMMERCE_WEB_URL} className="flex items-center gap-2 rounded-full border border-white/25 px-7 py-3 text-sm font-semibold text-white transition-colors hover:border-white/60" style={{ borderWidth: "1.5px" }}>
                   Market&apos;i Gez
                 </Link>
               </div>

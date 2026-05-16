@@ -10,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 // Database
 builder.Services.AddDbContext<ZekaiDbContext>(opt =>
@@ -38,6 +40,10 @@ builder.Services.AddHttpClient<CommerceApiClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["CommerceApi:BaseUrl"] ?? "http://localhost:5001");
 });
+builder.Services.AddHttpClient("AiService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["AiService:BaseUrl"] ?? "http://localhost:8000");
+});
 
 // Services
 builder.Services.AddScoped<JwtService>();
@@ -47,14 +53,18 @@ builder.Services.AddScoped<SellerService>();
 
 // CORS
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(policy =>
-    policy.WithOrigins("http://localhost:3000", "http://localhost:3001", "http://localhost:3002")
+    policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
           .AllowAnyHeader()
           .AllowAnyMethod()));
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
+{
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 // Auto-migrate on startup
 using (var scope = app.Services.CreateScope())

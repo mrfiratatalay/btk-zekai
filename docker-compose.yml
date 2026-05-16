@@ -89,7 +89,7 @@ services:
       dockerfile: Dockerfile
     container_name: ai-service
     environment:
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
     ports:
       - "8000:8000"
@@ -103,6 +103,7 @@ services:
     container_name: akilli-market-web
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:5001"
+      NEXT_PUBLIC_COMMERCE_API_URL: "http://localhost:5001"
     ports:
       - "3000:3000"
     depends_on:
@@ -117,9 +118,9 @@ services:
     container_name: zekai-platform-web
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:5002"
+      NEXT_PUBLIC_ZEKAI_API_URL: "http://localhost:5002"
       NEXT_PUBLIC_COMMERCE_API_URL: "http://localhost:5001"
       NEXT_PUBLIC_COMMERCE_WEB_URL: "http://localhost:3000"
-      NEXT_PUBLIC_ADK_API_URL: "http://localhost:8000"
       NEXT_PUBLIC_ENABLE_ADK_AGENT: "true"
     ports:
       - "3001:3000"

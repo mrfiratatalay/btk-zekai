@@ -21,7 +21,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { getProduct, type ProductDetail } from "@/lib/api/products";
 
-const LINK_PREFIX = "https://zekai.market/urun/";
+const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
+const LINK_PREFIX = `${COMMERCE_WEB_URL}/product/`;
 
 function formatPrice(v: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -115,7 +116,7 @@ export function PlatformBuyerFlow() {
             Zek<span className="text-[#5a8a00] dark:text-[#adff41]">AI</span>{" "}
             <span className="font-normal text-muted-foreground/70">Platform</span>
           </span>
-          <Link href="/mock-shop">
+          <Link href={COMMERCE_WEB_URL}>
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground hover:bg-muted">
               <ExternalLink className="size-3.5 mr-1.5" />
               Demo Mağaza
@@ -176,7 +177,7 @@ export function PlatformBuyerFlow() {
                   <input
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://mock-shop.zekai.local/product/..."
+                    placeholder={`${COMMERCE_WEB_URL}/product/...`}
                     className="w-full rounded-xl border border-border bg-muted py-3.5 pl-12 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-emerald-500 dark:focus:border-[#adff41]/40 focus:bg-[#adff41]/5 transition-all"
                   />
                 </div>
@@ -226,7 +227,7 @@ export function PlatformBuyerFlow() {
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground/50">
                   veya{" "}
-                  <Link href="/mock-shop" className="text-[#5a8a00] dark:text-[#adff41] hover:underline">
+                  <Link href={COMMERCE_WEB_URL} className="text-[#5a8a00] dark:text-[#adff41] hover:underline">
                     ZekAI Market&apos;e git →
                   </Link>{" "}
                   ürünlere göz at

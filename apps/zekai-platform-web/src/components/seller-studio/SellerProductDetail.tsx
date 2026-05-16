@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import { formatSellerPrice } from "@/lib/format";
 import { updateProductContent } from "@/lib/api/seller";
 
+const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
+
 /* ─── Product suggestion content ─── */
 const TITLE_SUGGESTIONS: Record<string, string> = {
   "bluetooth-kulaklik-pro-x1": "Bluetooth 5.0 Kablosuz Kulaklık | 20 Saat Pil | Günlük Kullanım - Beyaz",
@@ -457,7 +459,7 @@ export function SellerProductDetail({ product }: { product: SellerProductPerform
 
             {/* Mağazada Gör */}
             <Link
-              href={`/mock-shop/product/${product.id}`}
+              href={`${COMMERCE_WEB_URL}/product/${product.id}`}
               className="flex items-center gap-3 border-t border-gray-100 px-5 py-3.5 hover:bg-gray-50 dark:border-white/8 dark:hover:bg-white/5"
             >
               <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10">

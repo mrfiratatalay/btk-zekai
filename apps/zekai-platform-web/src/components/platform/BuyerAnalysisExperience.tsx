@@ -128,7 +128,7 @@ export function BuyerAnalysisExperience({
     `${liveAnalysis.trustAnalysis.signals[0]?.value ?? "Yorumlar"} tarandi`,
     liveAnalysis.trustAnalysis.signals[1]?.description ?? "Gorsel analiz tamamlandi",
     liveAnalysis.priceAnalysis.warning || "Fiyat gecmisi kontrol edildi",
-    liveAnalysis.returnRiskAnalysis.personalWarning || "Iade sinyalleri analiz edildi",
+    `Iade riski %${liveAnalysis.scores.returnRiskPercent} olarak hesaplandi`,
   ].filter(Boolean) as string[];
 
   if (status === "running") {

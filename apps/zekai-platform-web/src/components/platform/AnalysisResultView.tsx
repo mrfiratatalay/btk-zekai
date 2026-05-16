@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils";
 import { AnalysisSaveBar } from "@/components/platform/AnalysisSaveBar";
 import { AskReportBox } from "@/components/platform/AskReportBox";
 
+const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
+
 /* ─────────────────────────────────────────────────────────────────────────
    Her level için renk 3 yerde: chip bg/text · büyük sayı · bar fill.
    Başka hiçbir yerde renk yok.
@@ -117,7 +119,7 @@ export function AnalysisResultView({
             <p className="text-xs text-muted-foreground">{product?.sellerName}</p>
           </div>
           <Button asChild variant="outline" size="sm" className="shrink-0 gap-1.5 rounded-full border-border/50 font-bold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-            <Link href={`/mock-shop/product/${analysis.productId}`}>
+            <Link href={`${COMMERCE_WEB_URL}/product/${analysis.productId}`}>
               <ArrowLeft className="size-4" /> Ürüne Dön
             </Link>
           </Button>

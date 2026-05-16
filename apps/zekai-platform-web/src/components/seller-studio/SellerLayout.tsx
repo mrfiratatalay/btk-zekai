@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Bell, HelpCircle, LayoutDashboard, LogOut, Package, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout } from "@/lib/api/auth";

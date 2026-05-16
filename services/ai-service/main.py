@@ -1,6 +1,7 @@
 import os
 
 import uvicorn
+from fastapi.responses import JSONResponse
 from google.adk.cli.fast_api import get_fast_api_app
 
 
@@ -17,6 +18,29 @@ app = get_fast_api_app(
     ],
     web=True,
 )
+
+
+def _has_google_api_key() -> bool:
+    key = os.getenv("GOOGLE_API_KEY", "").strip()
+    return bool(key) and key != "your_google_api_key_here"
+
+
+@app.middleware("http")
+async def require_google_api_key(request, call_next):
+    ai_paths = ("/run", "/run_sse", "/apps/")
+    if request.url.path.startswith(ai_paths) and not _has_google_api_key():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "message": "GOOGLE_API_KEY tanimli degil. Root .env dosyasina gecerli Google AI Studio API key ekleyin.",
+            },
+        )
+    return await call_next(request)
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "googleApiKeyConfigured": _has_google_api_key()}
 
 
 if __name__ == "__main__":

@@ -1,62 +1,34 @@
 # Scripts
 
-Windows lokal gelistirme icin yardimci bat dosyalari.
-
-## Hizli Baslangic (Tum Servisler)
+Bu projede kalici calisma standardi full Docker Compose'tur.
 
 ```bat
 scripts\start-all.bat
 ```
 
-Bu komut **uc ayri terminal** acar:
-
-| Servis           | Adres                        |
-|------------------|------------------------------|
-| .NET Backend     | `http://localhost:5224`       |
-| Swagger          | `http://localhost:5224/swagger` |
-| ZekAI Platform   | `http://localhost:3000`       |
-| ZekAI Market     | `http://localhost:3002`       |
-
-## Ilk Kurulum
-
-Backend bagimliliklarini hazirlamak icin:
+Bu script repo kokunde su komutu calistirir:
 
 ```bat
-scripts\setup-backend.bat
+docker compose up --build
 ```
 
-Frontend'ler icin ayri kurulum scripti yok; ilk calismada `node_modules` yoksa
-otomatik olarak `npm ci` veya `npm install` calistirilir.
+Standart adresler:
 
-## Tek Tek Calistirma
+| Servis | Adres |
+| --- | --- |
+| Akilli Market Web | `http://localhost:3000` |
+| Zekai Platform Web | `http://localhost:3001` |
+| commerce-api Swagger | `http://localhost:5001/swagger` |
+| zekai-api Swagger | `http://localhost:5002/swagger` |
+| ai-service | `http://localhost:8000` |
+| PostgreSQL | `localhost:5432` |
+| Redis | `localhost:6379` |
+
+Temiz test icin:
 
 ```bat
-scripts\start-backend.bat     REM .NET API  (port 5224)
-scripts\start-frontend.bat    REM ZekAI Platform  (port 3000)
-scripts\start-market.bat      REM ZekAI Market  (port 3002)
+docker compose down -v
+docker compose up --build
 ```
 
-## Loglama
-
-Tum script'ler calisma loglarini `scripts\logs\` klasorune yazar.
-Log dosyalari tarih-saat damgali olarak olusturulur:
-
-```
-scripts\logs\zekai-platform-20260516-040100.log
-scripts\logs\zekai-market-20260516-040100.log
-scripts\logs\dotnet-backend-20260516-040100.log
-scripts\logs\setup-backend-20260516-040100.log
-```
-
-## Gerekli Araclar
-
-- Node.js LTS
-- .NET 10 SDK
-- PostgreSQL
-- Python 3.11+ veya 3.12 (buyer_agent icin)
-- `backend\buyer_agent\.env` icinde `GOOGLE_API_KEY`
-
-## Notlar
-
-- `.env`, `.venv`, `.next`, `node_modules`, `scripts\logs\` ve ADK session DB dosyalari git'e alinmaz.
-- ZekAI Platform ve ZekAI Market **birbirinden bagimsiz** Next.js uygulamalarıdır.
+Not: `down -v` veritabanini sifirlar; sadece temiz test icin kullan.

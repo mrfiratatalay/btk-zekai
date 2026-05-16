@@ -1,6 +1,9 @@
 import type { Product, ProductPricePoint, ProductReview } from "@/types/product";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5224";
+export const API_BASE =
+  process.env.NEXT_PUBLIC_COMMERCE_API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5001";
 
 export interface ProductListItem {
   id: string;
