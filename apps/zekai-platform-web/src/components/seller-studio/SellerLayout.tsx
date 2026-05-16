@@ -32,6 +32,13 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const user = getCurrentUser();
+
+  useEffect(() => {
+    if (!user) router.replace("/login");
+  }, [user, router]);
+
+  if (!user) return null;
+
   const initials = user?.fullName
     ? user.fullName.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
     : "ME";

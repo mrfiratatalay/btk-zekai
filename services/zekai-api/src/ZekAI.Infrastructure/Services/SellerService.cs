@@ -14,7 +14,9 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
         var conn = await db.StoreConnections
             .FirstOrDefaultAsync(sc => sc.ZekaiUserId == userId && sc.Status == "connected");
         if (conn is null) return null;
-        return new StoreConnectionDto(conn.ProviderName, conn.CommerceSellerId, conn.Status, conn.ConnectedAt, conn.LastSyncedAt);
+
+        var productCount = await commerce.GetSellerProductsAsync(conn.CommerceAccessToken);
+        return new StoreConnectionDto("Akıllı Market", "Demo Store", "Connected", conn.LastSyncedAt, productCount.Count);
     }
 
     public async Task<StoreConnectionDto> ConnectStoreAsync(Guid userId, StoreConnectRequest req)
@@ -23,7 +25,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
             ?? throw new UnauthorizedAccessException("Akıllı Market giriş bilgileri hatalı.");
 
         if (!authResult.Role.Equals("seller", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Bu hesap bir satıcı hesabı değil.");
+            throw new InvalidOperationException("Bu hesap bir satıcı hesabı değil. Akıllı Market'te satıcı olarak kayıt olun.");
 
         var existing = await db.StoreConnections.FirstOrDefaultAsync(sc => sc.ZekaiUserId == userId);
         if (existing is not null)
@@ -48,7 +50,8 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
         }
 
         await db.SaveChangesAsync();
-        return new StoreConnectionDto(existing.ProviderName, existing.CommerceSellerId, existing.Status, existing.ConnectedAt, existing.LastSyncedAt);
+        var products = await commerce.GetSellerProductsAsync(existing.CommerceAccessToken);
+        return new StoreConnectionDto("Akıllı Market", "Demo Store", "Connected", null, products.Count);
     }
 
     public async Task<object?> GetProfileAsync(Guid userId)

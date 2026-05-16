@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Bot, ChevronRight, Loader2, Sparkles, TrendingDown, TrendingUp, Users, Zap } from "lucide-react";
+import { ArrowRight, Bot, ChevronRight, Loader2, Link as LinkIcon, Sparkles, TrendingDown, TrendingUp, Users, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getSellerProducts, getSellerKpis, type SellerProduct, type KpiDto } from "@/lib/api/seller";
+import { getSellerProducts, getSellerKpis, getSellerStore, connectStore, type SellerProduct, type KpiDto, type StoreConnection } from "@/lib/api/seller";
 import { getProducts, type ProductListItem } from "@/lib/api/products";
 import { getCurrentUser } from "@/lib/api/auth";
 
@@ -45,6 +45,33 @@ export function SellerDashboard() {
   const [priorityProducts, setPriorityProducts] = useState<(SellerProduct & { image?: string })[]>([]);
   const [publicProducts, setPublicProducts] = useState<ProductListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [storeConn, setStoreConn] = useState<StoreConnection | null>(null);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [connectEmail, setConnectEmail] = useState("");
+  const [connectPassword, setConnectPassword] = useState("");
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState("");
+
+  async function handleConnectStore(e: React.FormEvent) {
+    e.preventDefault();
+    setConnectError("");
+    setConnectLoading(true);
+    try {
+      const conn = await connectStore(connectEmail, connectPassword);
+      setStoreConn(conn);
+      setShowConnectModal(false);
+      // Reload seller data
+      const [kpiData, sellerProds] = await Promise.all([getSellerKpis(), getSellerProducts()]);
+      setKpis(kpiData);
+      const pub = publicProducts;
+      const sorted = [...sellerProds].sort((a, b) => a.healthScore - b.healthScore).slice(0, 3);
+      setPriorityProducts(sorted.map((sp) => ({ ...sp, image: pub.find((p) => p.id === sp.id)?.primaryImage })));
+    } catch (err: unknown) {
+      setConnectError(err instanceof Error ? err.message : "Bağlantı kurulamadı.");
+    } finally {
+      setConnectLoading(false);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -53,19 +80,38 @@ export function SellerDashboard() {
         setPublicProducts(pub);
 
         if (isSeller) {
-          const [kpiData, sellerProds] = await Promise.all([
-            getSellerKpis(),
-            getSellerProducts(),
-          ]);
-          setKpis(kpiData);
-          // Top 3 priority (lowest health score)
-          const sorted = [...sellerProds].sort((a, b) => a.healthScore - b.healthScore).slice(0, 3);
-          setPriorityProducts(sorted.map((sp) => ({
-            ...sp,
-            image: pub.find((p) => p.id === sp.id)?.primaryImage,
-          })));
+          const conn = await getSellerStore().catch(() => null);
+          setStoreConn(conn);
+
+          if (conn) {
+            const [kpiData, sellerProds] = await Promise.all([
+              getSellerKpis(),
+              getSellerProducts(),
+            ]);
+            setKpis(kpiData);
+            const sorted = [...sellerProds].sort((a, b) => a.healthScore - b.healthScore).slice(0, 3);
+            setPriorityProducts(sorted.map((sp) => ({
+              ...sp,
+              image: pub.find((p) => p.id === sp.id)?.primaryImage,
+            })));
+          } else {
+            setKpis([
+              { label: "Mağaza Bağlı Değil", value: "—", note: "Akıllı Market'i bağlayın", tone: "warning" },
+              { label: "Aktif Ürün", value: String(pub.length), note: "Senkronize edildi", tone: "neutral" },
+              { label: "İade Oranı", value: "—", note: "Mağaza bağlayın", tone: "neutral" },
+              { label: "İyileştirme Fırsatı", value: "—", note: "Mağaza bağlayın", tone: "neutral" },
+            ]);
+            const priority = [...pub].slice(0, 3).map((p) => ({
+              id: p.id, title: p.title, image: p.primaryImage, primaryImage: p.primaryImage,
+              category: p.category, price: p.price, stock: p.stock,
+              sales30d: 0, returnRate: 0, conversionRate: 0, healthScore: 50,
+              lostProfitMonthly: 0, improvableRevenueMonthly: 0,
+              status: "Watch" as const, mainIssue: "Mağaza bağlanmadı",
+              updatedAt: new Date().toISOString(),
+            }));
+            setPriorityProducts(priority);
+          }
         } else {
-          // Default KPIs for non-seller view
           setKpis([
             { label: "Aylık Tahmini Kayıp", value: "₺8.900", note: "İade ve düşük dönüşüm", tone: "danger" },
             { label: "Aktif Ürün", value: String(pub.length), note: "Senkronize edildi", tone: "neutral" },
@@ -247,16 +293,30 @@ export function SellerDashboard() {
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-[#111]">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-gray-900 dark:text-white">Mağaza Özeti</h2>
-          <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-bold text-green-700 dark:bg-green-500/10 dark:text-green-400">
-            <span className="size-1.5 rounded-full bg-green-500" />
-            {isSeller ? "Bağlı" : "Demo"} Store
-          </span>
+          {isSeller && storeConn ? (
+            <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-bold text-green-700 dark:bg-green-500/10 dark:text-green-400">
+              <span className="size-1.5 rounded-full bg-green-500" />
+              {storeConn.storeName}
+            </span>
+          ) : isSeller ? (
+            <button
+              onClick={() => setShowConnectModal(true)}
+              className="flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-400"
+            >
+              <LinkIcon className="size-3" />
+              Mağazamı Bağla
+            </button>
+          ) : (
+            <span className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-500 dark:bg-white/8 dark:text-gray-400">
+              Demo Store
+            </span>
+          )}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: "Toplam Ürün", value: publicProducts.length },
-            { label: "30 Gün Satış", value: isSeller ? priorityProducts.reduce((s, p) => s + p.sales30d, 0) : 424 },
-            { label: "Aktif Mağaza", value: "Demo" },
+            { label: "Toplam Ürün", value: storeConn?.productCount ?? publicProducts.length },
+            { label: "30 Gün Satış", value: isSeller && storeConn ? priorityProducts.reduce((s, p) => s + p.sales30d, 0) : 424 },
+            { label: "Aktif Mağaza", value: storeConn ? storeConn.storeName : "Demo" },
             { label: "Bekleyen İşlem", value: priorityProducts.filter((p) => p.status === "Urgent").length },
           ].map((s) => (
             <div key={s.label} className="rounded-xl bg-gray-50 p-3 text-center dark:bg-white/5">
@@ -266,6 +326,70 @@ export function SellerDashboard() {
           ))}
         </div>
       </div>
+
+      {/* Store Connect Modal */}
+      {showConnectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-[#1a1a1a]">
+            <h3 className="mb-1 text-lg font-bold text-gray-900 dark:text-white">Akıllı Market&apos;i Bağla</h3>
+            <p className="mb-5 text-sm text-gray-500">Akıllı Market satıcı hesabınızla giriş yapın.</p>
+
+            {connectError && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
+                {connectError}
+              </div>
+            )}
+
+            <form onSubmit={handleConnectStore} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Akıllı Market E-posta
+                </label>
+                <input
+                  type="email"
+                  value={connectEmail}
+                  onChange={(e) => setConnectEmail(e.target.value)}
+                  placeholder="satis@ornekstore.com"
+                  required
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:border-green-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Şifre
+                </label>
+                <input
+                  type="password"
+                  value={connectPassword}
+                  onChange={(e) => setConnectPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm outline-none focus:border-green-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                />
+              </div>
+              <p className="text-xs text-gray-400">
+                Demo kullanıcı: <code className="text-green-600 dark:text-green-400">mehmet@ornekstore.com</code> / <code className="text-green-600 dark:text-green-400">Seller123!</code>
+              </p>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={connectLoading}
+                  className="flex-1 h-11 rounded-xl bg-green-500 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-60"
+                >
+                  {connectLoading ? "Bağlanıyor..." : "Bağla"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowConnectModal(false); setConnectError(""); }}
+                  className="h-11 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-500 hover:bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5"
+                >
+                  İptal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
