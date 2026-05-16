@@ -10,11 +10,10 @@ import {
   Clock,
   Loader2,
   Package,
-  RotateCcw,
   Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getOrders, markDelivered, createReturn, type Order } from "@/lib/api/buyer";
+import { getOrders, markDelivered, type Order } from "@/lib/api/buyer";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   Pending: {
@@ -27,11 +26,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
     color: "bg-green-100 text-green-700",
     icon: CheckCircle2,
   },
-  ReturnRequested: {
-    label: "İade Talep Edildi",
-    color: "bg-orange-100 text-orange-700",
-    icon: RotateCcw,
-  },
   Completed: {
     label: "Tamamlandı",
     color: "bg-blue-100 text-blue-700",
@@ -39,13 +33,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   },
 };
 
-const RETURN_REASONS = [
-  { value: "Damaged", label: "Hasarlı / Kırık ürün" },
-  { value: "NotAsExpected", label: "Beklentiyi karşılamadı" },
-  { value: "WrongProduct", label: "Yanlış ürün gönderildi" },
-  { value: "LowQuality", label: "Düşük kalite" },
-  { value: "Other", label: "Diğer" },
-];
 
 function formatPrice(v: number) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(v);
@@ -54,10 +41,6 @@ function formatPrice(v: number) {
 function OrderCard({ order, onUpdate }: { order: Order; onUpdate: (o: Order) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [markingDelivered, setMarkingDelivered] = useState(false);
-  const [showReturn, setShowReturn] = useState(false);
-  const [returnReason, setReturnReason] = useState("Damaged");
-  const [returnClaim, setReturnClaim] = useState("");
-  const [returningLoading, setReturningLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.Pending;
@@ -73,22 +56,6 @@ function OrderCard({ order, onUpdate }: { order: Order; onUpdate: (o: Order) => 
       setError(e instanceof Error ? e.message : "Hata oluştu.");
     } finally {
       setMarkingDelivered(false);
-    }
-  }
-
-  async function handleReturn(e: React.FormEvent) {
-    e.preventDefault();
-    if (returnClaim.trim().length < 10) { setError("Açıklama en az 10 karakter olmalı."); return; }
-    setReturningLoading(true);
-    setError(null);
-    try {
-      await createReturn(order.id, returnReason, returnClaim.trim());
-      onUpdate({ ...order, status: "ReturnRequested", canReturn: false });
-      setShowReturn(false);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "İade talebi gönderilemedi.");
-    } finally {
-      setReturningLoading(false);
     }
   }
 
@@ -167,61 +134,7 @@ function OrderCard({ order, onUpdate }: { order: Order; onUpdate: (o: Order) => 
               </button>
             )}
 
-            {order.canReturn && !showReturn && (
-              <button
-                onClick={() => { setShowReturn(true); setError(null); }}
-                className="flex h-10 items-center gap-2 rounded-xl border border-[#E5E7EB] px-5 text-sm font-semibold text-[#6B7280] hover:bg-gray-50 transition-colors"
-              >
-                <RotateCcw className="size-4" />
-                İade Talebi Oluştur
-              </button>
-            )}
           </div>
-
-          {showReturn && (
-            <form onSubmit={handleReturn} className="space-y-3 rounded-xl border border-orange-200 bg-orange-50 p-4">
-              <p className="text-sm font-bold text-orange-700">İade Talebi</p>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-[#6B7280]">İade Nedeni</label>
-                <select
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#FF6000]"
-                >
-                  {RETURN_REASONS.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-[#6B7280]">Açıklama</label>
-                <textarea
-                  value={returnClaim}
-                  onChange={(e) => setReturnClaim(e.target.value)}
-                  placeholder="İade nedeninizi detaylı açıklayın..."
-                  rows={3}
-                  className="w-full resize-none rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#FF6000]"
-                />
-              </div>
-              {error && <p className="text-xs text-red-500">{error}</p>}
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={returningLoading}
-                  className="flex h-9 flex-1 items-center justify-center gap-2 rounded-xl bg-[#FF6000] text-sm font-bold text-white hover:bg-[#E65700] disabled:opacity-60"
-                >
-                  {returningLoading ? <Loader2 className="size-4 animate-spin" /> : "Talebi Gönder"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowReturn(false); setError(null); }}
-                  className="flex h-9 flex-1 items-center justify-center rounded-xl border border-[#E5E7EB] text-sm text-[#6B7280] hover:bg-gray-50"
-                >
-                  İptal
-                </button>
-              </div>
-            </form>
-          )}
         </div>
       )}
     </div>
@@ -270,12 +183,11 @@ export function BuyerOrders() {
         <p className="mt-1 text-sm text-[#6B7280]">{orders.length} sipariş</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
           { label: "Toplam", value: orders.length, icon: Package, color: "text-[#111827]" },
           { label: "Kargoda", value: orders.filter((o) => o.status === "Pending").length, icon: Clock, color: "text-amber-600" },
           { label: "Teslim Edildi", value: orders.filter((o) => o.status === "Delivered").length, icon: CheckCircle2, color: "text-green-600" },
-          { label: "İade", value: orders.filter((o) => o.status === "ReturnRequested").length, icon: RotateCcw, color: "text-orange-500" },
         ].map((s) => {
           const SIcon = s.icon;
           return (

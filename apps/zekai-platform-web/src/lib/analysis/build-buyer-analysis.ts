@@ -165,19 +165,6 @@ export function buildBuyerAnalysisFromProduct({
       ],
       priceHistory: latestHistory,
     },
-    returnRiskAnalysis: {
-      title: "İade Riski",
-      summary: `Kategori, stok, yorum hacmi ve ihtiyaç uyumuna göre tahmini risk %${returnRiskPercent}.`,
-      reasons: [
-        { label: "İhtiyaç uyumsuzluğu", percent: clamp(100 - fitScore) },
-        { label: "Yorum güveni", percent: clamp(100 - trustScore) },
-        { label: "Kategori hassasiyeti", percent: /ayakkabı|giyim|sandalye|koltuk/i.test(product.category) ? 28 : 14 },
-      ],
-      personalWarning:
-        returnRiskPercent > 55
-          ? "Bu ürün beklentini tam karşılamayabilir; satın almadan önce iade koşullarını kontrol et."
-          : "Belirgin yüksek iade riski görünmüyor; yine de kullanım senaryonu özelliklerle eşleştir.",
-    },
     finalAdvice:
       level === "safe"
         ? "Satın alma kararı makul görünüyor. Kritik özellikleri ve teslimat koşullarını son kez kontrol et."

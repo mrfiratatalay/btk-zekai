@@ -84,21 +84,4 @@ public class SellerController(SellerService seller) : ControllerBase
     public async Task<IActionResult> GetKpis()
         => Ok(await seller.GetKpisAsync(UserId));
 
-    [HttpGet("analytics/return-reasons")]
-    public async Task<IActionResult> GetReturnReasons()
-        => Ok(await seller.GetReturnReasonsAsync(UserId));
-
-    // ── Returns ────────────────────────────────────────────────────────────
-
-    [HttpGet("returns")]
-    public async Task<IActionResult> GetReturns()
-        => Ok(await seller.GetReturnsAsync(UserId));
-
-    [HttpPut("returns/{id:guid}/respond")]
-    public async Task<IActionResult> RespondToReturn(Guid id, [FromBody] SellerRespondReturnRequest req)
-    {
-        try { return Ok(await seller.RespondToReturnAsync(UserId, id, req)); }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-    }
 }

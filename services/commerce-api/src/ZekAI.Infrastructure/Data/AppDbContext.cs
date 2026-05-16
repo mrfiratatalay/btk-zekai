@@ -15,7 +15,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SellerProduct> SellerProducts => Set<SellerProduct>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
-    public DbSet<Return> Returns => Set<Return>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder mb)
@@ -37,12 +36,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         mb.Entity<Order>().Property(o => o.Total).HasColumnType("numeric(10,2)");
 
         mb.Entity<OrderItem>().Property(oi => oi.Price).HasColumnType("numeric(10,2)");
-
-        mb.Entity<Return>()
-            .HasOne(r => r.Order)
-            .WithOne(o => o.Return)
-            .HasForeignKey<Return>(r => r.OrderId);
-        mb.Entity<Return>().Property(r => r.Amount).HasColumnType("numeric(10,2)");
 
         mb.Entity<Seller>()
             .HasOne(s => s.User)

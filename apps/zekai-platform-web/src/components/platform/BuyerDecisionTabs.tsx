@@ -1,7 +1,6 @@
 import type { BuyerAnalysis } from "@/types/analysis";
 import { FitTab } from "@/components/platform/FitTab";
 import { PriceTab } from "@/components/platform/PriceTab";
-import { ReturnRiskTab } from "@/components/platform/ReturnRiskTab";
 import { TrustTab } from "@/components/platform/TrustTab";
 import {
   Tabs,
@@ -36,12 +35,6 @@ export function BuyerDecisionTabs({ analysis }: { analysis: BuyerAnalysis }) {
       metric: `${analysis.scores.priceScore}/100`,
       scoreColor: getScoreColor(analysis.scores.priceScore),
     },
-    {
-      value: "return",
-      label: "İade Riski",
-      metric: `%${analysis.scores.returnRiskPercent}`,
-      scoreColor: getScoreColor(100 - analysis.scores.returnRiskPercent),
-    },
   ];
 
   return (
@@ -70,9 +63,6 @@ export function BuyerDecisionTabs({ analysis }: { analysis: BuyerAnalysis }) {
       </TabsContent>
       <TabsContent value="price">
         <PriceTab analysis={analysis} />
-      </TabsContent>
-      <TabsContent value="return">
-        <ReturnRiskTab analysis={analysis} />
       </TabsContent>
     </Tabs>
   );

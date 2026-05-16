@@ -11,8 +11,6 @@ import {
   FileText,
   Lightbulb,
   Loader2,
-  RotateCcw,
-  SearchCheck,
   Sparkles,
   TrendingUp,
   Users,
@@ -39,16 +37,6 @@ const AI_TOOLS = [
     tagColor: "blue",
     href: "/seller/products",
     cta: "İçerik Düzenle",
-  },
-  {
-    id: "return",
-    icon: SearchCheck,
-    label: "İade Kök Neden Analizi",
-    desc: "Hangi ürün içeriği yanlış beklenti oluşturuyor? İade nedenlerini anla ve düzelt.",
-    tag: null,
-    tagColor: "",
-    href: "/seller/returns",
-    cta: "İadeleri İncele",
   },
   {
     id: "seo",
@@ -236,22 +224,6 @@ export function SellerAIStudio() {
         )}
       </div>
 
-      {/* ── Returns shortcut ── */}
-      <Link
-        href="/seller/returns"
-        className="flex items-center gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 transition-all hover:shadow-md dark:border-amber-500/20 dark:bg-amber-500/10"
-      >
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-500/20">
-          <RotateCcw className="size-5 text-amber-600 dark:text-amber-400" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-gray-900 dark:text-white">İade Yönetimi</p>
-          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-            Bekleyen iade taleplerini incele, kabul et veya itiraz et.
-          </p>
-        </div>
-        <ChevronRight className="size-4 shrink-0 text-amber-400" />
-      </Link>
     </div>
   );
 }

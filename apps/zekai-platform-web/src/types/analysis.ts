@@ -64,10 +64,6 @@ export type PricePoint = {
   median: number;
 };
 
-export type ReturnReason = {
-  label: string;
-  percent: number;
-};
 
 export type AlternativeProduct = {
   title: string;
@@ -144,12 +140,6 @@ export type BuyerAnalysis = {
     warning: string;
     marketComparison: MarketComparison[];
     priceHistory: PricePoint[];
-  };
-  returnRiskAnalysis: {
-    title: string;
-    summary: string;
-    reasons: ReturnReason[];
-    personalWarning: string;
   };
   finalAdvice: string;
   alternatives: AlternativeProduct[];

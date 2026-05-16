@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FitTab }        from "@/components/platform/FitTab";
 import { PriceTab }      from "@/components/platform/PriceTab";
-import { ReturnRiskTab } from "@/components/platform/ReturnRiskTab";
 import { TrustTab }      from "@/components/platform/TrustTab";
 import { cn } from "@/lib/utils";
 import { AnalysisSaveBar } from "@/components/platform/AnalysisSaveBar";
@@ -71,7 +70,7 @@ function SignalRow({ tone, text }: { tone: Tone; text: string }) {
 }
 
 function buildSignals(a: BuyerAnalysis): { tone: Tone; text: string }[] {
-  const { fitScore, trustScore, priceScore, returnRiskPercent } = a.scores;
+  const { fitScore, trustScore, priceScore } = a.scores;
   return [
     fitScore >= 65      ? { tone: "ok",   text: "İhtiyacınla uyumlu" }
     : fitScore >= 40    ? { tone: "warn", text: "Kısmen uyumlu" }
@@ -84,10 +83,6 @@ function buildSignals(a: BuyerAnalysis): { tone: Tone; text: string }[] {
     priceScore >= 65    ? { tone: "ok",   text: "Fiyat piyasayla uyumlu" }
     : priceScore >= 40  ? { tone: "warn", text: "Fiyat biraz yüksek" }
     :                     { tone: "bad",  text: "Fiyat piyasanın üstünde" },
-
-    returnRiskPercent < 20  ? { tone: "ok",   text: "İade riski düşük" }
-    : returnRiskPercent < 40 ? { tone: "warn", text: "Orta düzeyde iade riski" }
-    :                          { tone: "bad",  text: "İade riski yüksek" },
   ];
 }
 
@@ -100,7 +95,7 @@ export function AnalysisResultView({
   const lv      = LEVEL[analysis.recommendationLevel];
   const signals = buildSignals(analysis);
   const pct     = Math.min(100, analysis.overallRiskPercent);
-  const { fitScore, trustScore, priceScore, returnRiskPercent } = analysis.scores;
+  const { fitScore, trustScore, priceScore } = analysis.scores;
 
   return (
     <motion.div
@@ -188,10 +183,9 @@ export function AnalysisResultView({
           <div className="mx-auto max-w-4xl">
             <TabsList className="flex h-12 w-full max-w-[500px] mx-auto items-center justify-between rounded-full bg-muted p-1">
               {([
-                { v: "fit",    label: "Uygunluk", score: fitScore,           inv: false },
-                { v: "trust",  label: "Güven",    score: trustScore,          inv: false },
-                { v: "price",  label: "Fiyat",    score: priceScore,          inv: false },
-                { v: "return", label: "İade",      score: returnRiskPercent,  inv: true  },
+                { v: "fit",    label: "Uygunluk", score: fitScore,   inv: false },
+                { v: "trust",  label: "Güven",    score: trustScore,  inv: false },
+                { v: "price",  label: "Fiyat",    score: priceScore,  inv: false },
               ] as const).map((t) => {
                 const v = t.inv ? 100 - t.score : t.score;
                 const dot = v >= 65 ? "bg-emerald-500" : v >= 40 ? "bg-amber-500" : "bg-red-500";
@@ -214,7 +208,6 @@ export function AnalysisResultView({
           <TabsContent value="fit"    className="mt-0"><FitTab    analysis={analysis} /></TabsContent>
           <TabsContent value="trust"  className="mt-0"><TrustTab  analysis={analysis} /></TabsContent>
           <TabsContent value="price"  className="mt-0"><PriceTab  analysis={analysis} /></TabsContent>
-          <TabsContent value="return" className="mt-0"><ReturnRiskTab analysis={analysis} /></TabsContent>
 
           <AskReportBox />
         </div>

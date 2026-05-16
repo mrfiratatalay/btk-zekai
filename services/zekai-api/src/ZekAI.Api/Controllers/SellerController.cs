@@ -97,26 +97,4 @@ public class SellerController(SellerService seller) : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    [HttpGet("analytics/return-reasons")]
-    public async Task<IActionResult> GetReturnReasons()
-    {
-        try { return Ok(await seller.ProxyGetAsync(UserId, "/api/seller/analytics/return-reasons")); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-    }
-
-    // ── Returns (proxied from commerce-api) ───────────────────────────────
-
-    [HttpGet("returns")]
-    public async Task<IActionResult> GetReturns()
-    {
-        try { return Ok(await seller.ProxyGetAsync(UserId, "/api/seller/returns")); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-    }
-
-    [HttpPut("returns/{id:guid}/respond")]
-    public async Task<IActionResult> RespondToReturn(Guid id, [FromBody] object req)
-    {
-        try { return Ok(await seller.ProxyPutAsync(UserId, $"/api/seller/returns/{id}/respond", req)); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-    }
 }

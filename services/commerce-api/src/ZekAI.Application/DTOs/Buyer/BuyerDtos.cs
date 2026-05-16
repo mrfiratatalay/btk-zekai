@@ -11,8 +11,7 @@ public record OrderDto(
     string PaymentMethod,
     DateTime OrderedAt,
     DateTime? DeliveredAt,
-    List<OrderItemDto> Items,
-    bool CanReturn
+    List<OrderItemDto> Items
 );
 
 public record OrderItemDto(
@@ -24,15 +23,3 @@ public record OrderItemDto(
     int Quantity
 );
 
-public record CreateReturnRequest(string Reason, string BuyerClaim);
-
-public record ReturnDto(
-    Guid Id,
-    Guid OrderId,
-    string Reason,
-    string BuyerClaim,
-    string? SellerResponse,
-    string Status,
-    decimal Amount,
-    DateTime RequestedAt
-);

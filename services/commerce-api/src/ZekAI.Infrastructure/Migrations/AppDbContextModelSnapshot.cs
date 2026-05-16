@@ -328,45 +328,6 @@ namespace ZekAI.Infrastructure.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("ZekAI.Domain.Entities.Return", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("numeric(10,2)");
-
-                    b.Property<string>("BuyerClaim")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("OrderId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Reason")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("RequestedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SellerResponse")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrderId")
-                        .IsUnique();
-
-                    b.ToTable("Returns");
-                });
-
             modelBuilder.Entity("ZekAI.Domain.Entities.Seller", b =>
                 {
                     b.Property<Guid>("Id")
@@ -622,17 +583,6 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("ZekAI.Domain.Entities.Return", b =>
-                {
-                    b.HasOne("ZekAI.Domain.Entities.Order", "Order")
-                        .WithOne("Return")
-                        .HasForeignKey("ZekAI.Domain.Entities.Return", "OrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Order");
-                });
-
             modelBuilder.Entity("ZekAI.Domain.Entities.Seller", b =>
                 {
                     b.HasOne("ZekAI.Domain.Entities.User", "User")
@@ -682,8 +632,6 @@ namespace ZekAI.Infrastructure.Migrations
             modelBuilder.Entity("ZekAI.Domain.Entities.Order", b =>
                 {
                     b.Navigation("Items");
-
-                    b.Navigation("Return");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.Product", b =>

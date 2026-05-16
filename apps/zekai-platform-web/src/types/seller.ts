@@ -90,15 +90,6 @@ export type SyntheticPersona = {
   city: string;
 };
 
-export type SellerReturnReason = {
-  id: string;
-  label: string;
-  percent: number;
-  sampleComplaint: string;
-  rootCause: string;
-  solution: string;
-  expectedImpact: string;
-};
 
 export type SellerImprovement = {
   id: string;

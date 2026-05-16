@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 using ZekAI.Application.DTOs.Buyer;
 using ZekAI.Domain.Entities;
 using ZekAI.Domain.Enums;
@@ -64,7 +63,6 @@ public class BuyerService(AppDbContext db)
         var orders = await db.Orders
             .Where(o => o.BuyerId == buyerId)
             .Include(o => o.Items).ThenInclude(i => i.Product).ThenInclude(p => p!.Images)
-            .Include(o => o.Return)
             .OrderByDescending(o => o.OrderedAt)
             .ToListAsync();
 
@@ -76,7 +74,6 @@ public class BuyerService(AppDbContext db)
         var order = await db.Orders
             .Where(o => o.BuyerId == buyerId && o.Id == orderId)
             .Include(o => o.Items).ThenInclude(i => i.Product).ThenInclude(p => p!.Images)
-            .Include(o => o.Return)
             .FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException("Sipariş bulunamadı.");
 
@@ -87,7 +84,6 @@ public class BuyerService(AppDbContext db)
     {
         var order = await db.Orders
             .Include(o => o.Items).ThenInclude(i => i.Product).ThenInclude(p => p!.Images)
-            .Include(o => o.Return)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.BuyerId == buyerId)
             ?? throw new KeyNotFoundException("Sipariş bulunamadı.");
 
@@ -101,59 +97,6 @@ public class BuyerService(AppDbContext db)
         return MapOrder(order);
     }
 
-    // ── Returns ────────────────────────────────────────────────────────────
-
-    public async Task<List<ReturnDto>> GetReturnsAsync(Guid buyerId)
-    {
-        var returns = await db.Returns
-            .Include(r => r.Order)
-            .Where(r => r.Order!.BuyerId == buyerId)
-            .OrderByDescending(r => r.RequestedAt)
-            .ToListAsync();
-
-        return returns.Select(MapReturn).ToList();
-    }
-
-    public async Task<ReturnDto> CreateReturnAsync(Guid buyerId, Guid orderId, CreateReturnRequest req)
-    {
-        var order = await db.Orders
-            .Include(o => o.Return)
-            .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.Id == orderId && o.BuyerId == buyerId)
-            ?? throw new KeyNotFoundException("Sipariş bulunamadı.");
-
-        if (order.Return is not null)
-            throw new InvalidOperationException("Bu sipariş için zaten iade talebi var.");
-
-        if (order.Status != OrderStatus.Delivered)
-            throw new InvalidOperationException("Yalnızca teslim edilen siparişler iade edilebilir.");
-
-        var reason = Enum.TryParse<ReturnReasonKey>(req.Reason, true, out var r) ? r : ReturnReasonKey.Other;
-
-        var ret = new Return
-        {
-            Id = Guid.NewGuid(),
-            OrderId = order.Id,
-            Reason = reason,
-            BuyerClaim = req.BuyerClaim,
-            Status = ReturnStatus.SellerReview,
-            Amount = order.Total,
-        };
-
-        order.Status = OrderStatus.ReturnRequested;
-        db.Returns.Add(ret);
-        await db.SaveChangesAsync();
-
-        return MapReturn(ret);
-    }
-
-    public async Task<ReturnDto> GetReturnAsync(Guid returnId)
-    {
-        var ret = await db.Returns.FindAsync(returnId)
-            ?? throw new KeyNotFoundException("İade talebi bulunamadı.");
-        return MapReturn(ret);
-    }
-
     // ── Mappers ────────────────────────────────────────────────────────────
 
     private static OrderDto MapOrder(Order o) => new(
@@ -163,12 +106,6 @@ public class BuyerService(AppDbContext db)
             i.ProductId, i.Title,
             i.Product?.Images.Where(img => img.IsPrimary).Select(img => img.Url).FirstOrDefault() ?? "",
             i.SellerName, i.Price, i.Quantity
-        )).ToList(),
-        o.Status == OrderStatus.Delivered && o.Return is null
-    );
-
-    private static ReturnDto MapReturn(Return r) => new(
-        r.Id, r.OrderId, r.Reason.ToString(), r.BuyerClaim,
-        r.SellerResponse, r.Status.ToString(), r.Amount, r.RequestedAt
+        )).ToList()
     );
 }

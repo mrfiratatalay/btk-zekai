@@ -36,13 +36,6 @@ export interface KpiDto {
   tone: "neutral" | "warning" | "danger" | "success";
 }
 
-export interface ReturnReasonDto {
-  label: string;
-  percent: number;
-  rootCause: string;
-  solution: string;
-  expectedImpact: string;
-}
 
 export interface StoreConnection {
   platform: string;
@@ -81,32 +74,3 @@ export const updateProductContent = (
 
 export const getSellerKpis = () => apiFetch<KpiDto[]>("/api/seller/analytics/kpis");
 
-export const getReturnReasons = () =>
-  apiFetch<ReturnReasonDto[]>("/api/seller/analytics/return-reasons");
-
-export interface SellerReturn {
-  id: string;
-  orderId: string;
-  orderNumber: string;
-  productTitle: string;
-  reason: string;
-  buyerClaim: string;
-  sellerResponse: string | null;
-  status: string;
-  amount: number;
-  requestedAt: string;
-  updatedAt: string;
-}
-
-export const getSellerReturns = () =>
-  apiFetch<SellerReturn[]>("/api/seller/returns");
-
-export const respondToReturn = (
-  id: string,
-  action: "accept" | "dispute",
-  response?: string,
-) =>
-  apiFetch<SellerReturn>(`/api/seller/returns/${id}/respond`, {
-    method: "PUT",
-    body: JSON.stringify({ action, response }),
-  });

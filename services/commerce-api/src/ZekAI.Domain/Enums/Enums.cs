@@ -8,8 +8,4 @@ public enum StorePlatform { DemoStore, Trendyol, Hepsiburada, Shopify, WooCommer
 
 public enum StoreConnectionStatus { Connected, NotConnected, ComingSoon }
 
-public enum OrderStatus { Pending, Delivered, ReturnRequested, Completed }
-
-public enum ReturnStatus { SellerReview, SellerDisputed, ArbiterReview, ResolutionProposed, Resolved }
-
-public enum ReturnReasonKey { Damaged, NotAsExpected, WrongProduct, LowQuality, Other }
+public enum OrderStatus { Pending, Delivered, Completed }

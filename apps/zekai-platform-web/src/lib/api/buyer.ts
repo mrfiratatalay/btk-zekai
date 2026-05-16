@@ -19,19 +19,8 @@ export interface Order {
   orderedAt: string;
   deliveredAt: string | null;
   items: OrderItem[];
-  canReturn: boolean;
 }
 
-export interface ReturnRequest {
-  id: string;
-  orderId: string;
-  reason: string;
-  buyerClaim: string;
-  sellerResponse: string | null;
-  status: string;
-  amount: number;
-  requestedAt: string;
-}
 
 export interface SavedAnalysisApi {
   id: string;
@@ -80,19 +69,6 @@ export const markDelivered = (orderId: string) =>
   apiFetch<Order>(`/api/buyer/orders/${orderId}/mark-delivered`, {
     method: "POST",
   });
-
-// ── Returns ──────────────────────────────────────────────────────────────────
-
-export const getReturns = () => apiFetch<ReturnRequest[]>("/api/buyer/returns");
-
-export const createReturn = (orderId: string, reason: string, buyerClaim: string) =>
-  apiFetch<ReturnRequest>(`/api/buyer/orders/${orderId}/return`, {
-    method: "POST",
-    body: JSON.stringify({ reason, buyerClaim }),
-  });
-
-export const getReturn = (id: string) =>
-  apiFetch<ReturnRequest>(`/api/buyer/returns/${id}`);
 
 // ── Saved Analyses ───────────────────────────────────────────────────────────
 

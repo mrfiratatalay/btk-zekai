@@ -55,14 +55,6 @@ public record PublishProductRequest(bool Published);
 
 public record KpiDto(string Label, string Value, string Note, string Tone);
 
-public record ReturnReasonDto(
-    string Label,
-    double Percent,
-    string RootCause,
-    string Solution,
-    string ExpectedImpact
-);
-
 public record StoreConnectionDto(
     string Platform,
     string StoreName,
@@ -73,21 +65,3 @@ public record StoreConnectionDto(
 
 public record ConnectStoreRequest(string StoreUrl, string Platform = "demo-store");
 
-public record SellerReturnDto(
-    Guid Id,
-    Guid OrderId,
-    string OrderNumber,
-    string ProductTitle,
-    string Reason,
-    string BuyerClaim,
-    string? SellerResponse,
-    string Status,
-    decimal Amount,
-    DateTime RequestedAt,
-    DateTime UpdatedAt
-);
-
-public record SellerRespondReturnRequest(
-    string Action,
-    string? Response
-);

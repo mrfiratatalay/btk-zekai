@@ -46,25 +46,4 @@ public class BuyerController(BuyerService buyer) : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    // ── Returns ────────────────────────────────────────────────────────────
-
-    [HttpGet("returns")]
-    public async Task<IActionResult> GetReturns()
-        => Ok(await buyer.GetReturnsAsync(UserId));
-
-    [HttpPost("orders/{id:guid}/return")]
-    public async Task<IActionResult> CreateReturn(Guid id, [FromBody] CreateReturnRequest req)
-    {
-        try { return Ok(await buyer.CreateReturnAsync(UserId, id, req)); }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-    }
-
-    [HttpGet("returns/{id:guid}")]
-    public async Task<IActionResult> GetReturn(Guid id)
-    {
-        try { return Ok(await buyer.GetReturnAsync(id)); }
-        catch (KeyNotFoundException) { return NotFound(); }
-    }
-
 }

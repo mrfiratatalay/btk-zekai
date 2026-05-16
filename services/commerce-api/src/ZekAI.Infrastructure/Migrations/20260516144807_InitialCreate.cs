@@ -250,31 +250,6 @@ namespace ZekAI.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Returns",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    OrderId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Reason = table.Column<int>(type: "integer", nullable: false),
-                    BuyerClaim = table.Column<string>(type: "text", nullable: false),
-                    SellerResponse = table.Column<string>(type: "text", nullable: true),
-                    Status = table.Column<int>(type: "integer", nullable: false),
-                    Amount = table.Column<decimal>(type: "numeric(10,2)", nullable: false),
-                    RequestedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Returns", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Returns_Orders_OrderId",
-                        column: x => x.OrderId,
-                        principalTable: "Orders",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "SellerProducts",
                 columns: table => new
                 {
@@ -388,12 +363,6 @@ namespace ZekAI.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Returns_OrderId",
-                table: "Returns",
-                column: "OrderId",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_SellerProducts_ProductId",
                 table: "SellerProducts",
                 column: "ProductId",
@@ -440,9 +409,6 @@ namespace ZekAI.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");
-
-            migrationBuilder.DropTable(
-                name: "Returns");
 
             migrationBuilder.DropTable(
                 name: "SellerProducts");
