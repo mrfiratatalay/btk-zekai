@@ -19,14 +19,13 @@ import {
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
-  getBuyerProfile,
-  getSavedAnalyses,
-  getProjects,
-  syncProjectsFromApi,
-  getCompareQueue,
+  useAnalysesStore,
+  useProjectsStore,
+  useProfileStore,
+  useCompareStore,
   STATUS_LABELS,
 } from "@/lib/buyer-store";
-import type { BuyerProfile, SavedAnalysis, ShoppingProject } from "@/types/analysis";
+import type { SavedAnalysis, ShoppingProject } from "@/types/analysis";
 import { PlatformNav } from "@/components/platform/PlatformNav";
 import { QuickAnalyzeBar } from "@/components/platform/QuickAnalyzeBar";
 import { BuyerOnboarding } from "@/components/platform/BuyerOnboarding";
@@ -125,45 +124,21 @@ function ProjectCard({
 
 /* ─── Main Dashboard ─────────────────────────────────────────────────────── */
 export function BuyerDashboard() {
-  const [profile, setProfile] = useState<BuyerProfile | null>(null);
+  const profile = useProfileStore((s) => s.profile);
+  const profileLoaded = useProfileStore((s) => s.loaded);
+  const savedAnalyses = useAnalysesStore((s) => s.analyses);
+  const projects = useProjectsStore((s) => s.projects);
+  const compareCount = useCompareStore((s) => s.ids.length);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
-  const [projects, setProjects] = useState<ShoppingProject[]>([]);
-  const [compareCount, setCompareCount] = useState(0);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const p = getBuyerProfile();
-    setProfile(p);
-    if (!p.onboarded) {
+    if (profileLoaded && !profile.onboarded) {
       setShowOnboarding(true);
     }
-    setSavedAnalyses(getSavedAnalyses());
-    setProjects(getProjects());
-    syncProjectsFromApi().then(setProjects).catch(() => {});
-    setCompareCount(getCompareQueue().length);
-    setMounted(true);
+  }, [profileLoaded, profile.onboarded]);
 
-    function refresh() {
-      setSavedAnalyses(getSavedAnalyses());
-      setProjects(getProjects());
-      setCompareCount(getCompareQueue().length);
-    }
-    window.addEventListener("zekai-store-update", refresh);
-    return () => window.removeEventListener("zekai-store-update", refresh);
-  }, []);
-
-  function handleOnboardingComplete(p: BuyerProfile) {
-    setProfile(p);
+  function handleOnboardingComplete() {
     setShowOnboarding(false);
-  }
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="h-14 border-b border-border" />
-      </div>
-    );
   }
 
   const firstName = profile?.name?.split(" ")[0] || "Alıcı";
@@ -181,7 +156,8 @@ export function BuyerDashboard() {
     <div className="min-h-screen bg-background">
       {showOnboarding && (
         <BuyerOnboarding onComplete={handleOnboardingComplete} />
-      )}
+      )
+      }
 
       <PlatformNav />
 

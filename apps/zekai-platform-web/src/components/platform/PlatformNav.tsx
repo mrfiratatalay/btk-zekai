@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   BookmarkCheck,
   GitCompare,
@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { getSavedAnalyses, getCompareQueue } from "@/lib/buyer-store";
+import { useAnalysesStore, useCompareStore } from "@/lib/buyer-store";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const NAV_ITEMS = [
@@ -25,25 +25,9 @@ const NAV_ITEMS = [
 
 export function PlatformNav() {
   const pathname = usePathname();
-  const [savedCount, setSavedCount] = useState(0);
-  const [compareCount, setCompareCount] = useState(0);
+  const savedCount = useAnalysesStore((s) => s.analyses.length);
+  const compareCount = useCompareStore((s) => s.ids.length);
   const [showNotifications, setShowNotifications] = useState(false);
-
-  useEffect(() => {
-    function refresh() {
-      setSavedCount(getSavedAnalyses().length);
-      setCompareCount(getCompareQueue().length);
-    }
-    refresh();
-    // storage değişimlerini dinle (aynı sekme)
-    window.addEventListener("storage", refresh);
-    // custom event (aynı sekme içi güncellemeler için)
-    window.addEventListener("zekai-store-update", refresh);
-    return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("zekai-store-update", refresh);
-    };
-  }, []);
 
   return (
     <nav className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">

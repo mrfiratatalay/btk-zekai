@@ -57,16 +57,8 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-[#1a1a1a]">
 
-        {/* Skip */}
-        <button
-          onClick={onSkip}
-          className="absolute right-5 top-5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-        >
-          Atla
-        </button>
-
-        {/* Step indicators */}
-        <div className="flex gap-1.5 px-8 pt-6">
+        {/* Step indicators + Skip */}
+        <div className="flex items-center gap-1.5 px-8 pt-6">
           {([1, 2, 3] as OnboardingStep[]).map((s) => (
             <div
               key={s}
@@ -76,6 +68,12 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
               )}
             />
           ))}
+          <button
+            onClick={onSkip}
+            className="ml-2 shrink-0 cursor-pointer text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          >
+            Atla
+          </button>
         </div>
 
         {/* Step 1 — Platform seç */}
@@ -134,7 +132,7 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
         {/* Step 2 — API Key */}
         {step === 2 && (
           <div className="px-8 pb-8 pt-6">
-            <button onClick={() => setStep(1)} className="mb-4 flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <button onClick={() => setStep(1)} className="mb-4 flex cursor-pointer items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
               ← Geri
             </button>
             <h2 className="text-xl font-black text-gray-900 dark:text-white">API Anahtarını Gir</h2>
@@ -145,7 +143,10 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
             <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/8">
               <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Nasıl bulurum?</p>
               <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
-                Akıllı Market → Satıcı Paneli → <strong>API Entegrasyonu</strong> bölümünden anahtarınızı kopyalayın.
+                Akıllı Market → Satıcı Paneli → <strong>API Erişimi</strong> bölümünden anahtarınızı kopyalayın.
+              </p>
+              <p className="mt-2 text-xs text-blue-500 dark:text-blue-500">
+                Demo: <code className="font-mono">am_live_demo_mehmet_elektronik_2024</code>
               </p>
             </div>
 
@@ -161,7 +162,7 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
                 <textarea
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  placeholder="am_live_..."
                   required
                   rows={3}
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-mono text-xs text-gray-800 outline-none focus:border-green-500 dark:border-white/10 dark:bg-white/5 dark:text-white"

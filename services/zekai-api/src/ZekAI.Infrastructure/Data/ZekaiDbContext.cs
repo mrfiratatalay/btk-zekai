@@ -33,8 +33,6 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
             .HasForeignKey(a => a.UserId);
         mb.Entity<BuyerAnalysis>()
             .HasIndex(a => new { a.UserId, a.ExternalId }).IsUnique();
-        mb.Entity<BuyerAnalysis>()
-            .Property(a => a.ProductPrice).HasColumnType("numeric(10,2)");
 
         mb.Entity<ShoppingProject>()
             .HasOne(p => p.User)

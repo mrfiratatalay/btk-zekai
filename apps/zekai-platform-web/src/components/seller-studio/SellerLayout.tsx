@@ -3,15 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, HelpCircle, LayoutDashboard, LogOut, Package } from "lucide-react";
+import { LayoutDashboard, LogOut, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
+import { getSellerStore } from "@/lib/api/seller";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-
-const NAV = [
-  { label: "Dashboard", href: "/seller", icon: LayoutDashboard },
-  { label: "Ürünlerim", href: "/seller/products", icon: Package },
-];
 
 /* ZekAI four-diamond logo mark */
 function ZekAILogo({ size = 28 }: { size?: number }) {
@@ -29,11 +25,13 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     const u = getCurrentUser();
     if (!u) { router.replace("/login"); return; }
     setUser(u);
+    getSellerStore().then(() => setIsConnected(true)).catch(() => setIsConnected(false));
   }, [router]);
 
   if (!user) return null;
@@ -61,7 +59,10 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-0.5 px-3 py-2">
-          {NAV.map((item) => {
+          {[
+            { label: "Dashboard", href: "/seller", icon: LayoutDashboard },
+            ...(isConnected ? [{ label: "Ürünlerim", href: "/seller/products", icon: Package }] : []),
+          ].map((item) => {
             const Icon = item.icon;
             const active =
               item.href === "/seller"
@@ -91,34 +92,32 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User footer */}
-        <div className="shrink-0 border-t border-gray-100 p-4 dark:border-white/8">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-green-500 text-[13px] font-black text-white">
+        <div className="shrink-0 space-y-1 border-t border-gray-100 p-3 dark:border-white/8">
+          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-green-500 text-[12px] font-black text-white">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{displayName}</p>
+              <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{displayName}</p>
               <p className="truncate text-xs text-gray-400">{user?.email ?? "Satıcı"}</p>
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between">
-            <Link
-              href="/"
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 transition-colors hover:text-gray-700 dark:hover:text-gray-300"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M7.5 1L2.5 6L7.5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Zekai&apos;ye dön
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 transition-colors hover:text-red-500"
-            >
-              <LogOut className="size-3.5" />
-              Çıkış
-            </button>
-          </div>
+          <Link
+            href="/"
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+              <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Zekai&apos;ye dön
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+          >
+            <LogOut className="size-4 shrink-0" />
+            Çıkış Yap
+          </button>
         </div>
       </aside>
 
@@ -133,18 +132,9 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="hidden lg:block" />
 
-          {/* Right: help + bell + theme */}
+          {/* Right: theme */}
           <div className="flex items-center gap-1">
-            <button className="flex size-9 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/5">
-              <HelpCircle className="size-4" />
-            </button>
-            <button className="flex size-9 items-center justify-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/5">
-              <Bell className="size-4" />
-            </button>
             <ThemeToggle className="text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5" />
-            <div className="ml-1 flex size-9 items-center justify-center rounded-full bg-green-500 text-[12px] font-black text-white">
-              {initials}
-            </div>
           </div>
         </header>
 

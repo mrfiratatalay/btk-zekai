@@ -65,6 +65,28 @@ export const getProduct = (id: string) =>
 export const getProductReviews = (id: string) =>
   apiFetch<ProductReview[]>(`/api/products/${id}/reviews`, []);
 
+export async function postProductReview(
+  productId: string,
+  data: { rating: number; title: string; text: string; tags?: string[] },
+): Promise<ProductReview> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("market_token") : null;
+  if (!token) throw new Error("Yorum yapmak için giriş yapmalısınız.");
+  const res = await fetch(`${API_BASE}/api/products/${productId}/reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
+  if (res.status === 409) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message ?? "Bu ürün için zaten yorum yaptınız.");
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message ?? "Yorum gönderilemedi.");
+  }
+  return res.json();
+}
+
 export const getProductPriceHistory = (id: string) =>
   apiFetch<ProductPricePoint[]>(`/api/products/${id}/price-history`, []);
 

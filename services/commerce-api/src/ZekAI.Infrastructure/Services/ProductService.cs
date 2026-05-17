@@ -71,10 +71,51 @@ public class ProductService(AppDbContext db)
             .Where(r => r.ProductId == productId)
             .OrderByDescending(r => r.HelpfulCount)
             .Select(r => new ProductReviewDto(
-                r.Id, r.Rating, r.Title, r.Text,
+                r.Id, r.AuthorName, r.Rating, r.Title, r.Text,
                 r.VerifiedPurchase, r.Date, r.HelpfulCount,
                 JsonSerializer.Deserialize<List<string>>(r.TagsJson) ?? new()
             )).ToListAsync();
+    }
+
+    public async Task<ProductReviewDto> CreateReviewAsync(string productId, Guid userId, CreateProductReviewRequest req)
+    {
+        if (!await db.Products.AnyAsync(p => p.Id == productId))
+            throw new KeyNotFoundException("Ürün bulunamadı.");
+
+        if (await db.ProductReviews.AnyAsync(r => r.ProductId == productId && r.UserId == userId))
+            throw new InvalidOperationException("Bu ürün için zaten bir yorum yaptınız.");
+
+        var user = await db.Users.FindAsync(userId)
+            ?? throw new KeyNotFoundException("Kullanıcı bulunamadı.");
+
+        var verifiedPurchase = await db.Orders
+            .AnyAsync(o => o.BuyerId == userId &&
+                           o.Items.Any(i => i.ProductId == productId));
+
+        var tagsJson = JsonSerializer.Serialize(req.Tags ?? []);
+
+        var review = new ZekAI.Domain.Entities.ProductReview
+        {
+            ProductId = productId,
+            UserId = userId,
+            AuthorName = user.FullName,
+            Rating = Math.Clamp(req.Rating, 1, 5),
+            Title = req.Title.Trim(),
+            Text = req.Text.Trim(),
+            VerifiedPurchase = verifiedPurchase,
+            Date = DateTime.UtcNow,
+            HelpfulCount = 0,
+            TagsJson = tagsJson,
+        };
+
+        db.ProductReviews.Add(review);
+        await db.SaveChangesAsync();
+
+        return new ProductReviewDto(
+            review.Id, review.AuthorName, review.Rating, review.Title, review.Text,
+            review.VerifiedPurchase, review.Date, review.HelpfulCount,
+            req.Tags ?? []
+        );
     }
 
     public async Task<List<PriceHistoryDto>> GetPriceHistoryAsync(string productId)

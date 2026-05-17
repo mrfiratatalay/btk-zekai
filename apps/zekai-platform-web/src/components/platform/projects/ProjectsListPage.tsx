@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
@@ -13,13 +13,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  getProjects,
-  getSavedAnalyses,
-  createProject,
-  deleteProject,
-  syncProjectsFromApi,
+  useProjectsStore,
+  useAnalysesStore,
 } from "@/lib/buyer-store";
-import { notifyStoreUpdate } from "@/components/platform/PlatformNav";
 import type { ShoppingProject, SavedAnalysis } from "@/types/analysis";
 import { PlatformNav } from "@/components/platform/PlatformNav";
 import { Button } from "@/components/ui/button";
@@ -36,15 +32,17 @@ function CreateProjectModal({ onClose, onCreate }: {
 
   function handleCreate() {
     if (!title.trim()) return;
-    const p = createProject({
+    const createProjectFn = useProjectsStore.getState().createProject;
+    const projectData = {
       title: title.trim(),
       goal: goal.trim(),
       budget: budget ? parseInt(budget.replace(/\D/g, ""), 10) : undefined,
-    });
-    notifyStoreUpdate();
-    onCreate(p);
+    };
+    createProjectFn(projectData).then((p) => {
+      onCreate(p);
+      toast.success("Karar Odası oluşturuldu!");
+    }).catch(() => { toast.error("Oluşturulamadı."); });
     onClose();
-    toast.success("Karar Odası oluşturuldu!");
   }
 
   return (
@@ -251,36 +249,26 @@ function ProjectCard({
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export function ProjectsListPage() {
-  const [projects, setProjects] = useState<ShoppingProject[]>([]);
-  const [analyses, setAnalyses] = useState<SavedAnalysis[]>([]);
+  const projects = useProjectsStore((s) => s.projects);
+  const analyses = useAnalysesStore((s) => s.analyses);
+  const loading = useProjectsStore((s) => s.loading);
+  const deleteProjectFn = useProjectsStore((s) => s.deleteProject);
   const [showModal, setShowModal] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setProjects(getProjects());
-    syncProjectsFromApi().then(setProjects).catch(() => {});
-    setAnalyses(getSavedAnalyses());
-    setMounted(true);
-
-    function refresh() {
-      setProjects(getProjects());
-      setAnalyses(getSavedAnalyses());
-    }
-    window.addEventListener("zekai-store-update", refresh);
-    return () => window.removeEventListener("zekai-store-update", refresh);
-  }, []);
 
   function handleDelete(id: string) {
-    deleteProject(id);
-    setProjects(getProjects());
-    notifyStoreUpdate();
+    deleteProjectFn(id);
     toast.success("Karar Odası silindi.");
   }
 
-  if (!mounted) {
+  if (loading && projects.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <div className="h-14 border-b border-border" />
+        <div className="mx-auto max-w-3xl px-4 py-12 grid gap-4 sm:grid-cols-2">
+          {[1, 2].map((n) => (
+            <div key={n} className="h-64 animate-pulse rounded-3xl bg-muted/40" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -290,7 +278,7 @@ export function ProjectsListPage() {
       {showModal && (
         <CreateProjectModal
           onClose={() => setShowModal(false)}
-          onCreate={(p) => setProjects((prev) => [p, ...prev])}
+          onCreate={() => {}}
         />
       )}
 

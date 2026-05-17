@@ -43,8 +43,9 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<decimal>("ProductPrice")
-                        .HasColumnType("numeric(10,2)");
+                    b.Property<string>("ProductPrice")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("ProductTitle")
                         .IsRequired()
@@ -228,8 +229,14 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("Onboarded")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProfileName")
                         .HasColumnType("text");
 
                     b.Property<string>("Role")

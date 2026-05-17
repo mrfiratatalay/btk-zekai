@@ -1,44 +1,55 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-
-export interface FavoriteItem {
-  productId: string;
-  title: string;
-  price: number;
-  image: string;
-}
+import {
+  getFavorites,
+  addFavoriteApi,
+  removeFavoriteApi,
+  type FavoriteItem,
+} from "@/lib/api/buyer";
 
 interface FavoritesState {
   items: FavoriteItem[];
-  addFavorite: (item: FavoriteItem) => void;
-  removeFavorite: (productId: string) => void;
+  loading: boolean;
+  loadFavorites: () => Promise<void>;
+  addFavorite: (productId: string) => Promise<void>;
+  removeFavorite: (productId: string) => Promise<void>;
   isFavorite: (productId: string) => boolean;
-  toggleFavorite: (item: FavoriteItem) => void;
+  toggleFavorite: (productId: string) => Promise<void>;
 }
 
-export const useFavoritesStore = create<FavoritesState>()(
-  persist(
-    (set, get) => ({
-      items: [],
-      addFavorite: (item) =>
-        set((s) => {
-          if (s.items.find((i) => i.productId === item.productId)) return s;
-          return { items: [...s.items, item] };
-        }),
-      removeFavorite: (productId) =>
-        set((s) => ({ items: s.items.filter((i) => i.productId !== productId) })),
-      isFavorite: (productId) => !!get().items.find((i) => i.productId === productId),
-      toggleFavorite: (item) => {
-        const state = get();
-        if (state.isFavorite(item.productId)) {
-          state.removeFavorite(item.productId);
-        } else {
-          state.addFavorite(item);
-        }
-      },
-    }),
-    { name: "market-favorites" }
-  )
-);
+export const useFavoritesStore = create<FavoritesState>()((set, get) => ({
+  items: [],
+  loading: false,
+
+  loadFavorites: async () => {
+    set({ loading: true });
+    try {
+      const items = await getFavorites();
+      set({ items });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  addFavorite: async (productId) => {
+    await addFavoriteApi(productId);
+    await get().loadFavorites();
+  },
+
+  removeFavorite: async (productId) => {
+    set((s) => ({ items: s.items.filter((i) => i.productId !== productId) }));
+    await removeFavoriteApi(productId);
+  },
+
+  isFavorite: (productId) =>
+    get().items.some((i) => i.productId === productId),
+
+  toggleFavorite: async (productId) => {
+    if (get().isFavorite(productId)) {
+      await get().removeFavorite(productId);
+    } else {
+      await get().addFavorite(productId);
+    }
+  },
+}));
 
 export const favoritesCount = (items: FavoriteItem[]) => items.length;

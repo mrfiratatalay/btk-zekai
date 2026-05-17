@@ -2,6 +2,7 @@ export type ProductId = string;
 
 export type ProductReview = {
   id: string;
+  authorName: string;
   rating: number;
   title: string;
   text: string;

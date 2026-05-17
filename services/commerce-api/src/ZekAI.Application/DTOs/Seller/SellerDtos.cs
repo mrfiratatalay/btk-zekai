@@ -48,6 +48,17 @@ public class CreateProductRequest
 
 public record PublishProductRequest(bool Published);
 
+public record GenerateSocialContentRequest(string Tone);
+
+public record TiktokScene(string Time, string Text);
+
+public record SocialMediaContentDto(
+    string Tone,
+    string Instagram,
+    List<TiktokScene> Tiktok,
+    string Twitter,
+    DateTime GeneratedAt
+);
 
 public record StoreConnectionDto(
     string Platform,

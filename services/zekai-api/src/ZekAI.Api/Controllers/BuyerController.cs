@@ -15,6 +15,20 @@ public class BuyerController(BuyerService buyer) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetProfile()
+    {
+        try { return Ok(await buyer.GetProfileAsync(UserId)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateBuyerProfileRequest req)
+    {
+        try { return Ok(await buyer.UpdateProfileAsync(UserId, req)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
     [HttpPost("product-preview")]
     public async Task<IActionResult> ProductPreview([FromBody] ProductPreviewRequest req)
     {
@@ -68,17 +82,17 @@ public class BuyerController(BuyerService buyer) : ControllerBase
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
-    [HttpPost("projects/{id}/analyses/{analysisId:guid}")]
-    public async Task<IActionResult> AddAnalysisToProject(string id, Guid analysisId)
+    [HttpPost("projects/{id}/analyses/{analysisExternalId}")]
+    public async Task<IActionResult> AddAnalysisToProject(string id, string analysisExternalId)
     {
-        try { return Ok(await buyer.AddAnalysisToProjectAsync(UserId, id, analysisId)); }
+        try { return Ok(await buyer.AddAnalysisToProjectAsync(UserId, id, analysisExternalId)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
-    [HttpDelete("projects/{id}/analyses/{analysisId:guid}")]
-    public async Task<IActionResult> RemoveAnalysisFromProject(string id, Guid analysisId)
+    [HttpDelete("projects/{id}/analyses/{analysisExternalId}")]
+    public async Task<IActionResult> RemoveAnalysisFromProject(string id, string analysisExternalId)
     {
-        try { return Ok(await buyer.RemoveAnalysisFromProjectAsync(UserId, id, analysisId)); }
+        try { return Ok(await buyer.RemoveAnalysisFromProjectAsync(UserId, id, analysisExternalId)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 

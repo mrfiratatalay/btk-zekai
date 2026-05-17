@@ -23,12 +23,7 @@ export function ProductGallery({ product }: { product: Product }) {
   }
 
   function handleFavorite() {
-    toggleFavorite({
-      productId: product.id,
-      title: product.title,
-      price: product.price,
-      image: product.image,
-    });
+    toggleFavorite(product.id);
   }
 
   function handleShare() {

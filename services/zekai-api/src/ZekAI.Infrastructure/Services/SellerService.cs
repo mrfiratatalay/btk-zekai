@@ -23,9 +23,8 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
 
     public async Task<StoreConnectionDto> ConnectStoreAsync(Guid userId, StoreConnectRequest req)
     {
-        // Validate the API key by calling the commerce platform with it as Bearer token
         var profile = await commerce.GetSellerProfileAsync(req.ApiKey)
-            ?? throw new UnauthorizedAccessException("API anahtarı geçersiz veya süresi dolmuş.");
+            ?? throw new UnauthorizedAccessException("API anahtarı geçersiz.");
 
         var existing = await db.StoreConnections.FirstOrDefaultAsync(sc => sc.ZekaiUserId == userId);
         if (existing is not null)
@@ -51,7 +50,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
         }
 
         await db.SaveChangesAsync();
-        var products = await commerce.GetSellerProductsAsync(existing.CommerceAccessToken);
+        var products = await commerce.GetSellerProductsAsync(req.ApiKey);
         return new StoreConnectionDto(req.Platform, profile.StoreName, "Connected", null, products.Count);
     }
 
@@ -98,6 +97,16 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce)
     {
         var conn = await GetActiveConnectionAsync(userId);
         var doc = await commerce.ProxyPutAsync(conn.CommerceAccessToken, path, body);
+        return doc?.RootElement;
+    }
+
+    public async Task<object?> GenerateSocialContentAsync(Guid userId, string productId, object body)
+    {
+        var conn = await GetActiveConnectionAsync(userId);
+        var doc = await commerce.ProxyPostAsync(
+            conn.CommerceAccessToken,
+            $"/api/seller/products/{productId}/social-content",
+            body);
         return doc?.RootElement;
     }
 

@@ -66,6 +66,15 @@ public class CommerceApiClient(HttpClient http)
         return JsonDocument.Parse(json);
     }
 
+    public async Task<JsonDocument?> ProxyPostAsync(string commerceToken, string path, object body)
+    {
+        SetBearerToken(commerceToken);
+        var response = await http.PostAsJsonAsync(path, body);
+        if (!response.IsSuccessStatusCode) return null;
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonDocument.Parse(json);
+    }
+
     public async Task<CommerceSellerProfileDto?> GetSellerProfileAsync(string commerceToken)
     {
         SetBearerToken(commerceToken);

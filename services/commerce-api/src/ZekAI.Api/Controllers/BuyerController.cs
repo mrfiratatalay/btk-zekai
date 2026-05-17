@@ -9,7 +9,7 @@ namespace ZekAI.Api.Controllers;
 [ApiController]
 [Route("api/buyer")]
 [Authorize(Roles = "Buyer")]
-public class BuyerController(BuyerService buyer) : ControllerBase
+public class BuyerController(BuyerService buyer, FavoriteService favorites) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -46,4 +46,27 @@ public class BuyerController(BuyerService buyer) : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    // ── Favorites ──────────────────────────────────────────────────────────
+
+    [HttpGet("favorites")]
+    public async Task<IActionResult> GetFavorites()
+        => Ok(await favorites.GetFavoritesAsync(UserId));
+
+    [HttpPost("favorites/{productId}")]
+    public async Task<IActionResult> AddFavorite(string productId)
+    {
+        try
+        {
+            await favorites.AddFavoriteAsync(UserId, productId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpDelete("favorites/{productId}")]
+    public async Task<IActionResult> RemoveFavorite(string productId)
+    {
+        await favorites.RemoveFavoriteAsync(UserId, productId);
+        return NoContent();
+    }
 }

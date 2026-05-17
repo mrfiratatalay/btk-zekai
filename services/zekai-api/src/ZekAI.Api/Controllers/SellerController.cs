@@ -88,6 +88,19 @@ public class SellerController(SellerService seller) : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    // ── Social Media Content (proxied from commerce-api) ─────────────────
+
+    [HttpPost("products/{productId}/social-content")]
+    public async Task<IActionResult> GenerateSocialContent(string productId, [FromBody] object body)
+    {
+        try
+        {
+            var result = await seller.GenerateSocialContentAsync(UserId, productId, body);
+            return result is null ? BadRequest(new { message = "İçerik üretilemedi." }) : Ok(result);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     // ── Analytics (proxied from commerce-api) ─────────────────────────────
 
     [HttpGet("analytics/kpis")]

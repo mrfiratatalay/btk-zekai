@@ -17,16 +17,12 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  getSavedAnalyses,
-  deleteAnalysis,
-  updateAnalysisStatus,
+  useAnalysesStore,
+  useCompareStore,
   updateAnalysisNote,
-  addToCompareQueue,
-  getCompareQueue,
   STATUS_OPTIONS,
   STATUS_LABELS,
 } from "@/lib/buyer-store";
-import { notifyStoreUpdate } from "@/components/platform/PlatformNav";
 import type { SavedAnalysis, SavedAnalysisStatus } from "@/types/analysis";
 import { PlatformNav } from "@/components/platform/PlatformNav";
 import { Button } from "@/components/ui/button";
@@ -146,7 +142,6 @@ function SavedAnalysisCard({
 
   function saveNote() {
     updateAnalysisNote(analysis.id, note);
-    notifyStoreUpdate();
     setEditingNote(false);
     toast.success("Not kaydedildi.");
   }
@@ -284,43 +279,26 @@ function SavedAnalysisCard({
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export function SavedAnalysesPage() {
-  const [analyses, setAnalyses] = useState<SavedAnalysis[]>([]);
-  const [compareQueue, setCompareQueue] = useState<string[]>([]);
+  const analyses = useAnalysesStore((s) => s.analyses);
+  const loading = useAnalysesStore((s) => s.loading);
+  const deleteAnalysis = useAnalysesStore((s) => s.deleteAnalysis);
+  const updateStatus = useAnalysesStore((s) => s.updateStatus);
+  const compareIds = useCompareStore((s) => s.ids);
+  const addToCompare = useCompareStore((s) => s.add);
   const [filter, setFilter] = useState<FilterStatus>("all");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setAnalyses(getSavedAnalyses());
-    setCompareQueue(getCompareQueue());
-    setMounted(true);
-
-    function refresh() {
-      setAnalyses(getSavedAnalyses());
-      setCompareQueue(getCompareQueue());
-    }
-    window.addEventListener("zekai-store-update", refresh);
-    return () => window.removeEventListener("zekai-store-update", refresh);
-  }, []);
 
   function handleStatusChange(id: string, status: SavedAnalysisStatus) {
-    updateAnalysisStatus(id, status);
-    setAnalyses(getSavedAnalyses());
-    notifyStoreUpdate();
+    updateStatus(id, status);
   }
 
   function handleDelete(id: string) {
     deleteAnalysis(id);
-    setAnalyses(getSavedAnalyses());
-    setCompareQueue(getCompareQueue());
-    notifyStoreUpdate();
     toast.success("Analiz silindi.");
   }
 
   function handleAddToCompare(id: string) {
-    const ok = addToCompareQueue(id);
+    const ok = addToCompare(id);
     if (ok) {
-      setCompareQueue(getCompareQueue());
-      notifyStoreUpdate();
       toast.success("Karşılaştırma kuyruğuna eklendi!", {
         action: {
           label: "Karşılaştır →",
@@ -335,10 +313,15 @@ export function SavedAnalysesPage() {
   const filtered =
     filter === "all" ? analyses : analyses.filter((a) => a.status === filter);
 
-  if (!mounted) {
+  if (loading && analyses.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <div className="h-14 border-b border-border" />
+        <div className="mx-auto max-w-3xl px-4 py-8 space-y-4">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="h-64 animate-pulse rounded-3xl bg-muted/40" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -356,18 +339,18 @@ export function SavedAnalysesPage() {
               Karar Hafızası
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {analyses.length} analiz · {compareQueue.length} karşılaştırma kuyruğunda
+              {analyses.length} analiz · {compareIds.length} karşılaştırma kuyruğunda
             </p>
           </div>
 
-          {compareQueue.length > 0 && (
+          {compareIds.length > 0 && (
             <Link href="/platform/compare">
               <Button
                 size="sm"
                 className="rounded-xl bg-[#adff41] text-[#0a0a0f] font-bold hover:bg-[#9aef30]"
               >
                 <GitCompare className="mr-1.5 size-3.5" />
-                Karşılaştır ({compareQueue.length})
+                Karşılaştır ({compareIds.length})
               </Button>
             </Link>
           )}
@@ -430,7 +413,7 @@ export function SavedAnalysesPage() {
                 key={analysis.id}
                 analysis={analysis}
                 index={index}
-                inCompare={compareQueue.includes(analysis.id)}
+                inCompare={compareIds.includes(analysis.id)}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
                 onAddToCompare={handleAddToCompare}

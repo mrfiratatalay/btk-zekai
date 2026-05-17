@@ -4,6 +4,8 @@ public class ProductReview
 {
     public int Id { get; set; }
     public string ProductId { get; set; } = "";
+    public Guid? UserId { get; set; }
+    public string AuthorName { get; set; } = "Müşteri";
     public int Rating { get; set; }
     public string Title { get; set; } = "";
     public string Text { get; set; } = "";
@@ -13,4 +15,5 @@ public class ProductReview
     public string TagsJson { get; set; } = "[]";
 
     public Product? Product { get; set; }
+    public User? User { get; set; }
 }

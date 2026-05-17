@@ -22,7 +22,7 @@ public class SaveAnalysisRequest
     public string ProductId { get; set; } = "";
     public string ProductTitle { get; set; } = "";
     public string ProductImage { get; set; } = "";
-    public decimal ProductPrice { get; set; }
+    public string ProductPrice { get; set; } = "";
     public string SellerName { get; set; } = "";
     public string UserNeedText { get; set; } = "";
     public int OverallRiskPercent { get; set; }
@@ -42,7 +42,7 @@ public record AnalysisDto(
     string ProductId,
     string ProductTitle,
     string ProductImage,
-    decimal ProductPrice,
+    string ProductPrice,
     string SellerName,
     string UserNeedText,
     int OverallRiskPercent,
@@ -77,3 +77,11 @@ public record ProjectDto(
     DateTime CreatedAt,
     List<string> AnalysisIds
 );
+
+public record BuyerProfileDto(string? ProfileName, bool Onboarded);
+
+public class UpdateBuyerProfileRequest
+{
+    public string? ProfileName { get; set; }
+    public bool? Onboarded { get; set; }
+}

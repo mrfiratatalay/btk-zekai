@@ -4,24 +4,20 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { saveBuyerProfile } from "@/lib/buyer-store";
-import type { BuyerProfile } from "@/types/analysis";
+import { useProfileStore } from "@/lib/buyer-store";
 
 interface BuyerOnboardingProps {
-  onComplete: (profile: BuyerProfile) => void;
+  onComplete: () => void;
 }
 
 export function BuyerOnboarding({ onComplete }: BuyerOnboardingProps) {
   const [name, setName] = useState("");
+  const saveProfile = useProfileStore((s) => s.save);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const profile: BuyerProfile = {
-      name: name.trim() || "Alıcı",
-      onboarded: true,
-    };
-    saveBuyerProfile(profile);
-    onComplete(profile);
+    await saveProfile({ name: name.trim() || "Alıcı", onboarded: true }).catch(() => {});
+    onComplete();
   }
 
   return (
@@ -80,7 +76,7 @@ export function BuyerOnboarding({ onComplete }: BuyerOnboardingProps) {
           </form>
 
           <p className="mt-4 text-center text-[11px] text-muted-foreground/50">
-            Verin yalnızca tarayıcında saklanır. Sunucuya gönderilmez.
+            Profilin hesabına kaydedilir.
           </p>
         </motion.div>
       </div>

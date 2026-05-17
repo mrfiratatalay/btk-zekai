@@ -8,6 +8,8 @@ public class ZekaiUser
     public string FullName { get; set; } = "";
     public string Role { get; set; } = "buyer"; // buyer | seller
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? ProfileName { get; set; }
+    public bool Onboarded { get; set; } = false;
 
     public ICollection<ZekaiRefreshToken> RefreshTokens { get; set; } = [];
     public ICollection<SellerStoreConnection> StoreConnections { get; set; } = [];

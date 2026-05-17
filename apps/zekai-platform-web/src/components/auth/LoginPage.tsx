@@ -134,13 +134,21 @@ export function LoginPage() {
               {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
             </button>
 
-            <div className="text-center text-xs text-muted-foreground mt-2">
-              <p>
-                <strong>Demo Satıcı:</strong> <code className="text-[#C1F25D] dark:text-[#ADFF41]">seller@zekai.com</code> / <code className="text-[#C1F25D] dark:text-[#ADFF41]">Seller123!</code>
-              </p>
-              <p className="mt-1">
-                <strong>Demo Alıcı:</strong> <code className="text-[#C1F25D] dark:text-[#ADFF41]">buyer@zekai.com</code> / <code className="text-[#C1F25D] dark:text-[#ADFF41]">Buyer123!</code>
-              </p>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {[
+                { label: "Demo Satıcı", email: "seller@zekai.com", password: "Seller123!", role: "seller" as Role },
+                { label: "Demo Alıcı", email: "buyer@zekai.com", password: "Buyer123!", role: "buyer" as Role },
+              ].map((demo) => (
+                <button
+                  key={demo.role}
+                  type="button"
+                  onClick={() => { setEmail(demo.email); setPassword(demo.password); setRole(demo.role); }}
+                  className="cursor-pointer rounded-xl border border-border bg-muted px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/80"
+                >
+                  <p className="text-[11px] font-semibold text-foreground/60">{demo.label}</p>
+                  <p className="mt-0.5 truncate text-xs font-mono text-[#86c820] dark:text-[#ADFF41]">{demo.email}</p>
+                </button>
+              ))}
             </div>
 
             <div className="flex items-center gap-3">

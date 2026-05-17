@@ -13,6 +13,20 @@ public class SellerController(SellerService seller) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+    [HttpGet("apikey")]
+    public async Task<IActionResult> GetApiKey()
+    {
+        try { return Ok(new { apiKey = await seller.GetApiKeyAsync(UserId) }); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("apikey/regenerate")]
+    public async Task<IActionResult> RegenerateApiKey()
+    {
+        try { return Ok(new { apiKey = await seller.RegenerateApiKeyAsync(UserId) }); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
     [HttpGet("me")]
     public async Task<IActionResult> GetProfile()
     {
@@ -75,6 +89,19 @@ public class SellerController(SellerService seller) : ControllerBase
         {
             await seller.SetProductPublishedAsync(UserId, productId, req.Published);
             return Ok(new { message = req.Published ? "Ürün yayınlandı." : "Ürün gizlendi." });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    // ── Social Media Content ───────────────────────────────────────────────
+
+    [HttpPost("products/{productId}/social-content")]
+    public async Task<IActionResult> GenerateSocialContent(string productId, [FromBody] GenerateSocialContentRequest req)
+    {
+        try
+        {
+            var result = await seller.GenerateSocialContentAsync(UserId, productId, req.Tone);
+            return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }

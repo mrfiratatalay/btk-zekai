@@ -69,7 +69,7 @@ export default function CheckoutPage() {
         });
         created.push(order);
       }
-      clearCart();
+      await clearCart();
       setPlacedOrders(created);
       setDone(true);
     } catch (err: unknown) {

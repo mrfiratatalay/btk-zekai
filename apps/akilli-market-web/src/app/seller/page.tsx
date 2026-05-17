@@ -3,8 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, Copy, Eye, EyeOff, ExternalLink, Key, Package, Pencil, Plus, Trash2 } from "lucide-react";
-import { getSellerProducts, deleteProduct, type SellerProduct } from "@/lib/api/seller";
+import { AlertTriangle, Check, Copy, Eye, EyeOff, ExternalLink, Key, Loader2, Package, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { getSellerProducts, deleteProduct, getApiKey, regenerateApiKey, type SellerProduct } from "@/lib/api/seller";
 import { getCurrentUser } from "@/lib/api/auth";
 import { Button } from "@/components/ui/button";
 import { ShopHeader } from "@/components/shop/ShopHeader";
@@ -17,6 +17,7 @@ export default function SellerDashboardPage() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [keyRevealed, setKeyRevealed] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   const user = getCurrentUser();
 
@@ -25,7 +26,7 @@ export default function SellerDashboardPage() {
       window.location.href = "/login?returnUrl=/seller";
       return;
     }
-    setApiKey(typeof window !== "undefined" ? localStorage.getItem("market_token") : null);
+    getApiKey().then(setApiKey).catch(() => setApiKey(null));
     getSellerProducts()
       .then(setProducts)
       .catch((e) => setError(e.message))
@@ -39,6 +40,20 @@ export default function SellerDashboardPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  async function handleRegenerate() {
+    if (!confirm("Yeni anahtar oluşturulacak. Eski anahtar geçersiz olacak ve ZekAI bağlantısını yeniden kurman gerekecek. Devam et?")) return;
+    setRegenerating(true);
+    try {
+      const newKey = await regenerateApiKey();
+      setApiKey(newKey);
+      setKeyRevealed(true);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Anahtar oluşturulamadı.");
+    } finally {
+      setRegenerating(false);
+    }
   }
 
   async function handleDelete(id: string) {
@@ -213,7 +228,7 @@ export default function SellerDashboardPage() {
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
               <p className="text-xs leading-relaxed text-amber-700">
                 API anahtarınız hesabınıza tam erişim sağlar. <strong>Kimseyle paylaşmayın.</strong>{" "}
-                Tehlikeye girdiğini düşünüyorsanız çıkış yapıp tekrar giriş yaparak yenileyin.
+                Tehlikeye girdiğini düşünüyorsanız <strong>Yeni Anahtar Oluştur</strong> butonunu kullanın. Eski anahtar geçersiz olur.
               </p>
             </div>
 
@@ -247,6 +262,18 @@ export default function SellerDashboardPage() {
                     : <><Copy className="size-3.5" /> Kopyala</>}
                 </button>
               </div>
+            </div>
+
+            {/* Regenerate */}
+            <div className="mt-4">
+              <button
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-xs font-semibold text-[#374151] transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {regenerating ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+                Yeni Anahtar Oluştur
+              </button>
             </div>
 
             {/* Alt bilgi */}

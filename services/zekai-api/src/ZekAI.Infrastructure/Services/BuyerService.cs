@@ -83,7 +83,7 @@ public class BuyerService(ZekaiDbContext db, CommerceApiClient commerce)
     public async Task<List<ProjectDto>> GetProjectsAsync(Guid userId)
     {
         var projects = await db.ShoppingProjects
-            .Include(p => p.ProjectAnalyses)
+            .Include(p => p.ProjectAnalyses).ThenInclude(pa => pa.Analysis)
             .Where(p => p.UserId == userId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
@@ -135,33 +135,62 @@ public class BuyerService(ZekaiDbContext db, CommerceApiClient commerce)
         await db.SaveChangesAsync();
     }
 
-    public async Task<ProjectDto> AddAnalysisToProjectAsync(Guid userId, string externalId, Guid analysisId)
+    public async Task<ProjectDto> AddAnalysisToProjectAsync(Guid userId, string projectExternalId, string analysisExternalId)
     {
         var project = await db.ShoppingProjects
-            .Include(p => p.ProjectAnalyses)
-            .FirstOrDefaultAsync(p => p.UserId == userId && p.ExternalId == externalId)
+            .Include(p => p.ProjectAnalyses).ThenInclude(pa => pa.Analysis)
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.ExternalId == projectExternalId)
             ?? throw new KeyNotFoundException("Proje bulunamadı.");
 
-        if (!project.ProjectAnalyses.Any(pa => pa.AnalysisId == analysisId))
+        var analysis = await db.Analyses
+            .FirstOrDefaultAsync(a => a.UserId == userId && a.ExternalId == analysisExternalId)
+            ?? throw new KeyNotFoundException("Analiz bulunamadı.");
+
+        if (!project.ProjectAnalyses.Any(pa => pa.AnalysisId == analysis.Id))
         {
-            db.ShoppingProjectAnalyses.Add(new ShoppingProjectAnalysis { ProjectId = project.Id, AnalysisId = analysisId });
+            db.ShoppingProjectAnalyses.Add(new ShoppingProjectAnalysis { ProjectId = project.Id, AnalysisId = analysis.Id });
+            await db.SaveChangesAsync();
+            project.ProjectAnalyses.Add(new ShoppingProjectAnalysis { ProjectId = project.Id, AnalysisId = analysis.Id, Analysis = analysis });
+        }
+
+        return MapProject(project);
+    }
+
+    public async Task<ProjectDto> RemoveAnalysisFromProjectAsync(Guid userId, string projectExternalId, string analysisExternalId)
+    {
+        var project = await db.ShoppingProjects
+            .Include(p => p.ProjectAnalyses).ThenInclude(pa => pa.Analysis)
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.ExternalId == projectExternalId)
+            ?? throw new KeyNotFoundException("Proje bulunamadı.");
+
+        var analysis = await db.Analyses
+            .FirstOrDefaultAsync(a => a.UserId == userId && a.ExternalId == analysisExternalId);
+
+        if (analysis is not null)
+        {
+            var link = project.ProjectAnalyses.FirstOrDefault(pa => pa.AnalysisId == analysis.Id);
+            if (link is not null) db.ShoppingProjectAnalyses.Remove(link);
             await db.SaveChangesAsync();
         }
 
         return MapProject(project);
     }
 
-    public async Task<ProjectDto> RemoveAnalysisFromProjectAsync(Guid userId, string externalId, Guid analysisId)
+    public async Task<BuyerProfileDto> GetProfileAsync(Guid userId)
     {
-        var project = await db.ShoppingProjects
-            .Include(p => p.ProjectAnalyses)
-            .FirstOrDefaultAsync(p => p.UserId == userId && p.ExternalId == externalId)
-            ?? throw new KeyNotFoundException("Proje bulunamadı.");
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId)
+            ?? throw new KeyNotFoundException("Kullanıcı bulunamadı.");
+        return new BuyerProfileDto(user.ProfileName, user.Onboarded);
+    }
 
-        var link = project.ProjectAnalyses.FirstOrDefault(pa => pa.AnalysisId == analysisId);
-        if (link is not null) db.ShoppingProjectAnalyses.Remove(link);
+    public async Task<BuyerProfileDto> UpdateProfileAsync(Guid userId, UpdateBuyerProfileRequest req)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId)
+            ?? throw new KeyNotFoundException("Kullanıcı bulunamadı.");
+        if (req.ProfileName is not null) user.ProfileName = req.ProfileName;
+        if (req.Onboarded.HasValue) user.Onboarded = req.Onboarded.Value;
         await db.SaveChangesAsync();
-        return MapProject(project);
+        return new BuyerProfileDto(user.ProfileName, user.Onboarded);
     }
 
     private static AnalysisDto Map(BuyerAnalysis a) => new(
@@ -173,6 +202,6 @@ public class BuyerService(ZekaiDbContext db, CommerceApiClient commerce)
 
     private static ProjectDto MapProject(ShoppingProject p) => new(
         p.Id, p.ExternalId, p.Title, p.Goal, p.Budget, p.CreatedAt,
-        p.ProjectAnalyses.Select(pa => pa.AnalysisId.ToString()).ToList()
+        p.ProjectAnalyses.Select(pa => pa.Analysis?.ExternalId ?? "").Where(id => id != "").ToList()
     );
 }

@@ -374,6 +374,7 @@ public class DataSeeder(AppDbContext db)
             TotalReviewCount = 1642,
             FastShipping = true,
             ReturnDays = 14,
+            ApiKey = "am_live_demo_mehmet_elektronik_2024",
         };
         db.Sellers.Add(seller);
         await db.SaveChangesAsync();

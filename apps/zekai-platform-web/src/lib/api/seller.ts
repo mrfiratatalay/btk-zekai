@@ -49,6 +49,25 @@ export const getSellerProducts = () => apiFetch<SellerProduct[]>("/api/seller/pr
 export const getSellerProduct = (id: string) =>
   apiFetch<SellerProduct>(`/api/seller/products/${id}`);
 
+export interface TiktokScene {
+  time: string;
+  text: string;
+}
+
+export interface SocialMediaContent {
+  tone: string;
+  instagram: string;
+  tiktok: TiktokScene[];
+  twitter: string;
+  generatedAt: string;
+}
+
+export const generateSocialContent = (productId: string, tone: string) =>
+  apiFetch<SocialMediaContent>(`/api/seller/products/${productId}/social-content`, {
+    method: "POST",
+    body: JSON.stringify({ tone }),
+  });
+
 export const updateProductContent = async (
   id: string,
   data: {

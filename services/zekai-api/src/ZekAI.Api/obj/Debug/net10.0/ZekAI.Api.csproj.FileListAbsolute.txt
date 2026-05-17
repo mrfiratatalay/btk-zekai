@@ -33,6 +33,9 @@ C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\
 C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\bin\Debug\net10.0\Mono.TextTemplating.dll
 C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\bin\Debug\net10.0\Npgsql.dll
 C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\bin\Debug\net10.0\Npgsql.EntityFrameworkCore.PostgreSQL.dll
+C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\bin\Debug\net10.0\Swashbuckle.AspNetCore.Swagger.dll
+C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerGen.dll
+C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerUI.dll
 C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\bin\Debug\net10.0\System.CodeDom.dll
 C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\bin\Debug\net10.0\System.Composition.AttributedModel.dll
 C:\Users\FIRAT\Desktop\CyberSecurity\btk-zekai\services\zekai-api\src\ZekAI.Api\bin\Debug\net10.0\System.Composition.Convention.dll

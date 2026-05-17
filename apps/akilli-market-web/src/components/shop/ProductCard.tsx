@@ -20,12 +20,7 @@ export function ProductCard({ product }: { product: Product }) {
   function handleFavorite(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    toggleFavorite({
-      productId: product.id,
-      title: product.title,
-      price: product.price,
-      image: product.image,
-    });
+    toggleFavorite(product.id);
   }
 
   return (

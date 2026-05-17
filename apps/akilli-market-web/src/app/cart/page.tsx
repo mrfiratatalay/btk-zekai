@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
@@ -9,8 +10,12 @@ import { useCartStore, cartTotal } from "@/lib/store/cart-store";
 import { formatPrice } from "@/lib/api/products";
 
 export default function CartPage() {
-  const { items, removeItem, updateQty } = useCartStore();
+  const { items, loading, loadCart, removeItem, updateQty } = useCartStore();
   const total = cartTotal(items);
+
+  useEffect(() => {
+    loadCart();
+  }, [loadCart]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -19,7 +24,13 @@ export default function CartPage() {
       <main className="mx-auto max-w-3xl px-6 py-8">
         <h1 className="mb-6 text-2xl font-extrabold text-[#111827]">Sepetim</h1>
 
-        {items.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2].map((n) => (
+              <div key={n} className="h-28 animate-pulse rounded-xl bg-[#F3F4F6]" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-20 text-center">
             <ShoppingBag className="size-14 text-[#D1D5DB]" />
             <p className="text-lg font-bold text-[#111827]">Sepetiniz boş</p>
@@ -32,7 +43,7 @@ export default function CartPage() {
           <div className="space-y-4">
             {items.map((item) => (
               <div
-                key={item.productId}
+                key={item.id}
                 className="flex gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4"
               >
                 <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-[#F9FAFB]">
@@ -51,7 +62,7 @@ export default function CartPage() {
                       {item.title}
                     </p>
                     <button
-                      onClick={() => removeItem(item.productId)}
+                      onClick={() => removeItem(item.id)}
                       className="shrink-0 text-[#9CA3AF] transition hover:text-[#DC2626]"
                       aria-label="Ürünü kaldır"
                     >
@@ -66,7 +77,7 @@ export default function CartPage() {
 
                     <div className="flex items-center gap-1 rounded-lg border border-[#E5E7EB] px-1">
                       <button
-                        onClick={() => updateQty(item.productId, item.quantity - 1)}
+                        onClick={() => updateQty(item.id, item.quantity - 1)}
                         className="p-1.5 text-[#6B7280] transition hover:text-[#111827]"
                         aria-label="Azalt"
                       >
@@ -76,7 +87,7 @@ export default function CartPage() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQty(item.productId, Math.min(item.quantity + 1, item.stock))}
+                        onClick={() => updateQty(item.id, Math.min(item.quantity + 1, item.stock))}
                         disabled={item.quantity >= item.stock}
                         className="p-1.5 text-[#6B7280] transition hover:text-[#111827] disabled:opacity-40"
                         aria-label="Artır"

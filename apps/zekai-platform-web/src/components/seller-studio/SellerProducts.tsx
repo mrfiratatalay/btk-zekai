@@ -173,7 +173,10 @@ export function SellerProducts() {
                 <div className="rounded-xl bg-blue-50 px-4 py-3 dark:bg-blue-500/8">
                   <p className="text-xs font-semibold text-blue-700 dark:text-blue-400">API anahtarını nereden alırsınız?</p>
                   <p className="mt-0.5 text-xs text-blue-600 dark:text-blue-400/80">
-                    Akıllı Market → Satıcı Paneli → Ayarlar → API Erişimi
+                    Akıllı Market → Satıcı Paneli → <strong>API Erişimi</strong> bölümünden kopyalayın.
+                  </p>
+                  <p className="mt-1.5 text-xs text-blue-500 dark:text-blue-500">
+                    Demo: <code className="font-mono">am_live_demo_mehmet_elektronik_2024</code>
                   </p>
                 </div>
 

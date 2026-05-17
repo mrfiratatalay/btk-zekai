@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, ShoppingCart, Trash2 } from "lucide-react";
@@ -12,12 +13,16 @@ function formatPrice(v: number) {
 }
 
 export default function FavoritesPage() {
-  const { items, removeFavorite } = useFavoritesStore();
+  const { items, loading, loadFavorites, removeFavorite } = useFavoritesStore();
   const addItem = useCartStore((s) => s.addItem);
 
-  function moveToCart(item: typeof items[0]) {
-    addItem({ productId: item.productId, title: item.title, price: item.price, image: item.image, stock: 99 });
-    removeFavorite(item.productId);
+  useEffect(() => {
+    loadFavorites();
+  }, [loadFavorites]);
+
+  async function moveToCart(productId: string) {
+    await addItem(productId, 99);
+    await removeFavorite(productId);
   }
 
   return (
@@ -29,7 +34,13 @@ export default function FavoritesPage() {
           {items.length > 0 && <span className="ml-2 text-base font-normal text-[#6B7280]">({items.length})</span>}
         </h1>
 
-        {items.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="h-24 animate-pulse rounded-xl bg-[#F3F4F6]" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-20 text-center">
             <Heart className="size-14 text-[#D1D5DB]" />
             <p className="text-lg font-bold text-[#111827]">Favoriniz yok</p>
@@ -57,7 +68,7 @@ export default function FavoritesPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-[#FF6000]">{formatPrice(item.price)}</span>
                     <button
-                      onClick={() => moveToCart(item)}
+                      onClick={() => moveToCart(item.productId)}
                       className="flex items-center gap-1.5 rounded-xl bg-[#FF6000] px-3 py-2 text-xs font-bold text-white hover:bg-[#E65700] transition-colors"
                     >
                       <ShoppingCart className="size-3.5" />

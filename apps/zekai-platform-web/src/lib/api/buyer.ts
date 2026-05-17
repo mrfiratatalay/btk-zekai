@@ -91,7 +91,23 @@ export const addAnalysisToProjectInApi = (projectId: string, analysisId: string)
     method: "POST",
   });
 
-export const removeAnalysisFromProjectInApi = (projectId: string, analysisId: string) =>
-  apiFetch<ShoppingProjectApi>(`/api/buyer/projects/${projectId}/analyses/${analysisId}`, {
+export const removeAnalysisFromProjectInApi = (projectId: string, analysisExternalId: string) =>
+  apiFetch<ShoppingProjectApi>(`/api/buyer/projects/${projectId}/analyses/${analysisExternalId}`, {
     method: "DELETE",
+  });
+
+// ── Buyer Profile ─────────────────────────────────────────────────────────────
+
+export interface BuyerProfileApi {
+  profileName: string | null;
+  onboarded: boolean;
+}
+
+export const getBuyerProfileFromApi = () =>
+  apiFetch<BuyerProfileApi>("/api/buyer/profile");
+
+export const updateBuyerProfileInApi = (data: { profileName?: string; onboarded?: boolean }) =>
+  apiFetch<BuyerProfileApi>("/api/buyer/profile", {
+    method: "PUT",
+    body: JSON.stringify(data),
   });

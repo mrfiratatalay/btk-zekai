@@ -1,11 +1,12 @@
 /**
  * buyer-store.ts
  *
- * Zekai Alıcı Karar Merkezi için hibrit veri katmanı.
- * Giriş yapılmışsa API'ye yazar/okur; anonim kullanıcılar localStorage kullanır.
- * Yalnızca client tarafında (useEffect içinde) çağrılmalıdır — SSR-safe.
+ * Zekai Alıcı Karar Merkezi için saf API-backed Zustand store'ları.
+ * localStorage kullanılmaz — canonical kaynak daima backend DB'dir.
+ * Compare kuyruğu tek istisna: oturum state'i, persist istemiyoruz.
  */
 
+import { create } from "zustand";
 import type {
   SavedAnalysis,
   SavedAnalysisStatus,
@@ -13,6 +14,7 @@ import type {
   BuyerProfile,
 } from "@/types/analysis";
 import {
+  getSavedAnalysesFromApi,
   saveAnalysisToApi,
   updateAnalysisInApi,
   deleteAnalysisFromApi,
@@ -22,309 +24,263 @@ import {
   deleteProjectFromApi,
   addAnalysisToProjectInApi,
   removeAnalysisFromProjectInApi,
+  getBuyerProfileFromApi,
+  updateBuyerProfileInApi,
+  type SavedAnalysisApi,
   type ShoppingProjectApi,
 } from "@/lib/api/buyer";
-import { getCurrentUser } from "@/lib/api/auth";
-
-const STORAGE_VERSION = "v1";
-
-const KEYS = {
-  savedAnalyses: `zekai-${STORAGE_VERSION}-saved-analyses`,
-  projects: `zekai-${STORAGE_VERSION}-projects`,
-  profile: `zekai-${STORAGE_VERSION}-buyer-profile`,
-  compareQueue: `zekai-${STORAGE_VERSION}-compare-queue`,
-} as const;
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Güvenli localStorage yardımcıları
+   API → Frontend tip dönüşümleri
 ──────────────────────────────────────────────────────────────────────────────*/
-function safeGet<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function safeSet<T>(key: string, value: T): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* storage dolu olabilir, sessizce geç */
-  }
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Buyer Profile
-──────────────────────────────────────────────────────────────────────────────*/
-const DEFAULT_PROFILE: BuyerProfile = { name: "", onboarded: false };
-
-export function getBuyerProfile(): BuyerProfile {
-  return safeGet<BuyerProfile>(KEYS.profile, DEFAULT_PROFILE);
-}
-
-export function saveBuyerProfile(profile: BuyerProfile): void {
-  safeSet(KEYS.profile, profile);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Saved Analyses
-──────────────────────────────────────────────────────────────────────────────*/
-export function getSavedAnalyses(): SavedAnalysis[] {
-  return safeGet<SavedAnalysis[]>(KEYS.savedAnalyses, []);
-}
-
-export function getSavedAnalysisById(id: string): SavedAnalysis | undefined {
-  return getSavedAnalyses().find((a) => a.id === id);
-}
-
-export function saveAnalysis(analysis: SavedAnalysis): void {
-  const existing = getSavedAnalyses();
-  const idx = existing.findIndex((a) => a.id === analysis.id);
-  if (idx >= 0) {
-    existing[idx] = analysis;
-  } else {
-    existing.unshift(analysis);
-  }
-  safeSet(KEYS.savedAnalyses, existing);
-
-  // Giriş yapılmışsa API'ye de kaydet (fire-and-forget)
-  const user = getCurrentUser();
-  if (user?.role === "Buyer") {
-    saveAnalysisToApi({
-      externalId: analysis.id,
-      productId: analysis.productId,
-      productTitle: analysis.productTitle,
-      productImage: analysis.productImage,
-      productPrice: analysis.productPrice,
-      sellerName: analysis.sellerName,
-      userNeedText: analysis.userNeedText,
-      overallRiskPercent: analysis.overallRiskPercent,
-      recommendationLevel: analysis.recommendationLevel,
-      scoresJson: JSON.stringify(analysis.scores),
-    }).then((saved) => setApiId(analysis.id, saved.id)).catch(() => { /* localStorage zaten kaydetti */ });
-  }
-}
-
-// API'deki Guid id'sini externalId'e göre bul (localStorage'dan)
-function getApiId(externalId: string): string | null {
-  if (typeof window === "undefined") return null;
-  const key = `zekai-api-id-${externalId}`;
-  return window.localStorage.getItem(key);
-}
-function setApiId(externalId: string, apiId: string): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(`zekai-api-id-${externalId}`, apiId);
-}
-
-export function updateAnalysisStatus(
-  id: string,
-  status: SavedAnalysisStatus
-): void {
-  const analyses = getSavedAnalyses();
-  const idx = analyses.findIndex((a) => a.id === id);
-  if (idx >= 0) {
-    analyses[idx] = { ...analyses[idx], status };
-    safeSet(KEYS.savedAnalyses, analyses);
-  }
-  const apiId = getApiId(id);
-  if (apiId && getCurrentUser()?.role === "Buyer") {
-    updateAnalysisInApi(apiId, { status }).catch(() => {});
-  }
-}
-
-export function updateAnalysisNote(id: string, note: string): void {
-  const analyses = getSavedAnalyses();
-  const idx = analyses.findIndex((a) => a.id === id);
-  if (idx >= 0) {
-    analyses[idx] = { ...analyses[idx], userNote: note };
-    safeSet(KEYS.savedAnalyses, analyses);
-  }
-  const apiId = getApiId(id);
-  if (apiId && getCurrentUser()?.role === "Buyer") {
-    updateAnalysisInApi(apiId, { userNote: note }).catch(() => {});
-  }
-}
-
-export function deleteAnalysis(id: string): void {
-  const analyses = getSavedAnalyses().filter((a) => a.id !== id);
-  safeSet(KEYS.savedAnalyses, analyses);
-  removeFromCompareQueue(id);
-  const projects = getProjects();
-  const updated = projects.map((p) => ({
-    ...p,
-    savedAnalysisIds: p.savedAnalysisIds.filter((sid) => sid !== id),
-  }));
-  safeSet(KEYS.projects, updated);
-  const apiId = getApiId(id);
-  if (apiId && getCurrentUser()?.role === "Buyer") {
-    deleteAnalysisFromApi(apiId).catch(() => {});
-  }
-}
-
-export { setApiId };
-
-export function isAnalysisSaved(id: string): boolean {
-  return getSavedAnalyses().some((a) => a.id === id);
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Shopping Projects (Karar Odaları)
-──────────────────────────────────────────────────────────────────────────────*/
-export function getProjects(): ShoppingProject[] {
-  return safeGet<ShoppingProject[]>(KEYS.projects, []);
-}
-
-function mapApiProject(project: ShoppingProjectApi): ShoppingProject {
+function mapAnalysis(a: SavedAnalysisApi): SavedAnalysis {
+  let scores = { fitScore: 0, trustScore: 0, priceScore: 0, returnRiskPercent: 0 };
+  try { scores = JSON.parse(a.scoresJson); } catch { /* fallback */ }
   return {
-    id: project.id,
-    title: project.title,
-    goal: project.goal,
-    budget: project.budget ?? undefined,
-    createdAt: project.createdAt,
-    savedAnalysisIds: project.savedAnalysisIds,
+    id: a.externalId,
+    productId: a.productId,
+    productTitle: a.productTitle,
+    productImage: a.productImage,
+    productPrice: typeof a.productPrice === "number"
+      ? String(a.productPrice)
+      : a.productPrice,
+    sellerName: a.sellerName,
+    userNeedText: a.userNeedText,
+    overallRiskPercent: a.overallRiskPercent,
+    recommendationLevel: a.recommendationLevel,
+    scores,
+    savedAt: a.savedAt,
+    status: (a.status as SavedAnalysisStatus) ?? "thinking",
+    userNote: a.userNote ?? undefined,
   };
 }
 
-export async function syncProjectsFromApi(): Promise<ShoppingProject[]> {
-  if (getCurrentUser()?.role !== "Buyer") return getProjects();
-  const projects = (await getProjectsFromApi()).map(mapApiProject);
-  safeSet(KEYS.projects, projects);
-  return projects;
-}
-
-export function getProjectById(id: string): ShoppingProject | undefined {
-  return getProjects().find((p) => p.id === id);
-}
-
-export function createProject(
-  data: Omit<ShoppingProject, "id" | "createdAt" | "savedAnalysisIds">
-): ShoppingProject {
-  const project: ShoppingProject = {
-    ...data,
-    id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    createdAt: new Date().toISOString(),
-    savedAnalysisIds: [],
+function mapProject(p: ShoppingProjectApi): ShoppingProject {
+  return {
+    id: p.id,
+    title: p.title,
+    goal: p.goal ?? "",
+    budget: p.budget ?? undefined,
+    createdAt: p.createdAt,
+    savedAnalysisIds: p.savedAnalysisIds ?? [],
   };
-  const existing = getProjects();
-  safeSet(KEYS.projects, [project, ...existing]);
-  if (getCurrentUser()?.role === "Buyer") {
-    createProjectInApi({ ...data, externalId: project.id }).then(syncProjectsFromApi).catch(() => {});
-  }
-  return project;
-}
-
-export function updateProject(
-  id: string,
-  data: Partial<Omit<ShoppingProject, "id" | "createdAt">>
-): void {
-  const projects = getProjects();
-  const idx = projects.findIndex((p) => p.id === id);
-  if (idx >= 0) {
-    projects[idx] = { ...projects[idx], ...data };
-    safeSet(KEYS.projects, projects);
-    if (getCurrentUser()?.role === "Buyer") {
-      updateProjectInApi(id, data).then(syncProjectsFromApi).catch(() => {});
-    }
-  }
-}
-
-export function deleteProject(id: string): void {
-  // ilişkili analizlerdeki projectId referansını temizle
-  const analyses = getSavedAnalyses().map((a) =>
-    a.projectId === id ? { ...a, projectId: undefined } : a
-  );
-  safeSet(KEYS.savedAnalyses, analyses);
-  safeSet(
-    KEYS.projects,
-    getProjects().filter((p) => p.id !== id)
-  );
-  if (getCurrentUser()?.role === "Buyer") {
-    deleteProjectFromApi(id).catch(() => {});
-  }
-}
-
-export function addAnalysisToProject(
-  projectId: string,
-  analysisId: string
-): void {
-  const projects = getProjects();
-  const idx = projects.findIndex((p) => p.id === projectId);
-  if (idx < 0) return;
-  if (!projects[idx].savedAnalysisIds.includes(analysisId)) {
-    projects[idx] = {
-      ...projects[idx],
-      savedAnalysisIds: [...projects[idx].savedAnalysisIds, analysisId],
-    };
-    safeSet(KEYS.projects, projects);
-    if (getCurrentUser()?.role === "Buyer") {
-      addAnalysisToProjectInApi(projectId, analysisId).then(syncProjectsFromApi).catch(() => {});
-    }
-  }
-  // analizin projectId'sini de güncelle
-  updateAnalysisNote; // no-op, just referencing the util
-  const analyses = getSavedAnalyses();
-  const aIdx = analyses.findIndex((a) => a.id === analysisId);
-  if (aIdx >= 0) {
-    analyses[aIdx] = { ...analyses[aIdx], projectId };
-    safeSet(KEYS.savedAnalyses, analyses);
-  }
-}
-
-export function removeAnalysisFromProject(
-  projectId: string,
-  analysisId: string
-): void {
-  const projects = getProjects();
-  const idx = projects.findIndex((p) => p.id === projectId);
-  if (idx < 0) return;
-  projects[idx] = {
-    ...projects[idx],
-    savedAnalysisIds: projects[idx].savedAnalysisIds.filter(
-      (id) => id !== analysisId
-    ),
-  };
-  safeSet(KEYS.projects, projects);
-  if (getCurrentUser()?.role === "Buyer") {
-    removeAnalysisFromProjectInApi(projectId, analysisId).then(syncProjectsFromApi).catch(() => {});
-  }
-  // analizin projectId'sini temizle
-  const analyses = getSavedAnalyses();
-  const aIdx = analyses.findIndex((a) => a.id === analysisId);
-  if (aIdx >= 0) {
-    analyses[aIdx] = { ...analyses[aIdx], projectId: undefined };
-    safeSet(KEYS.savedAnalyses, analyses);
-  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Compare Queue (Karşılaştırma Kuyruğu — maks 3 ürün)
+   Saved Analyses Store
 ──────────────────────────────────────────────────────────────────────────────*/
-export function getCompareQueue(): string[] {
-  return safeGet<string[]>(KEYS.compareQueue, []);
+interface AnalysesState {
+  analyses: SavedAnalysis[];
+  loaded: boolean;
+  loading: boolean;
+  load: () => Promise<void>;
+  saveAnalysis: (data: Parameters<typeof saveAnalysisToApi>[0]) => Promise<SavedAnalysis>;
+  updateStatus: (externalId: string, status: SavedAnalysisStatus) => Promise<void>;
+  updateNote: (externalId: string, note: string) => Promise<void>;
+  deleteAnalysis: (externalId: string) => Promise<void>;
+  isSaved: (externalId: string) => boolean;
+  getById: (externalId: string) => SavedAnalysis | undefined;
 }
 
-export function addToCompareQueue(analysisId: string): boolean {
-  const queue = getCompareQueue();
-  if (queue.includes(analysisId)) return true;
-  if (queue.length >= 3) return false; // doldu
-  safeSet(KEYS.compareQueue, [...queue, analysisId]);
-  return true;
+export const useAnalysesStore = create<AnalysesState>()((set, get) => ({
+  analyses: [],
+  loaded: false,
+  loading: false,
+
+  load: async () => {
+    if (get().loading) return;
+    set({ loading: true });
+    try {
+      const data = await getSavedAnalysesFromApi();
+      set({ analyses: data.map(mapAnalysis), loaded: true });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  saveAnalysis: async (data) => {
+    const saved = await saveAnalysisToApi(data);
+    const mapped = mapAnalysis(saved);
+    set((s) => {
+      const exists = s.analyses.findIndex((a) => a.id === mapped.id);
+      if (exists >= 0) {
+        const next = [...s.analyses];
+        next[exists] = mapped;
+        return { analyses: next };
+      }
+      return { analyses: [mapped, ...s.analyses] };
+    });
+    return mapped;
+  },
+
+  updateStatus: async (externalId, status) => {
+    set((s) => ({
+      analyses: s.analyses.map((a) =>
+        a.id === externalId ? { ...a, status } : a
+      ),
+    }));
+    const api = await getSavedAnalysesFromApi();
+    const found = api.find((a) => a.externalId === externalId);
+    if (found) await updateAnalysisInApi(found.id, { status });
+  },
+
+  updateNote: async (externalId, userNote) => {
+    set((s) => ({
+      analyses: s.analyses.map((a) =>
+        a.id === externalId ? { ...a, userNote } : a
+      ),
+    }));
+    const api = await getSavedAnalysesFromApi();
+    const found = api.find((a) => a.externalId === externalId);
+    if (found) await updateAnalysisInApi(found.id, { userNote });
+  },
+
+  deleteAnalysis: async (externalId) => {
+    const api = await getSavedAnalysesFromApi();
+    const found = api.find((a) => a.externalId === externalId);
+    set((s) => ({ analyses: s.analyses.filter((a) => a.id !== externalId) }));
+    useCompareStore.getState().remove(externalId);
+    if (found) await deleteAnalysisFromApi(found.id);
+  },
+
+  isSaved: (externalId) => get().analyses.some((a) => a.id === externalId),
+  getById: (externalId) => get().analyses.find((a) => a.id === externalId),
+}));
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Shopping Projects Store
+──────────────────────────────────────────────────────────────────────────────*/
+interface ProjectsState {
+  projects: ShoppingProject[];
+  loaded: boolean;
+  loading: boolean;
+  load: () => Promise<void>;
+  createProject: (data: Omit<ShoppingProject, "id" | "createdAt" | "savedAnalysisIds">) => Promise<ShoppingProject>;
+  updateProject: (id: string, data: Partial<Omit<ShoppingProject, "id" | "createdAt">>) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+  addAnalysis: (projectId: string, analysisExternalId: string) => Promise<void>;
+  removeAnalysis: (projectId: string, analysisExternalId: string) => Promise<void>;
+  getById: (id: string) => ShoppingProject | undefined;
 }
 
-export function removeFromCompareQueue(analysisId: string): void {
-  safeSet(
-    KEYS.compareQueue,
-    getCompareQueue().filter((id) => id !== analysisId)
-  );
+export const useProjectsStore = create<ProjectsState>()((set, get) => ({
+  projects: [],
+  loaded: false,
+  loading: false,
+
+  load: async () => {
+    if (get().loading) return;
+    set({ loading: true });
+    try {
+      const data = await getProjectsFromApi();
+      set({ projects: data.map(mapProject), loaded: true });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  createProject: async (data) => {
+    const created = await createProjectInApi({
+      title: data.title,
+      goal: data.goal,
+      budget: data.budget,
+    });
+    const mapped = mapProject(created);
+    set((s) => ({ projects: [mapped, ...s.projects] }));
+    return mapped;
+  },
+
+  updateProject: async (id, data) => {
+    await updateProjectInApi(id, data);
+    set((s) => ({
+      projects: s.projects.map((p) =>
+        p.id === id ? { ...p, ...data } : p
+      ),
+    }));
+  },
+
+  deleteProject: async (id) => {
+    set((s) => ({ projects: s.projects.filter((p) => p.id !== id) }));
+    await deleteProjectFromApi(id);
+  },
+
+  addAnalysis: async (projectId, analysisExternalId) => {
+    await addAnalysisToProjectInApi(projectId, analysisExternalId);
+    set((s) => ({
+      projects: s.projects.map((p) =>
+        p.id === projectId && !p.savedAnalysisIds.includes(analysisExternalId)
+          ? { ...p, savedAnalysisIds: [...p.savedAnalysisIds, analysisExternalId] }
+          : p
+      ),
+    }));
+  },
+
+  removeAnalysis: async (projectId, analysisExternalId) => {
+    set((s) => ({
+      projects: s.projects.map((p) =>
+        p.id === projectId
+          ? { ...p, savedAnalysisIds: p.savedAnalysisIds.filter((id) => id !== analysisExternalId) }
+          : p
+      ),
+    }));
+    await removeAnalysisFromProjectInApi(projectId, analysisExternalId);
+  },
+
+  getById: (id) => get().projects.find((p) => p.id === id),
+}));
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Buyer Profile Store
+──────────────────────────────────────────────────────────────────────────────*/
+interface ProfileState {
+  profile: BuyerProfile;
+  loaded: boolean;
+  load: () => Promise<void>;
+  save: (data: Partial<BuyerProfile>) => Promise<void>;
 }
 
-export function clearCompareQueue(): void {
-  safeSet(KEYS.compareQueue, []);
+export const useProfileStore = create<ProfileState>()((set) => ({
+  profile: { name: "", onboarded: false },
+  loaded: false,
+
+  load: async () => {
+    const data = await getBuyerProfileFromApi();
+    set({ profile: { name: data.profileName ?? "", onboarded: data.onboarded }, loaded: true });
+  },
+
+  save: async (data) => {
+    set((s) => ({ profile: { ...s.profile, ...data } }));
+    await updateBuyerProfileInApi({
+      profileName: data.name,
+      onboarded: data.onboarded,
+    });
+  },
+}));
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Compare Queue Store — in-memory, persist yok (oturum state'i)
+──────────────────────────────────────────────────────────────────────────────*/
+interface CompareState {
+  ids: string[];
+  add: (externalId: string) => boolean;
+  remove: (externalId: string) => void;
+  clear: () => void;
+  has: (externalId: string) => boolean;
 }
+
+export const useCompareStore = create<CompareState>()((set, get) => ({
+  ids: [],
+  add: (externalId) => {
+    const ids = get().ids;
+    if (ids.includes(externalId)) return true;
+    if (ids.length >= 3) return false;
+    set({ ids: [...ids, externalId] });
+    return true;
+  },
+  remove: (externalId) => set((s) => ({ ids: s.ids.filter((id) => id !== externalId) })),
+  clear: () => set({ ids: [] }),
+  has: (externalId) => get().ids.includes(externalId),
+}));
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Status etiketleri (Türkçe)
@@ -342,3 +298,115 @@ export const STATUS_OPTIONS: { value: SavedAnalysisStatus; label: string }[] =
     value: value as SavedAnalysisStatus,
     label,
   }));
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Geriye dönük uyumluluk — eski buyer-store fonksiyon adları
+   (yalnızca kullanılan yerlerde kademeli güncelleme için geçici)
+──────────────────────────────────────────────────────────────────────────────*/
+export function getSavedAnalyses(): SavedAnalysis[] {
+  return useAnalysesStore.getState().analyses;
+}
+
+export function getSavedAnalysisById(id: string): SavedAnalysis | undefined {
+  return useAnalysesStore.getState().getById(id);
+}
+
+export function getCompareQueue(): string[] {
+  return useCompareStore.getState().ids;
+}
+
+export function addToCompareQueue(id: string): boolean {
+  return useCompareStore.getState().add(id);
+}
+
+export function removeFromCompareQueue(id: string): void {
+  useCompareStore.getState().remove(id);
+}
+
+export function clearCompareQueue(): void {
+  useCompareStore.getState().clear();
+}
+
+export function isAnalysisSaved(id: string): boolean {
+  return useAnalysesStore.getState().isSaved(id);
+}
+
+export function getBuyerProfile(): BuyerProfile {
+  return useProfileStore.getState().profile;
+}
+
+export function saveBuyerProfile(data: Partial<BuyerProfile>): void {
+  useProfileStore.getState().save(data).catch(() => {});
+}
+
+export function getProjects(): ShoppingProject[] {
+  return useProjectsStore.getState().projects;
+}
+
+export function saveAnalysis(analysis: SavedAnalysis): void {
+  useAnalysesStore
+    .getState()
+    .saveAnalysis({
+      externalId: analysis.id,
+      productId: analysis.productId,
+      productTitle: analysis.productTitle,
+      productImage: analysis.productImage,
+      productPrice: analysis.productPrice,
+      sellerName: analysis.sellerName,
+      userNeedText: analysis.userNeedText,
+      overallRiskPercent: analysis.overallRiskPercent,
+      recommendationLevel: analysis.recommendationLevel,
+      scoresJson: JSON.stringify(analysis.scores),
+    })
+    .catch(() => {});
+}
+
+export function updateAnalysisStatus(id: string, status: SavedAnalysisStatus): void {
+  useAnalysesStore.getState().updateStatus(id, status).catch(() => {});
+}
+
+export function updateAnalysisNote(id: string, note: string): void {
+  useAnalysesStore.getState().updateNote(id, note).catch(() => {});
+}
+
+export function deleteAnalysis(id: string): void {
+  useAnalysesStore.getState().deleteAnalysis(id).catch(() => {});
+}
+
+export function createProject(
+  data: Omit<ShoppingProject, "id" | "createdAt" | "savedAnalysisIds">
+): ShoppingProject {
+  const optimistic: ShoppingProject = {
+    ...data,
+    id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    createdAt: new Date().toISOString(),
+    savedAnalysisIds: [],
+  };
+  // Zustand store'a ekliyoruz, API çağrısı fire-and-forget
+  useProjectsStore.setState((s) => ({ projects: [optimistic, ...s.projects] }));
+  useProjectsStore
+    .getState()
+    .createProject(data)
+    .then((created) => {
+      // Optimistic ID'yi gerçek ID ile değiştir
+      useProjectsStore.setState((s) => ({
+        projects: s.projects.map((p) =>
+          p.id === optimistic.id ? created : p
+        ),
+      }));
+    })
+    .catch(() => {});
+  return optimistic;
+}
+
+export function deleteProject(id: string): void {
+  useProjectsStore.getState().deleteProject(id).catch(() => {});
+}
+
+export function addAnalysisToProject(projectId: string, analysisExternalId: string): void {
+  useProjectsStore.getState().addAnalysis(projectId, analysisExternalId).catch(() => {});
+}
+
+export function removeAnalysisFromProject(projectId: string, analysisExternalId: string): void {
+  useProjectsStore.getState().removeAnalysis(projectId, analysisExternalId).catch(() => {});
+}

@@ -8,7 +8,7 @@ public class BuyerAnalysis
     public string ProductId { get; set; } = "";
     public string ProductTitle { get; set; } = "";
     public string ProductImage { get; set; } = "";
-    public decimal ProductPrice { get; set; }
+    public string ProductPrice { get; set; } = ""; // formatlanmış TRY string (örn. "₺1.299")
     public string SellerName { get; set; } = "";
     public string UserNeedText { get; set; } = "";
     public int OverallRiskPercent { get; set; }

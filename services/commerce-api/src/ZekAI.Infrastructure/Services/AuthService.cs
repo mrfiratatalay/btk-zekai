@@ -38,6 +38,7 @@ public class AuthService(AppDbContext db, JwtService jwt)
                 OwnerName = req.FullName,
                 TrustScore = 50,
                 StoreRating = 0,
+                ApiKey = $"am_live_{Guid.NewGuid():N}",
             });
         }
 

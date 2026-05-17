@@ -13,6 +13,7 @@ public class Seller
     public int TotalReviewCount { get; set; }
     public bool FastShipping { get; set; }
     public int ReturnDays { get; set; } = 14;
+    public string ApiKey { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public User? User { get; set; }

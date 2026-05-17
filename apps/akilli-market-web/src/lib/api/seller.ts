@@ -71,3 +71,13 @@ export async function updateProduct(id: string, data: Partial<{ title: string; d
 export async function deleteProduct(id: string): Promise<void> {
   await apiFetch(`/api/seller/products/${id}`, { method: "DELETE" });
 }
+
+export async function getApiKey(): Promise<string> {
+  const res = await apiFetch<{ apiKey: string }>("/api/seller/apikey");
+  return res.apiKey;
+}
+
+export async function regenerateApiKey(): Promise<string> {
+  const res = await apiFetch<{ apiKey: string }>("/api/seller/apikey/regenerate", { method: "POST" });
+  return res.apiKey;
+}

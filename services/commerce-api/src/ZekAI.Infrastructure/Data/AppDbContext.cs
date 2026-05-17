@@ -16,6 +16,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Cart> Carts => Set<Cart>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Favorite> Favorites => Set<Favorite>();
+    public DbSet<SocialMediaContent> SocialMediaContents => Set<SocialMediaContent>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -44,5 +48,42 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(rt => rt.UserId);
         mb.Entity<RefreshToken>()
             .HasIndex(rt => rt.Token).IsUnique();
+
+        mb.Entity<Cart>()
+            .HasIndex(c => c.BuyerId).IsUnique();
+        mb.Entity<Cart>()
+            .HasOne(c => c.Buyer)
+            .WithMany()
+            .HasForeignKey(c => c.BuyerId);
+        mb.Entity<CartItem>()
+            .HasOne(ci => ci.Cart)
+            .WithMany(c => c.Items)
+            .HasForeignKey(ci => ci.CartId);
+        mb.Entity<CartItem>()
+            .Property(ci => ci.Price).HasColumnType("numeric(10,2)");
+
+        mb.Entity<Favorite>()
+            .HasIndex(f => new { f.UserId, f.ProductId }).IsUnique();
+        mb.Entity<Favorite>()
+            .HasOne(f => f.User)
+            .WithMany()
+            .HasForeignKey(f => f.UserId);
+
+        mb.Entity<ProductReview>()
+            .HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.SetNull);
+        mb.Entity<ProductReview>()
+            .HasIndex(r => new { r.ProductId, r.UserId })
+            .HasFilter("\"UserId\" IS NOT NULL");
+
+        mb.Entity<SocialMediaContent>()
+            .HasIndex(s => new { s.SellerId, s.ProductId, s.Tone }).IsUnique();
+        mb.Entity<SocialMediaContent>()
+            .HasOne(s => s.Seller)
+            .WithMany()
+            .HasForeignKey(s => s.SellerId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

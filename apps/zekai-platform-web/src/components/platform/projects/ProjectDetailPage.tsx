@@ -22,16 +22,11 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  getProjectById,
-  syncProjectsFromApi,
-  getSavedAnalyses,
-  deleteProject,
+  useProjectsStore,
+  useAnalysesStore,
+  useCompareStore,
   addAnalysisToProject,
-  removeAnalysisFromProject,
-  addToCompareQueue,
-  clearCompareQueue,
 } from "@/lib/buyer-store";
-import { notifyStoreUpdate } from "@/components/platform/PlatformNav";
 import { compareAnalyses } from "@/lib/compare-engine";
 import type { ShoppingProject, SavedAnalysis } from "@/types/analysis";
 import { PlatformNav } from "@/components/platform/PlatformNav";
@@ -100,7 +95,6 @@ function AddAnalysisModal({
                   key={a.id}
                   onClick={() => {
                     addAnalysisToProject(projectId, a.id);
-                    notifyStoreUpdate();
                     onAdd();
                     onClose();
                     toast.success("Ürün Karar Odasına eklendi.");
@@ -203,66 +197,51 @@ export function ProjectDetailPage() {
   const router = useRouter();
   const projectId = params.projectId as string;
 
-  const [project, setProject] = useState<ShoppingProject | null>(null);
-  const [allAnalyses, setAllAnalyses] = useState<SavedAnalysis[]>([]);
+  const project = useProjectsStore((s) => s.projects.find((p) => p.id === projectId) ?? null);
+  const projectsLoaded = useProjectsStore((s) => s.loaded);
+  const allAnalyses = useAnalysesStore((s) => s.analyses);
+  const deleteProjectFn = useProjectsStore((s) => s.deleteProject);
+  const removeAnalysisFn = useProjectsStore((s) => s.removeAnalysis);
+  const compareStore = useCompareStore();
   const [showAddModal, setShowAddModal] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const p = getProjectById(projectId);
-    if (!p) { router.push("/platform/projects"); return; }
-    setProject(p);
-    setAllAnalyses(getSavedAnalyses());
-    setMounted(true);
-    syncProjectsFromApi()
-      .then(() => {
-        const synced = getProjectById(projectId);
-        if (synced) setProject(synced);
-      })
-      .catch(() => {});
-
-    function refresh() {
-      const p2 = getProjectById(projectId);
-      if (p2) setProject(p2);
-      setAllAnalyses(getSavedAnalyses());
+    if (projectsLoaded && !project) {
+      router.push("/platform/projects");
     }
-    window.addEventListener("zekai-store-update", refresh);
-    return () => window.removeEventListener("zekai-store-update", refresh);
-  }, [projectId, router]);
+  }, [projectsLoaded, project, router]);
 
   function handleDelete() {
     if (!project) return;
-    deleteProject(project.id);
-    notifyStoreUpdate();
+    deleteProjectFn(project.id);
     toast.success("Karar Odası silindi.");
     router.push("/platform/projects");
   }
 
   function handleRemoveAnalysis(analysisId: string) {
     if (!project) return;
-    removeAnalysisFromProject(project.id, analysisId);
-    notifyStoreUpdate();
-    setProject(getProjectById(projectId) ?? null);
+    removeAnalysisFn(project.id, analysisId);
     toast.success("Ürün Karar Odasından çıkarıldı.");
   }
 
   function handleCompareAll() {
     if (!project || projectAnalyses.length < 2) return;
-    clearCompareQueue();
+    compareStore.clear();
     const toAdd = projectAnalyses.slice(0, 3);
-    toAdd.forEach((a) => addToCompareQueue(a.id));
-    notifyStoreUpdate();
-    
+    toAdd.forEach((a) => compareStore.add(a.id));
     if (projectAnalyses.length > 3) {
       toast.info("En fazla 3 ürün karşılaştırılabildiği için ilk 3 ürün eklendi.");
     }
     router.push("/platform/compare");
   }
 
-  if (!mounted || !project) {
+  if (!project) {
     return (
       <div className="min-h-screen bg-background">
         <div className="h-14 border-b border-border" />
+        <div className="mx-auto max-w-3xl px-4 py-12 space-y-3">
+          {[1, 2].map((n) => <div key={n} className="h-20 animate-pulse rounded-2xl bg-muted/40" />)}
+        </div>
       </div>
     );
   }
@@ -287,7 +266,7 @@ export function ProjectDetailPage() {
             existingIds={project.savedAnalysisIds}
             allAnalyses={allAnalyses}
             onClose={() => setShowAddModal(false)}
-            onAdd={() => setProject(getProjectById(projectId) ?? null)}
+            onAdd={() => {}}
           />
         )}
       </AnimatePresence>

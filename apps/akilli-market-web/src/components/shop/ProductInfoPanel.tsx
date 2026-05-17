@@ -41,13 +41,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
   const specs = Object.entries(product.features).slice(0, 4);
 
   function handleAddToCart() {
-    addItem({
-      productId: product.id,
-      title: product.title,
-      price: product.price,
-      image: product.image,
-      stock: product.stock,
-    });
+    addItem(product.id, product.stock);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
   }

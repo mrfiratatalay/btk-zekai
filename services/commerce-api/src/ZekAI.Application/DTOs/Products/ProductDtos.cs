@@ -38,6 +38,7 @@ public record ProductDetailDto(
 
 public record ProductReviewDto(
     int Id,
+    string AuthorName,
     int Rating,
     string Title,
     string Text,
@@ -46,6 +47,14 @@ public record ProductReviewDto(
     int HelpfulCount,
     List<string> Tags
 );
+
+public class CreateProductReviewRequest
+{
+    public int Rating { get; init; }
+    public string Title { get; init; } = "";
+    public string Text { get; init; } = "";
+    public List<string>? Tags { get; init; }
+}
 
 public record PriceHistoryDto(string Day, decimal Price, decimal MarketMedian);
 
