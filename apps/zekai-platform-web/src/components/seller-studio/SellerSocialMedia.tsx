@@ -21,10 +21,6 @@ import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 import { generateSocialContent, type SocialMediaContent } from "@/lib/api/seller";
 
-async function delay(ms = 1400) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 type Tone = "profesyonel" | "samimi" | "mizahi";
 
 const TONES: { key: Tone; label: string; Icon: React.ElementType }[] = [
@@ -87,7 +83,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5"
+      className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
     >
       {copied
         ? <><Check className="size-3 text-green-500" /><span className="text-green-600 dark:text-green-400">Kopyalandı</span></>
@@ -118,20 +114,20 @@ function PlatformRow({
       {/* Orta: başlık + içerik */}
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex items-center justify-between gap-3">
-          <p className="font-semibold text-gray-900 dark:text-white">{label}</p>
+          <p className="font-semibold text-foreground">{label}</p>
           {action}
         </div>
 
         {loading ? (
           <div className="space-y-2 pt-1">
-            <div className="flex items-center gap-2 text-sm text-gray-400">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin text-green-500" />
               İçerik hazırlanıyor...
             </div>
             <div className="space-y-1.5">
-              <div className="h-2 w-full animate-pulse rounded-full bg-gray-100 dark:bg-white/8" />
-              <div className="h-2 w-4/5 animate-pulse rounded-full bg-gray-100 dark:bg-white/8" />
-              <div className="h-2 w-3/5 animate-pulse rounded-full bg-gray-100 dark:bg-white/8" />
+              <div className="h-2 w-full animate-pulse rounded-full bg-muted" />
+              <div className="h-2 w-4/5 animate-pulse rounded-full bg-muted" />
+              <div className="h-2 w-3/5 animate-pulse rounded-full bg-muted" />
             </div>
           </div>
         ) : (
@@ -151,7 +147,7 @@ function InstagramContent({ content }: { content: string }) {
   const full = content;
   return (
     <div className="space-y-2">
-      <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-line">{body}</p>
+      <p className="text-sm leading-relaxed text-foreground whitespace-pre-line">{body}</p>
       {tags && <p className="text-sm text-green-600 dark:text-green-400">{tags}</p>}
       <CopyButton text={full} />
     </div>
@@ -169,7 +165,7 @@ function TiktokContent({ scenes }: { scenes: { time: string; text: string }[] })
             <span className="shrink-0 font-mono text-xs font-semibold text-green-500 dark:text-green-400 pt-px">
               {s.time}
             </span>
-            <span className="text-gray-700 dark:text-gray-300">{s.text}</span>
+            <span className="text-foreground">{s.text}</span>
           </div>
         ))}
       </div>
@@ -182,7 +178,7 @@ function TiktokContent({ scenes }: { scenes: { time: string; text: string }[] })
 function TwitterContent({ content }: { content: string }) {
   return (
     <div className="space-y-2">
-      <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{content}</p>
+      <p className="text-sm leading-relaxed text-foreground">{content}</p>
       <CopyButton text={content} />
     </div>
   );
@@ -198,7 +194,6 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
   async function handleGenerate() {
     setGenerating(true);
     try {
-      await delay();
       const result = await generateSocialContent(product.id, tone);
       setContent(result);
       toast.success("3 platform için içerik üretildi.");
@@ -218,7 +213,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
     <div className="pb-16">
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm text-gray-400">
+      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Link href="/seller/products" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">
           Ürünlerim
         </Link>
@@ -230,39 +225,39 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
           {product.title}
         </Link>
         <ChevronRight className="size-3.5" />
-        <span className="text-gray-600 dark:text-gray-300">Sosyal Medya İçeriği</span>
+        <span className="text-foreground">Sosyal Medya İçeriği</span>
       </div>
 
       {/* Sayfa başlığı */}
       <div className="mt-6 mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Sosyal Medya İçeriği
         </h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Ürünün için 3 platforma uygun içerik oluştur ve kopyala.
         </p>
       </div>
 
       {/* Ürün özeti — minimalist, tek satır */}
-      <div className="mb-6 flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 dark:border-white/8 dark:bg-[#111]">
-        <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-[#f8f8f8] dark:bg-white/5">
+      <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+        <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
           {product.image
             ? <Image src={product.image} alt={product.title} fill className="object-contain p-1" />
             : <div className="flex h-full items-center justify-center"><Package className="size-4 text-gray-300" /></div>
           }
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{product.title}</p>
-          <p className="text-xs text-gray-400">{product.category} · {formatSellerPrice(product.price)}</p>
+          <p className="truncate text-sm font-semibold text-foreground">{product.title}</p>
+          <p className="text-xs text-muted-foreground">{product.category} · {formatSellerPrice(product.price)}</p>
         </div>
       </div>
 
       {/* Ton seçimi + Üret aksiyonu */}
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white dark:border-white/8 dark:bg-[#111]">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
 
         {/* Ton seçici */}
         <div className="px-5 py-4">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Ton Seçimi</p>
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ton Seçimi</p>
           <div className="flex gap-2">
             {TONES.map(({ key, label, Icon }) => (
               <button
@@ -271,7 +266,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
                 className={`flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
                   tone === key
                     ? "border-green-300 bg-green-50 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-400"
-                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:bg-transparent dark:text-gray-400 dark:hover:bg-white/5"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted"
                 }`}
               >
                 <Icon className="size-3.5" />
@@ -286,7 +281,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-gray-100 py-3.5 text-sm font-semibold text-green-600 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-border py-3.5 text-sm font-semibold text-green-600 transition-colors hover:bg-green-500/8 disabled:cursor-not-allowed disabled:opacity-50 dark:text-green-400"
           >
             {generating
               ? <><Loader2 className="size-4 animate-spin" />Üretiliyor...</>
@@ -296,7 +291,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
           <button
             onClick={handleRegenerate}
             disabled={generating}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-gray-100 py-3.5 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-white/8 dark:text-gray-400 dark:hover:bg-white/5"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-border py-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
           >
             <RefreshCw className={`size-4 ${generating ? "animate-spin" : ""}`} />
             Yeniden Üret
@@ -317,7 +312,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
       )}
 
       {/* Platform listesi — Apple Settings benzeri, divider'lı tek kart */}
-      <div className="mt-6 overflow-hidden rounded-2xl border border-gray-100 bg-white dark:border-white/8 dark:bg-[#111]">
+      <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
 
         {/* Instagram */}
         <div className="px-5">
@@ -329,12 +324,12 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
           >
             {hasGenerated && content && <InstagramContent content={content.instagram} />}
             {!hasGenerated && !generating && (
-              <p className="text-sm text-gray-300 dark:text-gray-600">İçerik üretilmedi</p>
+              <p className="text-sm text-muted-foreground/40">İçerik üretilmedi</p>
             )}
           </PlatformRow>
         </div>
 
-        <div className="mx-5 border-t border-gray-100 dark:border-white/8" />
+        <div className="mx-5 border-t border-border" />
 
         {/* TikTok */}
         <div className="px-5">
@@ -346,12 +341,12 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
           >
             {hasGenerated && content && <TiktokContent scenes={content.tiktok} />}
             {!hasGenerated && !generating && (
-              <p className="text-sm text-gray-300 dark:text-gray-600">İçerik üretilmedi</p>
+              <p className="text-sm text-muted-foreground/40">İçerik üretilmedi</p>
             )}
           </PlatformRow>
         </div>
 
-        <div className="mx-5 border-t border-gray-100 dark:border-white/8" />
+        <div className="mx-5 border-t border-border" />
 
         {/* Twitter */}
         <div className="px-5">
@@ -363,7 +358,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
           >
             {hasGenerated && content && <TwitterContent content={content.twitter} />}
             {!hasGenerated && !generating && (
-              <p className="text-sm text-gray-300 dark:text-gray-600">İçerik üretilmedi</p>
+              <p className="text-sm text-muted-foreground/40">İçerik üretilmedi</p>
             )}
           </PlatformRow>
         </div>
@@ -371,9 +366,9 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
 
       {/* Alt bilgi */}
       {!hasGenerated && !generating && (
-        <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-gray-400">
+        <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
           <Share2 className="size-3.5" />
-          Gerçek ürün verileri ve yorumlardan beslenir.
+          Ürün başlığı, kategori ve açıklaması kullanılarak içerik üretilir.
         </p>
       )}
 

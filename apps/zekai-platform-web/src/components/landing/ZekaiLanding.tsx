@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
   BarChart3,
   Bot,
+  CheckCircle2,
   ShieldCheck,
   Sparkles,
   Star,
@@ -30,7 +32,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: "Pişmanlık Riski Analizi",
-    description: "Yorum forensiği, fiyat geçmişi ve iade verileriyle satın alma riskinizi 30 saniyede hesaplıyoruz.",
+    description: "Yorum forensiği, fiyat geçmişi ve şikayet verileriyle satın alma riskinizi 30 saniyede hesaplıyoruz.",
     color: "#ADFF41",
   },
   {
@@ -48,7 +50,7 @@ const FEATURES = [
   {
     icon: Users,
     title: "Sentetik Müşteri Paneli",
-    description: "12 farklı alıcı profili simüle edilerek ürünün gerçek müşteri gözüyle nasıl göründüğü analiz edilir.",
+    description: "5 farklı alıcı profili simüle edilerek ürünün gerçek müşteri gözüyle nasıl göründüğü analiz edilir; her kararın gerekçesi sunulur.",
     color: "#F59E0B",
   },
   {
@@ -76,7 +78,7 @@ const TESTIMONIALS = [
     name: "Emre Demir",
     role: "E-Ticaret Satıcısı",
     avatar: "https://i.pravatar.cc/150?img=8",
-    content: "Seller Studio ile ürün açıklamalarımı güncelledim. İlk haftada iade oranım %23'ten %11'e düştü. Gerçekten işe yarıyor.",
+    content: "Müşteri simülasyonu çalıştırdım; 3 persona 'fiyat belirsiz' diye vazgeçmişti. AI ile başlığı ve açıklamayı düzelttim, bir sonraki üründe aynı hatayı yapmadım.",
   },
   {
     name: "Selin Arslan",
@@ -92,8 +94,38 @@ const SCORE_BARS = [
   { label: "Fiyat",   score: 35, color: "#EF4444" },
 ];
 
+const BUYER_STEPS = [
+  { step: "01", icon: Store, title: "Ürüne bak", desc: "ZekAI Market'ten beğendiğin ürünün sayfasına git, linkini kopyala." },
+  { step: "02", icon: Bot, title: "Yapıştır ve yaz", desc: "Linki Zekai'ye yapıştır, ihtiyacını doğal dille açıkla. 8 ajan devreye girer." },
+  { step: "03", icon: ShieldCheck, title: "Raporu al", desc: "Pişmanlık Riski Raporu ve kişisel alternatif önerileriyle doğru kararı ver." },
+];
+
+const SELLER_STEPS = [
+  { step: "01", icon: Store, title: "Mağazanı bağla", desc: "Seller Studio'ya giriş yap, mevcut ürünlerini platforma ekle." },
+  { step: "02", icon: Users, title: "Müşteri simülasyonu", desc: "5 sentetik alıcı profili ürününü test eder; kimin neden satın alıp almadığını ve eksik noktaları gösterir." },
+  { step: "03", icon: TrendingUp, title: "Uygula ve yayınla", desc: "AI önerilerini tek tıkla ürün sayfana uygula, sosyal medya içeriğini hazır al." },
+];
+
+const BUYER_BENEFITS = [
+  "Anlık pişmanlık riski skoru",
+  "Sahte indirim & fiyat manipülasyonu tespiti",
+  "8 AI ajanlı derin ürün analizi",
+  "Kişisel ihtiyaca göre alternatif önerisi",
+  "Yorum forensiği & güven skoru",
+];
+
+const SELLER_BENEFITS = [
+  "Sentetik müşteri simülasyonu (5 farklı profil)",
+  "Müşteri bazlı karar gerekçesi ve öneri",
+  "AI destekli başlık & açıklama optimizasyonu",
+  "AI ürün görseli üreteci",
+  "Sosyal medya içerik üreteci (Instagram, Twitter)",
+];
+
 /* ── Component ───────────────────────────────────────────────────────────── */
 export function ZekaiLanding() {
+  const [activeFlow, setActiveFlow] = useState<"buyer" | "seller">("buyer");
+
   return (
     <div className="min-h-screen overflow-hidden bg-background text-foreground">
 
@@ -108,13 +140,18 @@ export function ZekaiLanding() {
           </Link>
 
           <div className="hidden items-center gap-1 md:flex">
-            {["Özellikler", "Nasıl Çalışır", "Market", "Fiyatlandırma"].map((item) => (
+            {[
+              { label: "Kim İçin?", href: "#kim-icin" },
+              { label: "Özellikler", href: "#ozellikler" },
+              { label: "Nasıl Çalışır?", href: "#nasil-calisir" },
+              { label: "Market", href: COMMERCE_WEB_URL },
+            ].map((item) => (
               <Link
-                key={item}
-                href={item === "Market" ? COMMERCE_WEB_URL : "#"}
+                key={item.label}
+                href={item.href}
                 className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                {item}
+                {item.label}
               </Link>
             ))}
           </div>
@@ -139,31 +176,43 @@ export function ZekaiLanding() {
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
                 <Zap className="size-3.5" />
-                AI Commerce Platform
+                AI Commerce Platform · Alıcı & Satıcı
               </p>
               <h1 className="text-5xl font-bold leading-tight tracking-tight text-foreground md:text-6xl">
-                Satın almadan önce{" "}
+                Alıcıya güven.{" "}
                 <span className="bg-gradient-to-r from-[#C1F25D] to-[#10B981] bg-clip-text text-transparent">
-                  gerçeği öğren.
+                  Satıcıya içgörü.
                 </span>
               </h1>
               <p className="mb-8 mt-5 max-w-lg text-lg leading-relaxed text-muted-foreground">
-                Zekai, e-commerce ürünlerini alıcı ve satıcı perspektifinden analiz eden bağımsız
-                bir AI SaaS platformudur. Pişmanlık riskini anında öğren.
+                Zekai, e-ticarette her iki tarafın da doğru kararı vermesini sağlayan bağımsız bir AI platformudur.
+                Alıcılar için risk analizi, satıcılar için büyüme araçları — tek çatı altında.
               </p>
 
               <div className="flex flex-wrap gap-3">
                 <Link href="/register" className="flex items-center gap-2 rounded-full bg-[#C1F25D] px-6 py-3 text-sm font-bold text-black transition-colors hover:bg-[#aadc2d]">
-                  Hemen Başla
+                  Ücretsiz Başla
                   <ArrowRight className="size-4" />
                 </Link>
-                <Link href={COMMERCE_WEB_URL} className="flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-foreground" style={{ borderWidth: "1.5px" }}>
+                <Link href="/seller" className="flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-foreground" style={{ borderWidth: "1.5px" }}>
                   <Store className="size-4" />
-                  Market&apos;e Bak
+                  Satıcı mısınız?
                 </Link>
               </div>
 
-              <div className="mt-8 flex items-center gap-3">
+              {/* Dual audience pill badges */}
+              <div className="mt-8 flex flex-wrap gap-2">
+                <span className="flex items-center gap-1.5 rounded-full border border-[#C1F25D]/30 bg-[#C1F25D]/10 px-3 py-1.5 text-xs font-semibold text-[#5a8a00] dark:text-[#C1F25D]">
+                  <ShieldCheck className="size-3.5" />
+                  Alıcılar için pişmanlık önleme
+                </span>
+                <span className="flex items-center gap-1.5 rounded-full border border-blue-300/30 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                  <TrendingUp className="size-3.5" />
+                  Satıcılar için büyüme araçları
+                </span>
+              </div>
+
+              <div className="mt-5 flex items-center gap-3">
                 <div className="flex">
                   {[5, 8, 9, 11, 13].map((i) => (
                     <img key={i} src={`https://i.pravatar.cc/150?img=${i}`}
@@ -244,8 +293,8 @@ export function ZekaiLanding() {
                   <TrendingUp className="size-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-foreground">İade oranı düştü</p>
-                  <p className="text-[11px] text-muted-foreground">%23 → %11 · Seller Studio</p>
+                  <p className="text-xs font-semibold text-foreground">AI içerik oluşturuldu</p>
+                  <p className="text-[11px] text-muted-foreground">Başlık & açıklama · Seller Studio</p>
                 </div>
               </div>
             </motion.div>
@@ -253,7 +302,7 @@ export function ZekaiLanding() {
         </div>
       </section>
 
-      {/* ── Stats — bg-card ───────────────────────────────────────────────── */}
+      {/* ── Stats ────────────────────────────────────────────────────────── */}
       <section className="border-y border-border bg-card py-16">
         <div className="mx-auto max-w-7xl px-6">
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
@@ -269,8 +318,95 @@ export function ZekaiLanding() {
         </div>
       </section>
 
-      {/* ── Features — bg-background ─────────────────────────────────────── */}
-      <section className="py-20 md:py-28">
+      {/* ── For Whom — dual audience ──────────────────────────────────────── */}
+      <section id="kim-icin" className="py-20 md:py-28">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mb-14 text-center">
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">KİM İÇİN?</p>
+            <h2 className="text-4xl font-bold text-foreground">E-ticarette Her İki Taraf İçin</h2>
+            <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
+              Alıcı ya da satıcı olun, Zekai size özel araçlarla doğru kararı vermenizi sağlar.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Buyer card */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="group relative overflow-hidden rounded-[28px] border border-[#C1F25D]/20 bg-card p-8 hover:border-[#C1F25D]/50 transition-all hover:-translate-y-1 hover:shadow-xl"
+            >
+              <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-[#C1F25D]/5" />
+              <div className="relative">
+                <div className="mb-5 flex size-14 items-center justify-center rounded-2xl bg-[#C1F25D]/15">
+                  <ShieldCheck className="size-7 text-[#5a8a00] dark:text-[#C1F25D]" />
+                </div>
+                <p className="mb-1 text-xs font-bold uppercase tracking-widest text-[#5a8a00] dark:text-[#C1F25D]">Alıcılar İçin</p>
+                <h3 className="mb-2 text-2xl font-bold text-foreground">Pişmanlıksız Alışveriş</h3>
+                <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+                  Satın almadan önce ürünün gerçek değerini, risklerini ve size uygunluğunu öğrenin.
+                </p>
+                <ul className="mb-8 space-y-2.5">
+                  {BUYER_BENEFITS.map((b) => (
+                    <li key={b} className="flex items-center gap-2.5 text-sm text-foreground">
+                      <CheckCircle2 className="size-4 shrink-0 text-[#5a8a00] dark:text-[#C1F25D]" />
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={COMMERCE_WEB_URL}
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#C1F25D] px-5 py-2.5 text-sm font-bold text-black transition-colors hover:bg-[#aadc2d]"
+                >
+                  Ürünü Analiz Et
+                  <ArrowRight className="size-4" />
+                </Link>
+              </div>
+            </motion.div>
+
+            {/* Seller card */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="group relative overflow-hidden rounded-[28px] border border-blue-500/20 bg-card p-8 hover:border-blue-500/50 transition-all hover:-translate-y-1 hover:shadow-xl"
+            >
+              <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-blue-500/5" />
+              <div className="relative">
+                <div className="mb-5 flex size-14 items-center justify-center rounded-2xl bg-blue-500/10">
+                  <TrendingUp className="size-7 text-blue-500 dark:text-blue-400" />
+                </div>
+                <p className="mb-1 text-xs font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400">Satıcılar İçin</p>
+                <h3 className="mb-2 text-2xl font-bold text-foreground">Seller Studio ile Büyü</h3>
+                <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+                  AI destekli araçlarla ürün sayfalarını optimize edin, müşteri gözüyle görün, içeriğinizi güçlendirin.
+                </p>
+                <ul className="mb-8 space-y-2.5">
+                  {SELLER_BENEFITS.map((b) => (
+                    <li key={b} className="flex items-center gap-2.5 text-sm text-foreground">
+                      <CheckCircle2 className="size-4 shrink-0 text-blue-500 dark:text-blue-400" />
+                      {b}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/seller"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                >
+                  Seller Studio&apos;ya Gir
+                  <ArrowRight className="size-4" />
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Features ─────────────────────────────────────────────────────── */}
+      <section id="ozellikler" className="border-y border-border bg-card py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-14 text-center">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">ÖZELLİKLER</p>
@@ -290,7 +426,7 @@ export function ZekaiLanding() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.07 }}
-                  className="group rounded-3xl border border-transparent bg-card p-7 shadow-none transition-all hover:-translate-y-2 hover:shadow-xl"
+                  className="group rounded-3xl border border-transparent bg-background p-7 shadow-none transition-all hover:-translate-y-2 hover:shadow-xl"
                   style={{ borderRadius: "24px" }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = f.color + "4D"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "transparent"; }}
@@ -307,26 +443,58 @@ export function ZekaiLanding() {
         </div>
       </section>
 
-      {/* ── How it works — bg-card ───────────────────────────────────────── */}
-      <section className="border-y border-border bg-card py-20 md:py-28">
+      {/* ── How it works — tabbed ─────────────────────────────────────────── */}
+      <section id="nasil-calisir" className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="mb-14 text-center">
+          <div className="mb-10 text-center">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">NASIL ÇALIŞIR?</p>
-            <h2 className="text-4xl font-bold text-foreground">3 Adımda Analiz</h2>
+            <h2 className="text-4xl font-bold text-foreground">3 Adımda Başlayın</h2>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-3">
-            {[
-              { step: "01", icon: Store, title: "Ürüne bak", desc: "ZekAI Market'ten beğendiğin ürünün sayfasına git, linkini kopyala." },
-              { step: "02", icon: Bot, title: "Yapıştır ve yaz", desc: "Linki Zekai'ye yapıştır, ihtiyacını doğal dille açıkla. 8 ajan devreye girer." },
-              { step: "03", icon: ShieldCheck, title: "Raporu al", desc: "Pişmanlık Riski Raporu ve kişisel alternatif önerileriyle doğru kararı ver." },
-            ].map((item, idx) => {
+          {/* Tab switcher */}
+          <div className="mb-12 flex justify-center">
+            <div className="flex rounded-full border border-border bg-card p-1">
+              <button
+                onClick={() => setActiveFlow("buyer")}
+                className={`cursor-pointer rounded-full px-6 py-2.5 text-sm font-semibold transition-all ${
+                  activeFlow === "buyer"
+                    ? "bg-[#C1F25D] text-black shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Alıcı Akışı
+              </button>
+              <button
+                onClick={() => setActiveFlow("seller")}
+                className={`cursor-pointer rounded-full px-6 py-2.5 text-sm font-semibold transition-all ${
+                  activeFlow === "seller"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Satıcı Akışı
+              </button>
+            </div>
+          </div>
+
+          <motion.div
+            key={activeFlow}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="grid gap-8 md:grid-cols-3"
+          >
+            {(activeFlow === "buyer" ? BUYER_STEPS : SELLER_STEPS).map((item, idx) => {
               const Icon = item.icon;
+              const accentColor = activeFlow === "buyer" ? "#C1F25D" : "#3B82F6";
+              const iconTextClass = activeFlow === "buyer"
+                ? "text-[#5a8a00] dark:text-[#ADFF41]"
+                : "text-blue-600 dark:text-blue-400";
               return (
                 <div key={item.step} className="relative text-center">
-                  <p className="mb-2 text-8xl font-bold leading-none text-[#C1F25D]/20">{item.step}</p>
-                  <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-[#C1F25D]/10">
-                    <Icon className="size-5 text-[#5a8a00] dark:text-[#ADFF41]" />
+                  <p className="mb-2 text-8xl font-bold leading-none" style={{ color: accentColor + "33" }}>{item.step}</p>
+                  <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl" style={{ backgroundColor: accentColor + "1A" }}>
+                    <Icon className={`size-5 ${iconTextClass}`} />
                   </div>
                   <h3 className="mb-2 text-xl font-bold text-foreground">{item.title}</h3>
                   <p className="text-muted-foreground">{item.desc}</p>
@@ -336,12 +504,12 @@ export function ZekaiLanding() {
                 </div>
               );
             })}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* ── Testimonials — bg-background ─────────────────────────────────── */}
-      <section className="py-20 md:py-28">
+      {/* ── Testimonials ─────────────────────────────────────────────────── */}
+      <section className="border-y border-border bg-card py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mb-14 text-center">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">KULLANICI YORUMLARI</p>
@@ -350,7 +518,7 @@ export function ZekaiLanding() {
 
           <div className="grid gap-4 md:grid-cols-3">
             {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="rounded-3xl border border-border bg-card p-7" style={{ borderRadius: "24px" }}>
+              <div key={t.name} className="rounded-3xl border border-border bg-background p-7" style={{ borderRadius: "24px" }}>
                 <div className="mb-4 flex gap-0.5">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star key={i} className="size-4 fill-amber-400 text-amber-400" />
@@ -370,9 +538,9 @@ export function ZekaiLanding() {
         </div>
       </section>
 
-      {/* ── CTA dark (intentionally always dark) ─────────────────────────── */}
-      <section className="px-6 pb-20 md:pb-28">
-        <div className="mx-auto max-w-4xl">
+      {/* ── CTA — dual ───────────────────────────────────────────────────── */}
+      <section className="px-6 pb-20 md:pb-28 pt-20 md:pt-28">
+        <div className="mx-auto max-w-5xl">
           <div
             className="relative overflow-hidden rounded-[32px] px-8 py-16 text-center text-white"
             style={{ background: "linear-gradient(135deg, #1f2203 0%, #103B1D 100%)" }}
@@ -381,20 +549,34 @@ export function ZekaiLanding() {
             <div className="pointer-events-none absolute -bottom-10 -left-10 size-40 rounded-full bg-[#C1F25D]/5" />
             <div className="relative">
               <h2 className="text-4xl font-bold md:text-5xl">
-                Satın almadan önce <br />
-                <span className="text-[#C1F25D]">güvende ol.</span>
+                Alıcı da kazan,{" "}
+                <span className="text-[#C1F25D]">satıcı da kazan.</span>
               </h2>
-              <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-white/65">
-                Zekai&apos;yi ücretsiz dene. Alıcı veya satıcı olarak hemen başla — kredi kartı gerekmiyor.
+              <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/65">
+                Zekai&apos;yi ücretsiz dene. Alıcı olarak pişmanlık riskini sıfırla ya da satıcı olarak Seller Studio ile işini büyüt — kredi kartı gerekmiyor.
               </p>
-              <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <Link href="/register" className="flex items-center gap-2 rounded-full bg-[#C1F25D] px-7 py-3 text-sm font-bold text-black transition-colors hover:bg-[#aadc2d]">
-                  Ücretsiz Başla
-                  <ArrowRight className="size-4" />
-                </Link>
-                <Link href={COMMERCE_WEB_URL} className="flex items-center gap-2 rounded-full border border-white/25 px-7 py-3 text-sm font-semibold text-white transition-colors hover:border-white/60" style={{ borderWidth: "1.5px" }}>
-                  Market&apos;i Gez
-                </Link>
+              <div className="mt-10 grid gap-4 sm:flex sm:flex-wrap sm:justify-center">
+                {/* Buyer CTA */}
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-left sm:max-w-[220px]">
+                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-[#C1F25D]/70">Alıcılar İçin</p>
+                  <p className="mb-3 text-sm font-semibold text-white">Ürün analizi başlat</p>
+                  <Link href="/register" className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#C1F25D] px-5 py-2 text-sm font-bold text-black transition-colors hover:bg-[#aadc2d]">
+                    Ücretsiz Başla
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </div>
+
+                <div className="hidden sm:flex items-center px-2 text-white/20 text-2xl font-thin">|</div>
+
+                {/* Seller CTA */}
+                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-left sm:max-w-[220px]">
+                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-blue-400/70">Satıcılar İçin</p>
+                  <p className="mb-3 text-sm font-semibold text-white">Seller Studio&apos;ya gir</p>
+                  <Link href="/seller" className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-blue-400/50 bg-blue-600/20 px-5 py-2 text-sm font-bold text-blue-300 transition-colors hover:bg-blue-600/40">
+                    Satıcı Paneli
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -412,9 +594,9 @@ export function ZekaiLanding() {
           </div>
           <p className="text-sm text-muted-foreground">© 2025 ZekAI — AI Commerce Platform. Tüm hakları saklıdır.</p>
           <div className="flex gap-4 text-sm text-muted-foreground">
-            {["Gizlilik", "Kullanım Şartları", "İletişim"].map((l) => (
-              <Link key={l} href="#" className="transition-colors hover:text-foreground">{l}</Link>
-            ))}
+            <Link href="/privacy" className="transition-colors hover:text-foreground">Gizlilik</Link>
+            <Link href="/terms" className="transition-colors hover:text-foreground">Kullanım Şartları</Link>
+            <Link href="mailto:destek@zekai.ai" className="transition-colors hover:text-foreground">İletişim</Link>
           </div>
         </div>
       </footer>

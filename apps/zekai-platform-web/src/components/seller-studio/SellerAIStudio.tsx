@@ -67,9 +67,9 @@ const AI_TOOLS = [
 ];
 
 const tagStyle: Record<string, string> = {
-  green: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400",
-  blue: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
-  gray: "bg-gray-100 text-gray-500 dark:bg-white/8 dark:text-gray-500",
+  green: "bg-green-500/10 text-green-700 dark:text-green-400",
+  blue: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  gray: "bg-muted text-muted-foreground",
 };
 
 export function SellerAIStudio() {
@@ -80,9 +80,9 @@ export function SellerAIStudio() {
       <div>
         <div className="flex items-center gap-2">
           <Sparkles className="size-6 text-green-500" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">AI Studio</h1>
+          <h1 className="text-2xl font-bold text-foreground">AI Studio</h1>
         </div>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           ZekAI&apos;nin tüm yapay zeka araçlarına tek yerden eriş.
         </p>
       </div>
@@ -118,7 +118,7 @@ export function SellerAIStudio() {
 
       {/* ── AI Tools grid ── */}
       <div>
-        <h2 className="mb-4 text-base font-bold text-gray-900 dark:text-white">Tüm AI Araçları</h2>
+        <h2 className="mb-4 text-base font-bold text-foreground">Tüm AI Araçları</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {AI_TOOLS.map((tool) => {
             const Icon = tool.icon;
@@ -127,11 +127,11 @@ export function SellerAIStudio() {
               <Link
                 key={tool.id}
                 href={disabled ? "#" : tool.href}
-                className={`flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 transition-all dark:border-white/10 dark:bg-[#111] ${disabled ? "cursor-default opacity-60" : "hover:shadow-md"}`}
+                className={`flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 transition-all ${disabled ? "cursor-default opacity-60" : "hover:shadow-md"}`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/8">
-                    <Icon className="size-5 text-gray-600 dark:text-gray-400" />
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                    <Icon className="size-5 text-muted-foreground" />
                   </div>
                   {tool.tag && (
                     <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tagStyle[tool.tagColor]}`}>
@@ -139,8 +139,8 @@ export function SellerAIStudio() {
                     </span>
                   )}
                 </div>
-                <h3 className="mt-4 text-sm font-bold text-gray-900 dark:text-white">{tool.label}</h3>
-                <p className="mt-1.5 flex-1 text-xs leading-relaxed text-gray-400">{tool.desc}</p>
+                <h3 className="mt-4 text-sm font-bold text-foreground">{tool.label}</h3>
+                <p className="mt-1.5 flex-1 text-xs leading-relaxed text-muted-foreground">{tool.desc}</p>
                 {!disabled && (
                   <div className="mt-4 flex items-center gap-1 text-xs font-bold text-green-600 dark:text-green-400">
                     {tool.cta}

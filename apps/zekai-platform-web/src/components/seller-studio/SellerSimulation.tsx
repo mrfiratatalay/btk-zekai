@@ -2,24 +2,22 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowRight, Bot, Check, ChevronRight,
-  ShoppingCart, Star, ThumbsDown, XCircle,
+  ArrowRight, Bot, Check, ChevronRight, Loader2,
+  MessageSquare, ShoppingCart, ThumbsDown, XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { SellerProductPerformance } from "@/types/seller";
+import type { SellerProductPerformance, SyntheticPersona } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
-import { SYNTHETIC_PERSONAS } from "@/lib/constants/personas";
+import { streamSimulateProduct } from "@/lib/api/seller";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// Zeynep(skip), Burak(skip), Ayşe(buy), Mehmet(skip), Elif(buy) → 2 buy / 3 skip
-const PERSONAS = [0, 1, 2, 3, 5].map((i) => SYNTHETIC_PERSONAS[i]);
-
 const STEP_LOOKING_MS  = 1800;
 const STEP_DECIDING_MS = 1200;
+const MAX_PERSONAS      = 5;
 
 type Decision  = "buy" | "skip" | "undecided";
 type Section   = "image" | "price" | "features" | "reviews" | "cta";
@@ -39,7 +37,6 @@ const DECISION_STYLE: Record<Decision, { label: string; bg: string; text: string
   undecided: { label: "Kararsız",   bg: "bg-amber-400", text: "text-white", icon: <ThumbsDown className="size-3" /> },
 };
 
-// lookedAt[0] → which card section glows
 const SECTION_MAP: Record<string, Section> = {
   "Mikrofon": "features", "Fotoğraflar": "image",  "Yorumlar": "reviews",
   "Gecikme":  "features", "Fiyat":       "price",  "Pil":      "features",
@@ -47,21 +44,19 @@ const SECTION_MAP: Record<string, Section> = {
   "Teknik tablo": "features",
 };
 
-function getSection(p: typeof PERSONAS[0]): Section {
+function getSection(p: SyntheticPersona): Section {
   for (const l of p.lookedAt) { const s = SECTION_MAP[l]; if (s) return s; }
   return "features";
 }
 
-// Persona positions — speech bubble always appears ABOVE the avatar
 const POSITIONS = [
-  { left: "6%",  top: "14%" },  // Zeynep — top-left
-  { left: "75%", top: "14%" },  // Burak  — top-right
-  { left: "82%", top: "48%" },  // Ayşe   — right
-  { left: "3%",  top: "48%" },  // Mehmet — left
-  { left: "42%", top: "70%" },  // Elif   — bottom
+  { left: "6%",  top: "14%" },
+  { left: "75%", top: "14%" },
+  { left: "82%", top: "48%" },
+  { left: "3%",  top: "48%" },
+  { left: "42%", top: "70%" },
 ];
 
-// SVG line endpoints — center of each avatar (% of stage)
 const SVG_FROM = [
   { x: 12, y: 30 },
   { x: 82, y: 30 },
@@ -71,55 +66,38 @@ const SVG_FROM = [
 ];
 const SVG_TO = { x: 50, y: 47 };
 
-// Default feature bullets (fallback – we don't have real features in the type)
-const FALLBACK_FEATURES = [
-  "Bluetooth 5.3",
-  "15 saat pil ömrü",
-  "Dokunmatik kontrol",
-  "IPX4 su dayanıklılığı",
-];
-
 // ─── Mini Product Card ────────────────────────────────────────────────────────
 
 function ProductCard({ product, activeSection }: {
   product: SellerProductPerformance;
   activeSection: Section | null;
 }) {
+  const displayFeatures = product.features.length > 0
+    ? product.features.slice(0, 4)
+    : ["Ürün özellikleri yükleniyor..."];
   const hl = (s: Section) => cn(
     "transition-all duration-300",
     activeSection === s && "ring-2 ring-green-500 ring-offset-1 rounded-xl"
   );
 
   return (
-    <div className="w-[300px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#111]">
-
-      {/* Image + title */}
+    <div className="w-[300px] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
       <div className={cn("p-3.5", hl("image"))}>
-        <div className="relative h-32 w-full overflow-hidden rounded-xl bg-gray-50 dark:bg-white/5">
+        <div className="relative h-32 w-full overflow-hidden rounded-xl bg-muted">
           <Image src={product.image} alt={product.title} fill className="object-contain p-2" />
         </div>
-        <p className="mt-2.5 text-[13px] font-bold leading-snug text-gray-900 dark:text-white line-clamp-2">
+        <p className="mt-2.5 text-[13px] font-bold leading-snug text-foreground line-clamp-2">
           {product.title}
         </p>
       </div>
-
-      {/* Price */}
-      <div className={cn("flex items-center justify-between border-t border-gray-100 px-3.5 py-2.5 dark:border-white/8", hl("price"))}>
-        <span className="text-base font-black text-gray-900 dark:text-white">
-          {formatSellerPrice(product.price)}
-        </span>
-        <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-500/10 dark:text-green-400">
-          Stokta
-        </span>
+      <div className={cn("flex items-center justify-between border-t border-border px-3.5 py-2.5 border-border", hl("price"))}>
+        <span className="text-base font-black text-foreground">{formatSellerPrice(product.price)}</span>
+        <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-500/10 dark:text-green-400">Stokta</span>
       </div>
-
-      {/* Features */}
-      <div className={cn("border-t border-gray-100 px-3.5 py-3 dark:border-white/8", hl("features"))}>
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-          Öne Çıkan Özellikler
-        </p>
+      <div className={cn("border-t border-border px-3.5 py-3 border-border", hl("features"))}>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Öne Çıkan Özellikler</p>
         <ul className="space-y-1.5">
-          {FALLBACK_FEATURES.map((f) => (
+          {displayFeatures.map((f) => (
             <li key={f} className="flex items-center gap-2">
               <div className="flex size-4 shrink-0 items-center justify-center rounded-full bg-green-500">
                 <Check className="size-2.5 text-white" />
@@ -129,18 +107,11 @@ function ProductCard({ product, activeSection }: {
           ))}
         </ul>
       </div>
-
-      {/* Reviews */}
-      <div className={cn("flex items-center gap-1.5 border-t border-gray-100 px-3.5 py-2.5 dark:border-white/8", hl("reviews"))}>
-        <div className="flex">
-          {[1, 2, 3, 4].map((s) => <Star key={s} className="size-3 fill-amber-400 text-amber-400" />)}
-          <Star className="size-3 text-gray-200" />
-        </div>
-        <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">4.0 · 142 yorum</span>
+      <div className={cn("flex items-center gap-1.5 border-t border-border px-3.5 py-2.5 border-border", hl("reviews"))}>
+        <MessageSquare className="size-3 text-gray-300 dark:text-gray-600" />
+        <span className="text-[11px] font-semibold text-muted-foreground dark:text-gray-500">Yorumlar</span>
       </div>
-
-      {/* CTA */}
-      <div className={cn("border-t border-gray-100 p-3 dark:border-white/8", hl("cta"))}>
+      <div className={cn("border-t border-border p-3 border-border", hl("cta"))}>
         <div className="flex h-9 w-full items-center justify-center rounded-xl bg-green-500 text-xs font-bold text-white">
           Sepete Ekle
         </div>
@@ -151,32 +122,36 @@ function ProductCard({ product, activeSection }: {
 
 // ─── Speech Bubble ────────────────────────────────────────────────────────────
 
-function SpeechBubble({ text, tail }: {
-  text: string;
-  tail: "left" | "right" | "bottom";
-}) {
+function SpeechBubble({ text }: { text: string }) {
   return (
     <div className="relative">
-      <div className="whitespace-nowrap rounded-2xl bg-white px-3.5 py-2 shadow-lg border border-gray-100 dark:bg-[#1e1e1e] dark:border-white/10">
+      <div className="whitespace-nowrap rounded-2xl border border-border bg-card px-3.5 py-2 shadow-lg">
         <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">{text}</p>
       </div>
-      {tail === "bottom" && (
-        <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 size-2.5 rotate-45 border-b border-r border-gray-100 bg-white dark:border-white/10 dark:bg-[#1e1e1e]" />
-      )}
-      {tail === "left" && (
-        <div className="absolute -left-[5px] top-1/2 -translate-y-1/2 size-2.5 rotate-45 border-b border-l border-gray-100 bg-white dark:border-white/10 dark:bg-[#1e1e1e]" />
-      )}
-      {tail === "right" && (
-        <div className="absolute -right-[5px] top-1/2 -translate-y-1/2 size-2.5 rotate-45 border-r border-t border-gray-100 bg-white dark:border-white/10 dark:bg-[#1e1e1e]" />
-      )}
+      <div className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 size-2.5 rotate-45 border-b border-r border-border bg-card" />
     </div>
   );
 }
 
-// ─── Persona Node ─────────────────────────────────────────────────────────────
+// ─── Pending Persona (not yet arrived from stream) ────────────────────────────
+
+function PendingPersonaNode({ idx }: { idx: number }) {
+  const pos = POSITIONS[idx];
+  return (
+    <div className="absolute z-20 opacity-25" style={{ left: pos.left, top: pos.top }}>
+      <div className="flex flex-col items-center gap-1.5">
+        <div className="min-h-[40px]" />
+        <div className="size-16 animate-pulse overflow-hidden rounded-full border-2 border-dashed border-border bg-muted" />
+        <div className="h-2.5 w-10 animate-pulse rounded bg-muted" />
+      </div>
+    </div>
+  );
+}
+
+// ─── Real Persona Node ────────────────────────────────────────────────────────
 
 function PersonaNode({ persona, idx, isActive, isDone, phase }: {
-  persona: typeof PERSONAS[0];
+  persona: SyntheticPersona;
   idx: number;
   isActive: boolean;
   isDone: boolean;
@@ -189,15 +164,19 @@ function PersonaNode({ persona, idx, isActive, isDone, phase }: {
   const showDecision = isDone || (isActive && phase === "deciding");
 
   return (
-    <div className="absolute z-20" style={{ left: pos.left, top: pos.top }}>
+    <motion.div
+      className="absolute z-20"
+      style={{ left: pos.left, top: pos.top }}
+      initial={{ opacity: 0, scale: 0.7 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: "spring", stiffness: 380, damping: 26 }}
+    >
       <div className={cn(
         "flex flex-col items-center gap-1.5 transition-all duration-500",
         isActive ? "opacity-100 scale-110" :
         isDone   ? "opacity-65 scale-100"  :
                    "opacity-40 scale-95",
       )}>
-
-        {/* Speech bubble — always above the avatar */}
         <div className="min-h-[40px] flex items-end justify-center">
           <AnimatePresence>
             {showBubble && (
@@ -207,16 +186,11 @@ function PersonaNode({ persona, idx, isActive, isDone, phase }: {
                 exit={{ opacity: 0, scale: 0.6, y: 4 }}
                 transition={{ type: "spring", stiffness: 420, damping: 28 }}
               >
-                <SpeechBubble
-                  text={persona.lookedAt[0] + " inceliyor..."}
-                  tail="bottom"
-                />
+                <SpeechBubble text={persona.lookedAt[0] + " inceliyor..."} />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-
-        {/* Avatar */}
         <div className="relative">
           {isActive && (
             <div className="absolute inset-0 animate-ping rounded-full border-2 border-green-400 opacity-30" />
@@ -224,27 +198,18 @@ function PersonaNode({ persona, idx, isActive, isDone, phase }: {
           <div className={cn(
             "size-16 overflow-hidden rounded-full border-2 shadow-xl transition-all duration-300",
             isActive ? "border-green-400 shadow-green-300/50 dark:shadow-green-900/50"
-                     : "border-gray-200 dark:border-white/10"
+                     : "border-border"
           )}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={AVATARS[idx]}
-              alt=""
-              className="h-full w-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+            <img src={AVATARS[idx]} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
           </div>
         </div>
-
-        {/* Name */}
         <p className={cn(
           "text-[11px] font-bold transition-colors",
-          isActive ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
+          isActive ? "text-foreground" : "text-gray-500 dark:text-muted-foreground"
         )}>
           {persona.name}
         </p>
-
-        {/* Decision badge */}
         <AnimatePresence>
           {showDecision && (
             <motion.div
@@ -253,56 +218,60 @@ function PersonaNode({ persona, idx, isActive, isDone, phase }: {
               transition={{ type: "spring", stiffness: 500, damping: 28 }}
               className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold", ds.bg, ds.text)}
             >
-              {ds.icon}
-              {ds.label}
+              {ds.icon}{ds.label}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 // ─── Running State ────────────────────────────────────────────────────────────
 
-function SimulationRunning({ product, activeStep, phase }: {
+function SimulationRunning({
+  product, personas, totalPersonas, activeStep, phase, streamStep,
+}: {
   product: SellerProductPerformance;
+  personas: SyntheticPersona[];
+  totalPersonas: number;
   activeStep: number;
   phase: SimPhase;
+  streamStep: string | null;
 }) {
-  const activePersona   = PERSONAS[activeStep];
-  const activeSection   = phase === "looking" ? getSection(activePersona) : null;
+  const activePersona   = personas[activeStep];
+  const activeSection   = activePersona && phase === "looking" ? getSection(activePersona) : null;
   const completedCount  = phase === "deciding" ? activeStep + 1 : activeStep;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Müşteri Simülasyonu</h1>
-          <p className="mt-0.5 text-sm text-gray-400">Müşteriler ürün sayfanızı inceliyor...</p>
+          <h1 className="text-2xl font-bold text-foreground">Müşteri Simülasyonu</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {streamStep ?? "Müşteriler ürün sayfanızı inceliyor..."}
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-400">{completedCount} / {PERSONAS.length} tamamlandı</span>
+          <span className="text-sm text-muted-foreground">{completedCount} / {totalPersonas} tamamlandı</span>
           <div className="flex gap-1">
-            {PERSONAS.map((_, i) => (
+            {Array.from({ length: totalPersonas }, (_, i) => (
               <div key={i} className={cn(
                 "h-1.5 w-8 rounded-full transition-all duration-500",
-                i < completedCount  ? "bg-green-500"        :
-                i === activeStep    ? "animate-pulse bg-green-300" :
-                                      "bg-gray-200 dark:bg-white/10"
+                i < completedCount      ? "bg-green-500"             :
+                i === activeStep        ? "animate-pulse bg-green-300" :
+                i < personas.length     ? "bg-muted-foreground/30" :
+                                          "bg-muted"
               )} />
             ))}
           </div>
         </div>
       </div>
 
-      {/* Stage — outer div gives positioning context, no overflow clip */}
+      {/* Stage */}
       <div className="relative h-[540px] w-full">
-
-        {/* Background layer — clipped for rounded corners */}
-        <div className="absolute inset-0 overflow-hidden rounded-3xl border border-gray-100 bg-gradient-to-br from-[#f6f8fa] to-white dark:border-white/8 dark:from-[#0c0c0c] dark:to-[#0f0f0f]">
-          {/* Subtle dot grid */}
+        {/* Background */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl border border-border bg-linear-to-br from-[#f6f8fa] to-white border-border dark:from-[#0c0c0c] dark:to-[#0f0f0f]">
           <svg width="100%" height="100%" className="absolute inset-0 opacity-[0.04] dark:opacity-[0.06]">
             <defs>
               <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
@@ -313,69 +282,88 @@ function SimulationRunning({ product, activeStep, phase }: {
           </svg>
         </div>
 
-        {/* SVG connecting lines — inside clip */}
+        {/* SVG lines */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
             {SVG_FROM.map((from, i) => (
-              <line
-                key={i}
-                x1={from.x} y1={from.y}
-                x2={SVG_TO.x} y2={SVG_TO.y}
-                stroke="#22c55e"
-                strokeWidth="0.4"
-                strokeDasharray="1.8 1.2"
+              <line key={i}
+                x1={from.x} y1={from.y} x2={SVG_TO.x} y2={SVG_TO.y}
+                stroke="#22c55e" strokeWidth="0.4" strokeDasharray="1.8 1.2"
                 className="transition-all duration-500"
-                opacity={i === activeStep ? 0.8 : 0.18}
+                opacity={i === activeStep ? 0.8 : i < personas.length ? 0.18 : 0.06}
               />
             ))}
           </svg>
         </div>
 
-        {/* Product card — centered */}
+        {/* Product card */}
         <div className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 z-10 drop-shadow-2xl">
           <ProductCard product={product} activeSection={activeSection} />
         </div>
 
-        {/* Persona nodes — outside clip so they don't get cut */}
-        {PERSONAS.map((persona, i) => (
-          <PersonaNode
-            key={persona.id}
-            persona={persona}
-            idx={i}
-            isActive={i === activeStep}
-            isDone={i < activeStep || (i === activeStep && phase === "deciding")}
-            phase={phase}
-          />
-        ))}
+        {/* Persona nodes — real or pending placeholders */}
+        {Array.from({ length: totalPersonas }, (_, i) => {
+          const persona = personas[i];
+          if (!persona) return <PendingPersonaNode key={i} idx={i} />;
+          return (
+            <PersonaNode
+              key={persona.id}
+              persona={persona}
+              idx={i}
+              isActive={i === activeStep}
+              isDone={i < activeStep || (i === activeStep && phase === "deciding")}
+              phase={phase}
+            />
+          );
+        })}
       </div>
 
-      {/* Bottom strip — persona cards */}
+      {/* Bottom persona card strip */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {PERSONAS.map((persona, i) => {
+        {Array.from({ length: totalPersonas }, (_, i) => {
+          const persona = personas[i];
+          if (!persona) {
+            // Placeholder card
+            return (
+              <div key={i} className="flex min-w-[155px] shrink-0 items-center gap-2.5 rounded-2xl border border-border bg-card p-3 opacity-25">
+                <div className="size-8 shrink-0 animate-pulse rounded-full bg-muted" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-2.5 w-16 animate-pulse rounded bg-muted" />
+                  <div className="h-2 w-12 animate-pulse rounded bg-muted" />
+                </div>
+              </div>
+            );
+          }
           const done  = i < activeStep || (i === activeStep && phase === "deciding");
           const active = i === activeStep;
           const d  = persona.decision as Decision;
           const ds = DECISION_STYLE[d];
           return (
-            <div key={persona.id} className={cn(
-              "flex min-w-[155px] shrink-0 items-center gap-2.5 rounded-2xl border p-3 transition-all duration-500",
-              active ? "border-green-300 bg-green-50 dark:border-green-500/30 dark:bg-green-500/5"
-                     : "border-gray-100 bg-white dark:border-white/8 dark:bg-white/3",
-              !active && !done && "opacity-35"
-            )}>
+            <motion.div
+              key={persona.id}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className={cn(
+                "flex min-w-[155px] shrink-0 items-center gap-2.5 rounded-2xl border p-3 transition-all duration-500",
+                active ? "border-green-300 bg-green-50 dark:border-green-500/30 dark:bg-green-500/5"
+                       : "border-border bg-card",
+                !active && !done && "opacity-35"
+              )}
+            >
               <div className="relative size-8 shrink-0 overflow-hidden rounded-full">
                 <Image src={AVATARS[i]} alt={persona.name} fill className="object-cover" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-bold text-gray-900 dark:text-white">{persona.name}</p>
-                <p className="truncate text-[10px] text-gray-400">{persona.segment}</p>
+                <p className="truncate text-xs font-bold text-foreground">{persona.name}</p>
+                <p className="truncate text-[10px] text-muted-foreground">{persona.segment}</p>
               </div>
               {done && (
                 <div className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold", ds.bg, ds.text)}>
                   {ds.label}
                 </div>
               )}
-            </div>
+            </motion.div>
           );
         })}
       </div>
@@ -385,14 +373,23 @@ function SimulationRunning({ product, activeStep, phase }: {
 
 // ─── Completed State ──────────────────────────────────────────────────────────
 
-function SimulationCompleted({ product }: { product: SellerProductPerformance }) {
-  const buy       = PERSONAS.filter((p) => p.decision === "buy").length;
-  const skip      = PERSONAS.filter((p) => p.decision === "skip").length;
-  const undecided = PERSONAS.filter((p) => p.decision === "undecided").length;
+function saveSimulationContext(productId: string, personas: SyntheticPersona[]) {
+  try {
+    sessionStorage.setItem(
+      `zekai_sim_${productId}`,
+      JSON.stringify({ personas, savedAt: Date.now() }),
+    );
+  } catch { /* ignore */ }
+}
+
+function SimulationCompleted({ product, personas }: { product: SellerProductPerformance; personas: SyntheticPersona[] }) {
+  const buy       = personas.filter((p) => p.decision === "buy").length;
+  const skip      = personas.filter((p) => p.decision === "skip").length;
+  const undecided = personas.filter((p) => p.decision === "undecided").length;
 
   return (
     <div className="space-y-6">
-      <nav className="flex items-center gap-1.5 text-sm text-gray-400">
+      <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Link href="/seller/products" className="hover:text-gray-600 dark:hover:text-gray-300">Ürünlerim</Link>
         <ChevronRight className="size-3.5" />
         <Link href={`/seller/product/${product.id}`} className="hover:text-gray-600 dark:hover:text-gray-300">
@@ -404,24 +401,22 @@ function SimulationCompleted({ product }: { product: SellerProductPerformance })
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Simülasyon Tamamlandı</h1>
-          <p className="mt-1 text-sm text-gray-400">{PERSONAS.length} farklı müşteri profili ürününüzü inceledi.</p>
+          <h1 className="text-2xl font-bold text-foreground">Simülasyon Tamamlandı</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{personas.length} farklı müşteri profili ürününüzü inceledi.</p>
         </div>
         <Link
-          href={`/seller/product/${product.id}/ai-edit`}
-          className="flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-600"
-        >
-          <Bot className="size-4" />
-          AI ile Düzenle
+          href={`/seller/product/${product.id}/ai-edit?from=simulation`}
+          onClick={() => saveSimulationContext(product.id, personas)}
+          className="flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-600">
+          <Bot className="size-4" />AI ile Düzenle
         </Link>
       </div>
 
-      {/* Score cards */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { count: buy,       label: "Satın Aldı",   note: "İkna oldu",       bg: "bg-green-50 dark:bg-green-500/8",  border: "border-green-100 dark:border-green-500/20",  text: "text-green-600 dark:text-green-400",  sub: "text-green-600/60 dark:text-green-400/60" },
-          { count: undecided, label: "Kararsız Kaldı", note: "İkna edilebilir", bg: "bg-amber-50 dark:bg-amber-500/8",  border: "border-amber-100 dark:border-amber-500/20",  text: "text-amber-600 dark:text-amber-400",  sub: "text-amber-600/60 dark:text-amber-400/60" },
-          { count: skip,      label: "Vazgeçti",     note: "Geri döndü",      bg: "bg-red-50 dark:bg-red-500/8",      border: "border-red-100 dark:border-red-500/20",      text: "text-red-600 dark:text-red-400",      sub: "text-red-600/60 dark:text-red-400/60" },
+          { count: buy,       label: "Satın Aldı",    note: "İkna oldu",        bg: "bg-green-50 dark:bg-green-500/8",  border: "border-green-100 dark:border-green-500/20",  text: "text-green-600 dark:text-green-400",  sub: "text-green-600/60 dark:text-green-400/60" },
+          { count: undecided, label: "Kararsız Kaldı", note: "İkna edilebilir",  bg: "bg-amber-50 dark:bg-amber-500/8",  border: "border-amber-100 dark:border-amber-500/20",  text: "text-amber-600 dark:text-amber-400",  sub: "text-amber-600/60 dark:text-amber-400/60" },
+          { count: skip,      label: "Vazgeçti",       note: "Geri döndü",       bg: "bg-red-50 dark:bg-red-500/8",      border: "border-red-100 dark:border-red-500/20",      text: "text-red-600 dark:text-red-400",      sub: "text-red-600/60 dark:text-red-400/60" },
         ].map((c) => (
           <div key={c.label} className={cn("rounded-2xl border p-5 text-center", c.bg, c.border)}>
             <p className={cn("text-4xl font-black", c.text)}>{c.count}</p>
@@ -431,30 +426,33 @@ function SimulationCompleted({ product }: { product: SellerProductPerformance })
         ))}
       </div>
 
-      {/* Persona decisions */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/8 dark:bg-[#111]">
-        <p className="mb-5 font-bold text-gray-900 dark:text-white">Müşteri Kararları</p>
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <p className="mb-5 font-bold text-foreground">Müşteri Kararları</p>
         <div className="space-y-4">
-          {PERSONAS.map((persona, i) => {
+          {personas.map((persona, i) => {
             const d  = persona.decision as Decision;
             const ds = DECISION_STYLE[d];
             return (
               <div key={persona.id} className="flex items-start gap-3">
-                <div className="relative size-10 shrink-0 overflow-hidden rounded-full border-2 border-gray-100 dark:border-white/10">
+                <div className="relative size-10 shrink-0 overflow-hidden rounded-full border-2 border-border">
                   <Image src={AVATARS[i]} alt={persona.name} fill className="object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-bold text-gray-900 dark:text-white">{persona.name}</p>
-                    <p className="text-xs text-gray-400">{persona.segment} · {persona.city}</p>
+                    <p className="text-sm font-bold text-foreground">{persona.name}</p>
+                    <p className="text-xs text-muted-foreground">{persona.segment} · {persona.city}</p>
                     <div className={cn("ml-auto flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold", ds.bg, ds.text)}>
-                      {ds.icon}
-                      {ds.label}
+                      {ds.icon}{ds.label}
                     </div>
                   </div>
-                  <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                  <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-muted-foreground">
                     &ldquo;{persona.reason}&rdquo;
                   </p>
+                  {persona.recommendation && (
+                    <p className="mt-1 text-[11px] text-green-600 dark:text-green-400">
+                      💡 {persona.recommendation}
+                    </p>
+                  )}
                 </div>
               </div>
             );
@@ -462,20 +460,15 @@ function SimulationCompleted({ product }: { product: SellerProductPerformance })
         </div>
       </div>
 
-      {/* CTA row */}
       <div className="flex items-center gap-3">
         <Link
-          href={`/seller/product/${product.id}/ai-edit`}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-500 py-3.5 text-sm font-bold text-white hover:bg-green-600"
-        >
-          <Bot className="size-4" />
-          Sonuçlara Göre AI ile Düzenle
-          <ArrowRight className="size-4" />
+          href={`/seller/product/${product.id}/ai-edit?from=simulation`}
+          onClick={() => saveSimulationContext(product.id, personas)}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-500 py-3.5 text-sm font-bold text-white hover:bg-green-600">
+          <Bot className="size-4" />Sonuçlara Göre AI ile Düzenle<ArrowRight className="size-4" />
         </Link>
-        <Link
-          href="/seller/products"
-          className="flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3.5 text-sm font-semibold text-gray-500 hover:bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5"
-        >
+        <Link href="/seller/products"
+          className="flex items-center justify-center rounded-xl border border-border px-5 py-3.5 text-sm font-semibold text-muted-foreground hover:bg-muted">
           Ürünlere Dön
         </Link>
       </div>
@@ -486,32 +479,107 @@ function SimulationCompleted({ product }: { product: SellerProductPerformance })
 // ─── Main Export ──────────────────────────────────────────────────────────────
 
 export function SellerSimulation({ product }: { product: SellerProductPerformance }) {
+  const [personas,   setPersonas]   = useState<SyntheticPersona[]>([]);
+  const [totalPersonas, setTotalPersonas] = useState(MAX_PERSONAS);
+  const [streamDone, setStreamDone] = useState(false);
+  const [streamStep, setStreamStep] = useState<string | null>("Simülasyon başlatılıyor...");
+  const [loading,    setLoading]    = useState(true);
   const [activeStep, setActiveStep] = useState(0);
   const [phase,      setPhase]      = useState<SimPhase>("looking");
   const [completed,  setCompleted]  = useState(false);
+  const hasFetched = useRef(false);
 
-  // looking → deciding
+  // SSE stream
   useEffect(() => {
-    if (completed) return;
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    streamSimulateProduct(product.id, (event) => {
+      if (event.type === "step") {
+        setStreamStep(event.message);
+        // Extract total count from message like "5 profil hazır..."
+        const match = event.message.match(/^(\d+) profil/);
+        if (match) setTotalPersonas(Number(match[1]));
+      } else if (event.type === "persona") {
+        const p = event.persona;
+        setPersonas((prev) => [
+          ...prev,
+          {
+            id: p.id, name: p.name, age: p.age, city: p.city,
+            segment: p.segment, profile: p.profile, caresAbout: p.caresAbout,
+            decision: p.decision as "buy" | "skip" | "undecided",
+            reason: p.reason, lookedAt: p.lookedAt,
+            recommendation: p.recommendation, monologue: p.monologue,
+          },
+        ]);
+        setLoading(false);
+      } else if (event.type === "done") {
+        setStreamDone(true);
+        setStreamStep(null);
+        setLoading(false);
+      }
+    }).catch(() => {
+      setLoading(false);
+      setStreamDone(true);
+    });
+  }, [product.id]);
+
+  // looking → deciding: start timer only when current persona has arrived
+  useEffect(() => {
+    if (loading || completed) return;
+    if (!personas[activeStep]) return;
     const t = setTimeout(() => setPhase("deciding"), STEP_LOOKING_MS);
     return () => clearTimeout(t);
-  }, [activeStep, completed]);
+  }, [activeStep, completed, loading, personas]);
 
-  // deciding → next step or complete
+  // deciding → next persona (or wait, or complete)
   useEffect(() => {
     if (phase !== "deciding" || completed) return;
+    if (!personas[activeStep]) return;
+
     const t = setTimeout(() => {
-      if (activeStep < PERSONAS.length - 1) {
+      if (personas[activeStep + 1]) {
+        // Next persona already arrived
         setActiveStep((s) => s + 1);
         setPhase("looking");
-      } else {
+      } else if (streamDone) {
+        // No more personas coming
         setCompleted(true);
       }
+      // else: next persona not arrived yet — stay "deciding", effect re-runs when personas changes
     }, STEP_DECIDING_MS);
     return () => clearTimeout(t);
-  }, [phase, activeStep, completed]);
+  }, [phase, activeStep, completed, personas, streamDone]);
 
-  if (completed) return <SimulationCompleted product={product} />;
+  // Loading state — before any persona arrives
+  if (loading && personas.length === 0) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
+        <div className="relative flex size-14 items-center justify-center">
+          <span className="absolute inset-0 animate-ping rounded-full bg-green-400/20" />
+          <div className="relative flex size-14 items-center justify-center rounded-full bg-green-50 dark:bg-green-500/10">
+            <Bot className="size-6 text-green-500" />
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="font-semibold text-foreground">AI Simülasyon Hazırlanıyor</p>
+          <p className="mt-1 text-sm text-muted-foreground">{streamStep ?? "Bağlanıyor..."}</p>
+        </div>
+        <Loader2 className="size-5 animate-spin text-green-500" />
+      </div>
+    );
+  }
 
-  return <SimulationRunning product={product} activeStep={activeStep} phase={phase} />;
+  if (completed) return <SimulationCompleted product={product} personas={personas} />;
+
+  return (
+    <SimulationRunning
+      product={product}
+      personas={personas}
+      totalPersonas={totalPersonas}
+      activeStep={activeStep}
+      phase={phase}
+      streamStep={streamStep}
+    />
+  );
 }

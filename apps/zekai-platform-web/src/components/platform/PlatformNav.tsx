@@ -1,20 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   BookmarkCheck,
   GitCompare,
   LayoutDashboard,
   FolderOpen,
-  Bell,
-  X,
+  LogOut,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAnalysesStore, useCompareStore } from "@/lib/buyer-store";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
 
 const NAV_ITEMS = [
   { href: "/platform", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -25,129 +24,135 @@ const NAV_ITEMS = [
 
 export function PlatformNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const savedCount = useAnalysesStore((s) => s.analyses.length);
   const compareCount = useCompareStore((s) => s.ids.length);
-  const [showNotifications, setShowNotifications] = useState(false);
+
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setUser(getCurrentUser());
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const initials = user?.fullName
+    ? user.fullName.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()
+    : "?";
+
+  function handleLogout() {
+    logout();
+    router.push("/");
+  }
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-6">
+    <nav className="sticky top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 md:px-8">
+
         {/* Logo */}
-        <Link
-          href="/platform"
-          className="flex items-center gap-1.5 text-sm font-black shrink-0"
-        >
-          Zek
-          <span className="text-[#5a8a00] dark:text-[#adff41]">AI</span>
-          <span className="ml-1 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
-            Karar Merkezi
-          </span>
+        <Link href="/platform" className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center justify-center size-8 rounded-lg bg-[#adff41] shadow-sm">
+            <span className="text-sm font-black text-[#1a2e00] leading-none">Z</span>
+          </div>
+          <div className="flex flex-col leading-none">
+            <span className="text-base font-black text-foreground tracking-tight">
+              Zek<span className="text-[#5a8a00] dark:text-[#adff41]">AI</span>
+            </span>
+            <span className="text-[10px] font-semibold tracking-widest text-muted-foreground/50 uppercase">
+              Karar Merkezi
+            </span>
+          </div>
         </Link>
 
-        {/* Nav links */}
-        <div className="flex items-center gap-1">
+        {/* Right side */}
+        <div className="flex items-center gap-1.5">
+          {/* Nav links */}
           {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
-            const active = exact
-              ? pathname === href
-              : pathname.startsWith(href);
+            const active = exact ? pathname === href : pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
                 className={cn(
-                  "relative flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+                  "relative flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150",
                   active
-                    ? "bg-[#adff41]/10 text-[#5a8a00] dark:text-[#adff41]"
+                    ? "bg-[#adff41]/15 text-[#5a8a00] dark:text-[#adff41]"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Icon className="size-3.5" />
-                <span className="hidden sm:inline">{label}</span>
-                {/* Badge */}
+                <Icon className={cn("size-4 shrink-0", active ? "text-[#5a8a00] dark:text-[#adff41]" : "")} />
+                <span className="hidden md:inline">{label}</span>
                 {href === "/platform/saved" && savedCount > 0 && (
-                  <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#adff41]/20 px-1 text-[10px] font-bold text-[#5a8a00] dark:text-[#adff41]">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#adff41] px-1.5 text-[11px] font-black text-[#1a2e00]">
                     {savedCount}
                   </span>
                 )}
                 {href === "/platform/compare" && compareCount > 0 && (
-                  <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-100 px-1 text-[10px] font-bold text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-black text-amber-900">
                     {compareCount}
                   </span>
-                )}
-                {active && (
-                  <span className="absolute bottom-0 left-1/2 h-0.5 w-3/4 -translate-x-1/2 rounded-full bg-[#5a8a00] dark:bg-[#adff41]" />
                 )}
               </Link>
             );
           })}
 
+          <div className="mx-1 h-6 w-px bg-border/60" />
+
           <ThemeToggle />
 
-          {/* Bildirim Zili (Mock) */}
-          <div className="relative ml-2">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className={cn(
-                "relative rounded-full p-2 transition-colors",
-                showNotifications ? "bg-[#adff41]/10 text-[#5a8a00] dark:text-[#adff41]" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Bell className="size-4" />
-              <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-red-500 border border-background" />
-            </button>
+          {/* User avatar + dropdown */}
+          {user && (
+            <div ref={menuRef} className="relative">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted",
+                  menuOpen && "bg-muted"
+                )}
+              >
+                <div className="flex size-8 items-center justify-center rounded-full bg-[#adff41] text-[12px] font-black text-[#1a2e00]">
+                  {initials}
+                </div>
+                <span className="hidden text-sm font-semibold text-foreground md:block">
+                  {user.fullName.split(" ")[0]}
+                </span>
+              </button>
 
-            <AnimatePresence>
-              {showNotifications && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-2 w-[320px] rounded-xl border border-border bg-card shadow-2xl z-50 overflow-hidden"
-                >
-                  <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
-                    <h4 className="text-xs font-semibold text-foreground">Takip Bildirimleri</h4>
-                    <button 
-                      onClick={() => setShowNotifications(false)}
-                      className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                    >
-                      <X className="size-3.5" />
-                    </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-56 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  {/* Kullanıcı bilgisi */}
+                  <div className="px-4 py-3">
+                    <p className="text-sm font-semibold text-foreground truncate">{user.fullName}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground truncate">{user.email}</p>
                   </div>
-                  
-                  <div className="max-h-[60vh] overflow-y-auto p-2 space-y-1">
-                    <div className="rounded-lg bg-red-500/5 dark:bg-red-500/10 p-3 hover:bg-muted transition-colors cursor-pointer">
-                      <p className="text-xs text-foreground leading-relaxed">
-                        <span className="font-semibold text-red-500 dark:text-red-400">Fiyat Düştü:</span> Takip ettiğin kulaklığın fiyatı 1.015 TL’den 849 TL’ye düştü. Ancak son yorumlarda mikrofon şikâyetleri arttı. Risk hâlâ orta.
-                      </p>
-                      <span className="text-[10px] text-muted-foreground mt-1.5 block">2 saat önce</span>
-                    </div>
-
-                    <div className="rounded-lg p-3 hover:bg-muted transition-colors cursor-pointer">
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        <span className="font-semibold text-foreground">Karar Odası:</span> "Yeni Laptop Alacağım" projesindeki cihazlardan biri bugün en iyi fiyat/performans adayı oldu.
-                      </p>
-                      <span className="text-[10px] text-muted-foreground mt-1.5 block">5 saat önce</span>
-                    </div>
-
-                    <div className="rounded-lg p-3 hover:bg-muted transition-colors cursor-pointer">
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        <span className="font-semibold text-foreground">Sinyal Güncellemesi:</span> Kaydettiğin kahve makinesinde son yorumlar daha olumlu. Güven skoru yükseldi.
-                      </p>
-                      <span className="text-[10px] text-muted-foreground mt-1.5 block">Dün</span>
-                    </div>
-                  </div>
-                </motion.div>
+                  <div className="border-t border-border" />
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                  >
+                    <LogOut className="size-4 shrink-0" />
+                    Çıkış Yap
+                  </button>
+                </div>
               )}
-            </AnimatePresence>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </nav>
   );
 }
 
-/** localStorage değişikliğini diğer bileşenlere haber ver */
 export function notifyStoreUpdate() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("zekai-store-update"));
