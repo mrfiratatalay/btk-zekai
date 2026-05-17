@@ -27,10 +27,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         mb.Entity<SellerProduct>()
             .HasIndex(sp => new { sp.SellerId, sp.ProductId }).IsUnique();
-        mb.Entity<SellerProduct>()
-            .Property(sp => sp.LostProfitMonthly).HasColumnType("numeric(10,2)");
-        mb.Entity<SellerProduct>()
-            .Property(sp => sp.ImprovableRevenueMonthly).HasColumnType("numeric(10,2)");
 
         mb.Entity<Order>().HasIndex(o => o.OrderNumber).IsUnique();
         mb.Entity<Order>().Property(o => o.Total).HasColumnType("numeric(10,2)");

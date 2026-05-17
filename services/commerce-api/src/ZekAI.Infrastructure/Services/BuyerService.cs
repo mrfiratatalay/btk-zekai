@@ -49,10 +49,7 @@ public class BuyerService(AppDbContext db)
 
         var sellerProduct = await db.SellerProducts.FirstOrDefaultAsync(sp => sp.ProductId == product.Id);
         if (sellerProduct is not null)
-        {
-            sellerProduct.Sales30d += req.Quantity;
             sellerProduct.UpdatedAt = DateTime.UtcNow;
-        }
 
         await db.SaveChangesAsync();
         return await GetOrderAsync(buyerId, order.Id);

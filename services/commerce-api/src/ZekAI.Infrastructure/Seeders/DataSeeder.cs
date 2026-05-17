@@ -1,6 +1,7 @@
 using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
 using ZekAI.Domain.Entities;
+using ZekAI.Domain.Enums;
 using ZekAI.Infrastructure.Data;
 
 namespace ZekAI.Infrastructure.Seeders;
