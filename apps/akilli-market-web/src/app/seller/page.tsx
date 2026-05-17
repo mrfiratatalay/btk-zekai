@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check, Copy, Eye, EyeOff, ExternalLink, Key, Loader2, Package, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { getSellerProducts, deleteProduct, getApiKey, regenerateApiKey, type SellerProduct } from "@/lib/api/seller";
-import { getCurrentUser } from "@/lib/api/auth";
+import { getCurrentUser, type AuthUser } from "@/lib/api/auth";
 import { Button } from "@/components/ui/button";
 import { ShopHeader } from "@/components/shop/ShopHeader";
 
@@ -18,20 +18,22 @@ export default function SellerDashboardPage() {
   const [copied, setCopied] = useState(false);
   const [keyRevealed, setKeyRevealed] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
-
-  const user = getCurrentUser();
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    if (!user || user.role !== "Seller") {
+    const currentUser = getCurrentUser();
+    setUser(currentUser);
+
+    if (!currentUser || currentUser.role !== "Seller") {
       window.location.href = "/login?returnUrl=/seller";
       return;
     }
+
     getApiKey().then(setApiKey).catch(() => setApiKey(null));
     getSellerProducts()
       .then(setProducts)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleCopy() {
