@@ -3,28 +3,27 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowRight,
-  Bot,
-  CheckCircle2,
-  ChevronRight,
-  Lightbulb,
-  Loader2,
-  ShoppingCart,
-  Star,
-  ThumbsDown,
-  XCircle,
+  ArrowRight, Bot, Check, ChevronRight,
+  ShoppingCart, Star, ThumbsDown, XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 import { SYNTHETIC_PERSONAS } from "@/lib/constants/personas";
-import { getSellerImprovements } from "@/lib/seller-improvements";
 
-const COMPLETE_DELAY_MS = 4200;
-const STREAM_INTERVAL_MS = 320;
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-type Decision = "buy" | "skip" | "undecided";
+// Zeynep(skip), Burak(skip), Ayşe(buy), Mehmet(skip), Elif(buy) → 2 buy / 3 skip
+const PERSONAS = [0, 1, 2, 3, 5].map((i) => SYNTHETIC_PERSONAS[i]);
+
+const STEP_LOOKING_MS  = 1800;
+const STEP_DECIDING_MS = 1200;
+
+type Decision  = "buy" | "skip" | "undecided";
+type Section   = "image" | "price" | "features" | "reviews" | "cta";
+type SimPhase  = "looking" | "deciding";
 
 const AVATARS = [
   "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=80&q=80",
@@ -32,416 +31,487 @@ const AVATARS = [
   "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&q=80",
   "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&q=80",
   "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&q=80",
-  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&q=80",
-  "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&q=80",
-  "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&q=80",
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&q=80",
-  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&q=80",
-  "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=80&q=80",
-  "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=80&q=80",
 ];
 
-const decisionBadge: Record<Decision, { label: string; cls: string; icon: React.ReactNode }> = {
-  buy: {
-    label: "Satın Aldı",
-    cls: "bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-400",
-    icon: <ShoppingCart className="size-3" />,
-  },
-  skip: {
-    label: "Vazgeçti",
-    cls: "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400",
-    icon: <XCircle className="size-3" />,
-  },
-  undecided: {
-    label: "Kararsız",
-    cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
-    icon: <ThumbsDown className="size-3" />,
-  },
+const DECISION_STYLE: Record<Decision, { label: string; bg: string; text: string; icon: React.ReactNode }> = {
+  buy:       { label: "Satın Aldı", bg: "bg-green-500", text: "text-white", icon: <ShoppingCart className="size-3" /> },
+  skip:      { label: "Vazgeçti",   bg: "bg-red-500",   text: "text-white", icon: <XCircle className="size-3" /> },
+  undecided: { label: "Kararsız",   bg: "bg-amber-400", text: "text-white", icon: <ThumbsDown className="size-3" /> },
 };
 
-const earlyInsights = [
-  { icon: "📷", title: "Fotoğraf eksikliği", desc: "Kutu içeriği ve kullanım görseli yok" },
-  { icon: "💬", title: "Açıklama belirsizliği", desc: "Mikrofon kalitesi net değil" },
-  { icon: "💰", title: "Fiyat sorgulanıyor", desc: "Premium kanıt yetersiz" },
-  { icon: "🛡️", title: "Güven sinyali eksik", desc: "Garanti bilgisi görünür değil" },
+// lookedAt[0] → which card section glows
+const SECTION_MAP: Record<string, Section> = {
+  "Mikrofon": "features", "Fotoğraflar": "image",  "Yorumlar": "reviews",
+  "Gecikme":  "features", "Fiyat":       "price",  "Pil":      "features",
+  "Kargo":    "cta",      "Garanti":     "features","Konfor":   "features",
+  "Teknik tablo": "features",
+};
+
+function getSection(p: typeof PERSONAS[0]): Section {
+  for (const l of p.lookedAt) { const s = SECTION_MAP[l]; if (s) return s; }
+  return "features";
+}
+
+// Persona positions — speech bubble always appears ABOVE the avatar
+const POSITIONS = [
+  { left: "6%",  top: "14%" },  // Zeynep — top-left
+  { left: "75%", top: "14%" },  // Burak  — top-right
+  { left: "82%", top: "48%" },  // Ayşe   — right
+  { left: "3%",  top: "48%" },  // Mehmet — left
+  { left: "42%", top: "70%" },  // Elif   — bottom
 ];
 
-/* ═════════════════ Running State ═════════════════ */
+// SVG line endpoints — center of each avatar (% of stage)
+const SVG_FROM = [
+  { x: 12, y: 30 },
+  { x: 82, y: 30 },
+  { x: 89, y: 60 },
+  { x: 10, y: 60 },
+  { x: 50, y: 82 },
+];
+const SVG_TO = { x: 50, y: 47 };
 
-function SimulationRunning({ product, visible }: { product: SellerProductPerformance; visible: number }) {
-  const total = SYNTHETIC_PERSONAS.length;
-  const visiblePersonas = SYNTHETIC_PERSONAS.slice(0, visible);
-  const buyV = visiblePersonas.filter((p) => p.decision === "buy").length;
-  const skipV = visiblePersonas.filter((p) => p.decision === "skip").length;
-  const undecV = visiblePersonas.filter((p) => p.decision === "undecided").length;
+// Default feature bullets (fallback – we don't have real features in the type)
+const FALLBACK_FEATURES = [
+  "Bluetooth 5.3",
+  "15 saat pil ömrü",
+  "Dokunmatik kontrol",
+  "IPX4 su dayanıklılığı",
+];
+
+// ─── Mini Product Card ────────────────────────────────────────────────────────
+
+function ProductCard({ product, activeSection }: {
+  product: SellerProductPerformance;
+  activeSection: Section | null;
+}) {
+  const hl = (s: Section) => cn(
+    "transition-all duration-300",
+    activeSection === s && "ring-2 ring-green-500 ring-offset-1 rounded-xl"
+  );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Müşteri Simülasyonu</h1>
-          <p className="mt-1 text-sm text-gray-500">Müşteriler ürünü değerlendiriyor, lütfen bekleyin...</p>
+    <div className="w-[300px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#111]">
+
+      {/* Image + title */}
+      <div className={cn("p-3.5", hl("image"))}>
+        <div className="relative h-32 w-full overflow-hidden rounded-xl bg-gray-50 dark:bg-white/5">
+          <Image src={product.image} alt={product.title} fill className="object-contain p-2" />
         </div>
-        <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-white/8 dark:bg-white/4">
-          <Loader2 className="size-4 animate-spin text-green-500" />
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-            {visible}/{total} tamamlandı
-          </span>
-        </div>
+        <p className="mt-2.5 text-[13px] font-bold leading-snug text-gray-900 dark:text-white line-clamp-2">
+          {product.title}
+        </p>
       </div>
 
-      {/* 3-col layout */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr_1fr]">
-        {/* LEFT: Canlı Akış */}
-        <div>
-          <div className="mb-3 flex items-center gap-2">
-            <span className="size-2 animate-pulse rounded-full bg-green-500" />
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Canlı Akış</p>
-          </div>
-          <div className="space-y-2.5">
-            {visiblePersonas.map((p, i) => {
-              const badge = decisionBadge[p.decision];
-              return (
-                <div
-                  key={p.id}
-                  className="animate-in fade-in slide-in-from-left-2 flex gap-3 rounded-2xl border border-gray-100 bg-white p-3.5 shadow-sm duration-300 dark:border-white/8 dark:bg-white/4"
-                >
-                  <div className="relative size-9 shrink-0 overflow-hidden rounded-full border-2 border-white shadow-sm dark:border-white/20">
-                    <Image src={AVATARS[i % AVATARS.length]} alt={p.name} fill className="object-cover" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{p.name}</p>
-                      <span className={cn("flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", badge.cls)}>
-                        {badge.icon} {badge.label}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-gray-400">{p.city} · {p.segment}</p>
-                    <p className="mt-1 line-clamp-1 text-[11px] text-gray-500 dark:text-gray-400">"{p.reason}"</p>
-                  </div>
-                </div>
-              );
-            })}
-            {visible < total && (
-              <div className="flex h-16 items-center justify-center rounded-2xl border-2 border-dashed border-gray-100 dark:border-white/8">
-                <Loader2 className="size-5 animate-spin text-gray-300" />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* CENTER: Ana Simülasyon Özeti */}
-        <div className="space-y-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Ana Simülasyon Özeti</p>
-
-          {/* Product card */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/4">
-            <div className="flex gap-3">
-              <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-gray-50">
-                <Image src={product.image} alt={product.title} fill className="object-contain p-2" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-2">{product.title}</p>
-                <p className="mt-1 text-base font-bold text-gray-900 dark:text-white">{formatSellerPrice(product.price)}</p>
-              </div>
-            </div>
-
-            {/* Progress */}
-            <div className="mt-4">
-              <div className="mb-1.5 flex justify-between text-xs">
-                <span className="text-gray-400">İlerleme</span>
-                <span className="font-semibold text-gray-700 dark:text-gray-200">{visible}/{total} kişi</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                <div className="h-full rounded-full bg-green-500 transition-all duration-500" style={{ width: `${(visible / total) * 100}%` }} />
-              </div>
-            </div>
-
-            {/* Live stats */}
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-green-50 py-2.5 dark:bg-green-500/10">
-                <p className="text-xl font-bold text-green-600 dark:text-green-400">{buyV}</p>
-                <p className="text-[10px] text-green-600/70 dark:text-green-400/70">Satın Aldı</p>
-              </div>
-              <div className="rounded-xl bg-amber-50 py-2.5 dark:bg-amber-500/10">
-                <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{undecV}</p>
-                <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70">Kararsız</p>
-              </div>
-              <div className="rounded-xl bg-red-50 py-2.5 dark:bg-red-500/10">
-                <p className="text-xl font-bold text-red-600 dark:text-red-400">{skipV}</p>
-                <p className="text-[10px] text-red-600/70 dark:text-red-400/70">Vazgeçti</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Reference product comparison */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/4">
-            <p className="mb-3 text-xs font-bold text-gray-400">Rakip Karşılaştırması</p>
-            <div className="flex gap-3">
-              <div className="relative size-12 overflow-hidden rounded-xl bg-gray-50">
-                <Image src={product.image} alt="" fill className="object-contain p-1.5" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-gray-900 dark:text-white">{product.title}</p>
-                <div className="mt-1 flex items-center gap-1">
-                  {[1, 2, 3, 4].map((s) => <Star key={s} className="size-3 fill-amber-400 text-amber-400" />)}
-                  <Star className="size-3 text-gray-200" />
-                  <span className="ml-1 text-[10px] text-gray-400">4.0 puan</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT: Taşınan Simüler */}
-        <div>
-          <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Taşınan Simüler</p>
-          <div className="space-y-2">
-            {visiblePersonas.map((p, i) => {
-              const badge = decisionBadge[p.decision];
-              return (
-                <div key={p.id} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 dark:border-white/8 dark:bg-white/4">
-                  <div className="relative size-8 shrink-0 overflow-hidden rounded-full">
-                    <Image src={AVATARS[i % AVATARS.length]} alt={p.name} fill className="object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
-                    <p className="text-[10px] text-gray-400">{p.caresAbout}</p>
-                  </div>
-                  <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold", badge.cls)}>
-                    {badge.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      {/* Price */}
+      <div className={cn("flex items-center justify-between border-t border-gray-100 px-3.5 py-2.5 dark:border-white/8", hl("price"))}>
+        <span className="text-base font-black text-gray-900 dark:text-white">
+          {formatSellerPrice(product.price)}
+        </span>
+        <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-500/10 dark:text-green-400">
+          Stokta
+        </span>
       </div>
 
-      {/* Erteyin İçgörüleri */}
-      {visible > 3 && (
-        <div>
-          <p className="mb-3 text-xs font-bold uppercase tracking-widest text-gray-400">Erteyin İçgörüleri</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {earlyInsights.slice(0, Math.ceil((visible / total) * 4)).map((insight) => (
-              <div key={insight.title} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/4">
-                <span className="text-2xl">{insight.icon}</span>
-                <p className="mt-2 text-xs font-bold text-gray-900 dark:text-white">{insight.title}</p>
-                <p className="mt-0.5 text-[11px] text-gray-400">{insight.desc}</p>
+      {/* Features */}
+      <div className={cn("border-t border-gray-100 px-3.5 py-3 dark:border-white/8", hl("features"))}>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+          Öne Çıkan Özellikler
+        </p>
+        <ul className="space-y-1.5">
+          {FALLBACK_FEATURES.map((f) => (
+            <li key={f} className="flex items-center gap-2">
+              <div className="flex size-4 shrink-0 items-center justify-center rounded-full bg-green-500">
+                <Check className="size-2.5 text-white" />
               </div>
-            ))}
-          </div>
+              <span className="text-[11px] text-gray-700 dark:text-gray-300">{f}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Reviews */}
+      <div className={cn("flex items-center gap-1.5 border-t border-gray-100 px-3.5 py-2.5 dark:border-white/8", hl("reviews"))}>
+        <div className="flex">
+          {[1, 2, 3, 4].map((s) => <Star key={s} className="size-3 fill-amber-400 text-amber-400" />)}
+          <Star className="size-3 text-gray-200" />
         </div>
+        <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">4.0 · 142 yorum</span>
+      </div>
+
+      {/* CTA */}
+      <div className={cn("border-t border-gray-100 p-3 dark:border-white/8", hl("cta"))}>
+        <div className="flex h-9 w-full items-center justify-center rounded-xl bg-green-500 text-xs font-bold text-white">
+          Sepete Ekle
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Speech Bubble ────────────────────────────────────────────────────────────
+
+function SpeechBubble({ text, tail }: {
+  text: string;
+  tail: "left" | "right" | "bottom";
+}) {
+  return (
+    <div className="relative">
+      <div className="whitespace-nowrap rounded-2xl bg-white px-3.5 py-2 shadow-lg border border-gray-100 dark:bg-[#1e1e1e] dark:border-white/10">
+        <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">{text}</p>
+      </div>
+      {tail === "bottom" && (
+        <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 size-2.5 rotate-45 border-b border-r border-gray-100 bg-white dark:border-white/10 dark:bg-[#1e1e1e]" />
+      )}
+      {tail === "left" && (
+        <div className="absolute -left-[5px] top-1/2 -translate-y-1/2 size-2.5 rotate-45 border-b border-l border-gray-100 bg-white dark:border-white/10 dark:bg-[#1e1e1e]" />
+      )}
+      {tail === "right" && (
+        <div className="absolute -right-[5px] top-1/2 -translate-y-1/2 size-2.5 rotate-45 border-r border-t border-gray-100 bg-white dark:border-white/10 dark:bg-[#1e1e1e]" />
       )}
     </div>
   );
 }
 
-/* ═════════════════ Completed State ═════════════════ */
+// ─── Persona Node ─────────────────────────────────────────────────────────────
 
-function SimulationCompleted({ product }: { product: SellerProductPerformance }) {
-  const buy = SYNTHETIC_PERSONAS.filter((p) => p.decision === "buy").length;
-  const undecided = SYNTHETIC_PERSONAS.filter((p) => p.decision === "undecided").length;
-  const skip = SYNTHETIC_PERSONAS.filter((p) => p.decision === "skip").length;
-  const top3 = getSellerImprovements(product).slice(0, 3);
-  const nextStepSuggestions = [
-    "Simülasyon sonuçlarına göre başlığı iyileştir",
-    "Eksik fotoğrafları ekle ve düzenle",
-    "Garanti ve iade bilgisini görünür yap",
-  ];
+function PersonaNode({ persona, idx, isActive, isDone, phase }: {
+  persona: typeof PERSONAS[0];
+  idx: number;
+  isActive: boolean;
+  isDone: boolean;
+  phase: SimPhase;
+}) {
+  const pos          = POSITIONS[idx];
+  const d            = persona.decision as Decision;
+  const ds           = DECISION_STYLE[d];
+  const showBubble   = isActive && phase === "looking";
+  const showDecision = isDone || (isActive && phase === "deciding");
 
   return (
-    <div className="space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm text-gray-400">
-        <Link href="/seller/products" className="hover:text-gray-600">Ürünlerim</Link>
-        <ChevronRight className="size-3.5" />
-        <Link href={`/seller/product/${product.id}`} className="hover:text-gray-600">Bluetooth Kulaklık</Link>
-        <ChevronRight className="size-3.5" />
-        <span className="text-gray-600 dark:text-gray-300">Müşteri Simülasyonu</span>
-      </div>
+    <div className="absolute z-20" style={{ left: pos.left, top: pos.top }}>
+      <div className={cn(
+        "flex flex-col items-center gap-1.5 transition-all duration-500",
+        isActive ? "opacity-100 scale-110" :
+        isDone   ? "opacity-65 scale-100"  :
+                   "opacity-40 scale-95",
+      )}>
 
-      {/* Product mini-bar */}
-      <div className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-sm dark:border-white/8 dark:bg-white/4">
-        <div className="relative size-10 shrink-0 overflow-hidden rounded-xl bg-gray-50">
-          <Image src={product.image} alt={product.title} fill className="object-contain p-1.5" />
+        {/* Speech bubble — always above the avatar */}
+        <div className="min-h-[40px] flex items-end justify-center">
+          <AnimatePresence>
+            {showBubble && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.6, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.6, y: 4 }}
+                transition={{ type: "spring", stiffness: 420, damping: 28 }}
+              >
+                <SpeechBubble
+                  text={persona.lookedAt[0] + " inceliyor..."}
+                  tail="bottom"
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-        <p className="font-bold text-gray-900 dark:text-white truncate flex-1">{product.title}</p>
-        <div className="hidden items-center gap-6 sm:flex">
-          {[
-            { label: "Fiyat", value: formatSellerPrice(product.price) },
-            { label: "Müşteri", value: String(SYNTHETIC_PERSONAS.length) },
-            { label: "Puan", value: (5 - product.returnRate / 20).toFixed(1) },
-            { label: "Skor", value: String(product.healthScore) },
-          ].map((s) => (
-            <div key={s.label} className="text-center">
-              <p className="text-sm font-bold text-gray-900 dark:text-white">{s.value}</p>
-              <p className="text-[10px] text-gray-400">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Title + progress */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Müşteri Simülasyonu Tamamlandı</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {SYNTHETIC_PERSONAS.length} müşteri profili incelendi ve sonuçlar hazır.
-          </p>
-        </div>
-        <div className="hidden flex-col items-end gap-1 sm:flex">
-          <p className="text-sm font-bold text-gray-900 dark:text-white">10/16 tamamlandı</p>
-          <div className="h-2 w-32 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-            <div className="h-full w-[62%] rounded-full bg-green-500" />
-          </div>
-        </div>
-      </div>
-
-      {/* Big stat cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-green-100 bg-green-50 p-5 text-center dark:border-green-500/20 dark:bg-green-500/8">
-          <p className="text-4xl font-black text-green-600 dark:text-green-400">{buy}</p>
-          <p className="mt-1 text-sm font-bold text-green-700 dark:text-green-400">aktif</p>
-          <p className="mt-0.5 text-[11px] text-green-600/60 dark:text-green-400/60">142 kez incelendi</p>
-        </div>
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 text-center dark:border-amber-500/20 dark:bg-amber-500/8">
-          <p className="text-4xl font-black text-amber-600 dark:text-amber-400">{undecided}</p>
-          <p className="mt-1 text-sm font-bold text-amber-700 dark:text-amber-400">kararsız kaldı</p>
-          <p className="mt-0.5 text-[11px] text-amber-600/60 dark:text-amber-400/60">İkna edilebilir profil</p>
-        </div>
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-5 text-center dark:border-red-500/20 dark:bg-red-500/8">
-          <p className="text-4xl font-black text-red-600 dark:text-red-400">{skip}</p>
-          <p className="mt-1 text-sm font-bold text-red-700 dark:text-red-400">vazgeçti</p>
-          <p className="mt-0.5 text-[11px] text-red-600/60 dark:text-red-400/60">Sana raporlanıyor!</p>
-        </div>
-      </div>
-
-      {/* Main content: Left + Right */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        {/* LEFT */}
-        <div className="space-y-5">
-          {/* En çok takılan 3 nokta */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/8 dark:bg-white/4">
-            <p className="font-bold text-gray-900 dark:text-white">En çok takılan: 3 nokta</p>
-            <p className="mt-0.5 text-xs text-gray-400">
-              Ürünü satın almamanın veya iade etmenin önde gelen sebepleri
-            </p>
-            <ol className="mt-5 space-y-4">
-              {top3.map((imp, i) => (
-                <li key={imp.id} className="flex gap-4">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-black text-gray-500 dark:bg-white/10 dark:text-gray-400">
-                    {i + 1}
-                  </span>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{imp.title}</p>
-                    <p className="mt-0.5 text-xs text-gray-400">{imp.rationale}</p>
-                  </div>
-                  <span className="shrink-0 text-[11px] font-medium text-gray-400">Frekuansı</span>
-                </li>
-              ))}
-            </ol>
-            <button className="mt-5 text-xs font-semibold text-green-600 hover:underline dark:text-green-400">
-              Tüm müşteri yorumlarına bakın →
-            </button>
-          </div>
-
-          {/* Persona row */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/8 dark:bg-white/4">
-            <p className="mb-4 font-bold text-gray-900 dark:text-white">Öneri Sıralaması</p>
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {SYNTHETIC_PERSONAS.map((p, i) => {
-                const badge = decisionBadge[p.decision];
-                return (
-                  <div key={p.id} className="w-36 shrink-0 rounded-2xl border border-gray-100 bg-gray-50 p-3 dark:border-white/8 dark:bg-white/3">
-                    <div className="flex items-center gap-2">
-                      <div className="relative size-8 overflow-hidden rounded-full border-2 border-white">
-                        <Image src={AVATARS[i % AVATARS.length]} alt={p.name} fill className="object-cover" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-[11px] font-bold text-gray-900 dark:text-white">{p.name}</p>
-                        <p className="truncate text-[10px] text-gray-400">{p.city}</p>
-                      </div>
-                    </div>
-                    <span className={cn("mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold", badge.cls)}>
-                      {badge.icon} {badge.label}
-                    </span>
-                    <p className="mt-2 line-clamp-2 text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
-                      "{p.reason}"
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
+        {/* Avatar */}
+        <div className="relative">
+          {isActive && (
+            <div className="absolute inset-0 animate-ping rounded-full border-2 border-green-400 opacity-30" />
+          )}
+          <div className={cn(
+            "size-16 overflow-hidden rounded-full border-2 shadow-xl transition-all duration-300",
+            isActive ? "border-green-400 shadow-green-300/50 dark:shadow-green-900/50"
+                     : "border-gray-200 dark:border-white/10"
+          )}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={AVATARS[idx]}
+              alt=""
+              className="h-full w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
           </div>
         </div>
 
-        {/* RIGHT: Next step */}
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/8 dark:bg-white/4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Sonraki adım</p>
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              Simülasyon bulgularına göre ürünü AI Studio'da düzelterek sonuçları iyileştirin.
-            </p>
-            <ul className="mt-4 space-y-3">
-              {nextStepSuggestions.map((s) => (
-                <li key={s} className="flex items-start gap-3">
-                  <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-green-500 mt-0.5">
-                    <CheckCircle2 className="size-3 text-white" />
-                  </div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{s}</span>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href={`/seller/product/${product.id}/ai-edit`}
-              className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-500 text-sm font-bold text-white hover:bg-green-600"
+        {/* Name */}
+        <p className={cn(
+          "text-[11px] font-bold transition-colors",
+          isActive ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
+        )}>
+          {persona.name}
+        </p>
+
+        {/* Decision badge */}
+        <AnimatePresence>
+          {showDecision && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5, y: 4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 28 }}
+              className={cn("flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold", ds.bg, ds.text)}
             >
-              <Bot className="size-4" />
-              AI ile Düzenle
-            </Link>
-            <Link
-              href={`/seller/product/${product.id}/ai-edit`}
-              className="mt-2.5 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:text-gray-700 dark:border-white/10 dark:text-gray-400"
-            >
-              Tüm önerilere git
-              <ArrowRight className="size-3.5" />
-            </Link>
-          </div>
-
-          {/* Product thumbnail */}
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/4">
-            <div className="relative aspect-square overflow-hidden rounded-xl bg-gray-50">
-              <Image src={product.image} alt={product.title} fill className="object-contain p-4" />
-            </div>
-            <p className="mt-3 text-xs font-semibold text-gray-900 dark:text-white line-clamp-2">{product.title}</p>
-            <p className="mt-1 text-base font-bold text-gray-900 dark:text-white">{formatSellerPrice(product.price)}</p>
-          </div>
-        </div>
+              {ds.icon}
+              {ds.label}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
 
-/* ═════════════════ Main Export ═════════════════ */
+// ─── Running State ────────────────────────────────────────────────────────────
+
+function SimulationRunning({ product, activeStep, phase }: {
+  product: SellerProductPerformance;
+  activeStep: number;
+  phase: SimPhase;
+}) {
+  const activePersona   = PERSONAS[activeStep];
+  const activeSection   = phase === "looking" ? getSection(activePersona) : null;
+  const completedCount  = phase === "deciding" ? activeStep + 1 : activeStep;
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Müşteri Simülasyonu</h1>
+          <p className="mt-0.5 text-sm text-gray-400">Müşteriler ürün sayfanızı inceliyor...</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-400">{completedCount} / {PERSONAS.length} tamamlandı</span>
+          <div className="flex gap-1">
+            {PERSONAS.map((_, i) => (
+              <div key={i} className={cn(
+                "h-1.5 w-8 rounded-full transition-all duration-500",
+                i < completedCount  ? "bg-green-500"        :
+                i === activeStep    ? "animate-pulse bg-green-300" :
+                                      "bg-gray-200 dark:bg-white/10"
+              )} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Stage — outer div gives positioning context, no overflow clip */}
+      <div className="relative h-[540px] w-full">
+
+        {/* Background layer — clipped for rounded corners */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl border border-gray-100 bg-gradient-to-br from-[#f6f8fa] to-white dark:border-white/8 dark:from-[#0c0c0c] dark:to-[#0f0f0f]">
+          {/* Subtle dot grid */}
+          <svg width="100%" height="100%" className="absolute inset-0 opacity-[0.04] dark:opacity-[0.06]">
+            <defs>
+              <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="1.5" fill="#22c55e" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#dots)" />
+          </svg>
+        </div>
+
+        {/* SVG connecting lines — inside clip */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
+            {SVG_FROM.map((from, i) => (
+              <line
+                key={i}
+                x1={from.x} y1={from.y}
+                x2={SVG_TO.x} y2={SVG_TO.y}
+                stroke="#22c55e"
+                strokeWidth="0.4"
+                strokeDasharray="1.8 1.2"
+                className="transition-all duration-500"
+                opacity={i === activeStep ? 0.8 : 0.18}
+              />
+            ))}
+          </svg>
+        </div>
+
+        {/* Product card — centered */}
+        <div className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 z-10 drop-shadow-2xl">
+          <ProductCard product={product} activeSection={activeSection} />
+        </div>
+
+        {/* Persona nodes — outside clip so they don't get cut */}
+        {PERSONAS.map((persona, i) => (
+          <PersonaNode
+            key={persona.id}
+            persona={persona}
+            idx={i}
+            isActive={i === activeStep}
+            isDone={i < activeStep || (i === activeStep && phase === "deciding")}
+            phase={phase}
+          />
+        ))}
+      </div>
+
+      {/* Bottom strip — persona cards */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {PERSONAS.map((persona, i) => {
+          const done  = i < activeStep || (i === activeStep && phase === "deciding");
+          const active = i === activeStep;
+          const d  = persona.decision as Decision;
+          const ds = DECISION_STYLE[d];
+          return (
+            <div key={persona.id} className={cn(
+              "flex min-w-[155px] shrink-0 items-center gap-2.5 rounded-2xl border p-3 transition-all duration-500",
+              active ? "border-green-300 bg-green-50 dark:border-green-500/30 dark:bg-green-500/5"
+                     : "border-gray-100 bg-white dark:border-white/8 dark:bg-white/3",
+              !active && !done && "opacity-35"
+            )}>
+              <div className="relative size-8 shrink-0 overflow-hidden rounded-full">
+                <Image src={AVATARS[i]} alt={persona.name} fill className="object-cover" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-gray-900 dark:text-white">{persona.name}</p>
+                <p className="truncate text-[10px] text-gray-400">{persona.segment}</p>
+              </div>
+              {done && (
+                <div className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold", ds.bg, ds.text)}>
+                  {ds.label}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Completed State ──────────────────────────────────────────────────────────
+
+function SimulationCompleted({ product }: { product: SellerProductPerformance }) {
+  const buy       = PERSONAS.filter((p) => p.decision === "buy").length;
+  const skip      = PERSONAS.filter((p) => p.decision === "skip").length;
+  const undecided = PERSONAS.filter((p) => p.decision === "undecided").length;
+
+  return (
+    <div className="space-y-6">
+      <nav className="flex items-center gap-1.5 text-sm text-gray-400">
+        <Link href="/seller/products" className="hover:text-gray-600 dark:hover:text-gray-300">Ürünlerim</Link>
+        <ChevronRight className="size-3.5" />
+        <Link href={`/seller/product/${product.id}`} className="hover:text-gray-600 dark:hover:text-gray-300">
+          {product.title}
+        </Link>
+        <ChevronRight className="size-3.5" />
+        <span className="text-gray-600 dark:text-gray-300">Simülasyon Sonucu</span>
+      </nav>
+
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Simülasyon Tamamlandı</h1>
+          <p className="mt-1 text-sm text-gray-400">{PERSONAS.length} farklı müşteri profili ürününüzü inceledi.</p>
+        </div>
+        <Link
+          href={`/seller/product/${product.id}/ai-edit`}
+          className="flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-600"
+        >
+          <Bot className="size-4" />
+          AI ile Düzenle
+        </Link>
+      </div>
+
+      {/* Score cards */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { count: buy,       label: "Satın Aldı",   note: "İkna oldu",       bg: "bg-green-50 dark:bg-green-500/8",  border: "border-green-100 dark:border-green-500/20",  text: "text-green-600 dark:text-green-400",  sub: "text-green-600/60 dark:text-green-400/60" },
+          { count: undecided, label: "Kararsız Kaldı", note: "İkna edilebilir", bg: "bg-amber-50 dark:bg-amber-500/8",  border: "border-amber-100 dark:border-amber-500/20",  text: "text-amber-600 dark:text-amber-400",  sub: "text-amber-600/60 dark:text-amber-400/60" },
+          { count: skip,      label: "Vazgeçti",     note: "Geri döndü",      bg: "bg-red-50 dark:bg-red-500/8",      border: "border-red-100 dark:border-red-500/20",      text: "text-red-600 dark:text-red-400",      sub: "text-red-600/60 dark:text-red-400/60" },
+        ].map((c) => (
+          <div key={c.label} className={cn("rounded-2xl border p-5 text-center", c.bg, c.border)}>
+            <p className={cn("text-4xl font-black", c.text)}>{c.count}</p>
+            <p className={cn("mt-1 text-sm font-bold", c.text)}>{c.label}</p>
+            <p className={cn("mt-0.5 text-[11px]", c.sub)}>{c.note}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Persona decisions */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/8 dark:bg-[#111]">
+        <p className="mb-5 font-bold text-gray-900 dark:text-white">Müşteri Kararları</p>
+        <div className="space-y-4">
+          {PERSONAS.map((persona, i) => {
+            const d  = persona.decision as Decision;
+            const ds = DECISION_STYLE[d];
+            return (
+              <div key={persona.id} className="flex items-start gap-3">
+                <div className="relative size-10 shrink-0 overflow-hidden rounded-full border-2 border-gray-100 dark:border-white/10">
+                  <Image src={AVATARS[i]} alt={persona.name} fill className="object-cover" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{persona.name}</p>
+                    <p className="text-xs text-gray-400">{persona.segment} · {persona.city}</p>
+                    <div className={cn("ml-auto flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold", ds.bg, ds.text)}>
+                      {ds.icon}
+                      {ds.label}
+                    </div>
+                  </div>
+                  <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                    &ldquo;{persona.reason}&rdquo;
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* CTA row */}
+      <div className="flex items-center gap-3">
+        <Link
+          href={`/seller/product/${product.id}/ai-edit`}
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-500 py-3.5 text-sm font-bold text-white hover:bg-green-600"
+        >
+          <Bot className="size-4" />
+          Sonuçlara Göre AI ile Düzenle
+          <ArrowRight className="size-4" />
+        </Link>
+        <Link
+          href="/seller/products"
+          className="flex items-center justify-center rounded-xl border border-gray-200 px-5 py-3.5 text-sm font-semibold text-gray-500 hover:bg-gray-50 dark:border-white/10 dark:text-gray-400 dark:hover:bg-white/5"
+        >
+          Ürünlere Dön
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Export ──────────────────────────────────────────────────────────────
 
 export function SellerSimulation({ product }: { product: SellerProductPerformance }) {
-  const [visible, setVisible] = useState(0);
-  const [completed, setCompleted] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
+  const [phase,      setPhase]      = useState<SimPhase>("looking");
+  const [completed,  setCompleted]  = useState(false);
 
+  // looking → deciding
   useEffect(() => {
-    if (visible < SYNTHETIC_PERSONAS.length) {
-      const t = setTimeout(() => setVisible((v) => v + 1), STREAM_INTERVAL_MS);
-      return () => clearTimeout(t);
-    }
-  }, [visible]);
-
-  useEffect(() => {
-    const t = setTimeout(() => setCompleted(true), COMPLETE_DELAY_MS);
+    if (completed) return;
+    const t = setTimeout(() => setPhase("deciding"), STEP_LOOKING_MS);
     return () => clearTimeout(t);
-  }, []);
+  }, [activeStep, completed]);
+
+  // deciding → next step or complete
+  useEffect(() => {
+    if (phase !== "deciding" || completed) return;
+    const t = setTimeout(() => {
+      if (activeStep < PERSONAS.length - 1) {
+        setActiveStep((s) => s + 1);
+        setPhase("looking");
+      } else {
+        setCompleted(true);
+      }
+    }, STEP_DECIDING_MS);
+    return () => clearTimeout(t);
+  }, [phase, activeStep, completed]);
 
   if (completed) return <SimulationCompleted product={product} />;
-  return <SimulationRunning product={product} visible={visible} />;
+
+  return <SimulationRunning product={product} activeStep={activeStep} phase={phase} />;
 }

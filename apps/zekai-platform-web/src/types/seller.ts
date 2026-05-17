@@ -1,7 +1,3 @@
-export type SellerId = string;
-
-export type SellerProductStatus = "urgent" | "watch" | "healthy";
-
 export type StorePlatform =
   | "demo-store"
   | "trendyol"
@@ -18,24 +14,6 @@ export type StoreConnection = {
   status: StoreConnectionStatus;
   lastSyncAt?: string;
   productCount?: number;
-  reviewCount?: number;
-  returnRecordCount?: number;
-  permissions?: string[];
-};
-
-export type SellerStoreSummary = {
-  id: SellerId;
-  storeName: string;
-  ownerName: string;
-  status: string;
-  trustScore: number;
-  totalSales30d: number;
-  activeProducts: number;
-  returnRate: number;
-  industryReturnRate: number;
-  estimatedLostProfit: number;
-  pendingActions: number;
-  urgentProducts: number;
 };
 
 export type SellerProductPerformance = {
@@ -45,32 +23,10 @@ export type SellerProductPerformance = {
   category: string;
   price: number;
   stock: number;
-  sales30d: number;
-  returnRate: number;
-  conversionRate: number;
-  aiRiskScore: number;
-  healthScore: number;
-  lostProfitMonthly: number;
-  improvableRevenueMonthly: number;
-  status: SellerProductStatus;
-  mainIssue: string;
-  lastAction: string;
   updatedAt: string;
-};
-
-export type SellerKpi = {
-  label: string;
-  value: string;
-  note: string;
-  tone: "neutral" | "warning" | "danger" | "success";
-};
-
-export type SellerActionItem = {
-  id: string;
-  title: string;
   description: string;
-  impact: string;
-  priority: SellerProductStatus;
+  shortDescription: string;
+  features: string[];
 };
 
 export type SyntheticPersonaDecision = "buy" | "skip" | "undecided";
@@ -88,15 +44,4 @@ export type SyntheticPersona = {
   recommendation: string;
   monologue: string;
   city: string;
-};
-
-
-export type SellerImprovement = {
-  id: string;
-  title: string;
-  currentState: string;
-  suggestedChange: string;
-  rationale: string;
-  expectedImpact: string;
-  priority: SellerProductStatus;
 };

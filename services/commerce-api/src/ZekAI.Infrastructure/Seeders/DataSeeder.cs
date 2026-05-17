@@ -1,7 +1,6 @@
 using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
 using ZekAI.Domain.Entities;
-using ZekAI.Domain.Enums;
 using ZekAI.Infrastructure.Data;
 
 namespace ZekAI.Infrastructure.Seeders;
@@ -379,38 +378,14 @@ public class DataSeeder(AppDbContext db)
         await db.SaveChangesAsync();
 
         // ── SellerProducts ──
-        var sellerProductData = new[]
+        var productIds = products.Select(p => p.Id).ToList();
+        foreach (var pid in productIds)
         {
-            ("bluetooth-kulaklik-pro-x1", 142, 23, 5,  72, 34, 6500m, 4200m, ProductStatus.Urgent, "Mikrofon, oyun gecikmesi ve premium kanıt eksikliği"),
-            ("spor-ayakkabi-runflex",     64,  27, 7,  76, 29, 3600m, 2600m, ProductStatus.Urgent, "Beden kalıbı ve ölçü beklentisi net değil"),
-            ("mutfak-robotu-compact",     26,  21, 6,  74, 38, 1900m, 1700m, ProductStatus.Urgent, "Kutu içeriği ve ses seviyesi beklentisi karışık"),
-            ("akilli-saat-fit-neo",       87,  15, 9,  58, 58, 1650m, 1400m, ProductStatus.Watch,  "Pil ömrü senaryoları açık değil"),
-            ("ergonomik-calisma-sandalyesi", 54, 19, 5, 69, 49, 2800m, 2100m, ProductStatus.Watch, "Bel desteği ve ölçü beklentisi uyuşmuyor"),
-            ("hava-temizleyici-mini",     31,  11, 9,  42, 67, 740m,  850m,  ProductStatus.Watch,  "Oda metrekare sınırı daha net yazılmalı"),
-            ("telefon-kilifi-magsafe",    96,  13, 12, 46, 52, 680m,  950m,  ProductStatus.Watch,  "Uyumlu model listesi ve sararma bilgisi eksik"),
-            ("usb-c-hub-pro",            33,  16, 7,  51, 61, 980m,  1200m, ProductStatus.Watch,  "Cihaz uyumluluğu ve ısınma beklentisi net değil"),
-            ("seramik-taki-seti-beyaz",  22,  8,  11, 36, 78, 320m,  300m,  ProductStatus.Healthy,"Kırılganlık uyarısı daha görünür olabilir"),
-            ("bebek-kamerasi-nightview", 14,  9,  10, 28, 82, 260m,  280m,  ProductStatus.Healthy,"Kurulum soruları destek içeriğiyle çözülebilir"),
-            ("masa-lambasi-led",         38,  6,  13, 25, 88, 180m,  220m,  ProductStatus.Healthy,"Renk sıcaklığı bilgisi daha net olabilir"),
-            ("kahve-degirmeni-burr",     19,  7,  8,  31, 74, 210m,  260m,  ProductStatus.Healthy,"Öğütme ayarı görseli daha iyi anlatılabilir"),
-        };
-
-        foreach (var (pid, sales, ret, conv, risk, health, lost, impr, status, issue) in sellerProductData)
-        {
-            db.SellerProducts.Add(new()
+            db.SellerProducts.Add(new SellerProduct
             {
                 SellerId = seller.Id,
                 ProductId = pid,
-                Sales30d = sales,
-                ReturnRate = ret,
-                ConversionRate = conv,
-                AiRiskScore = risk,
-                HealthScore = health,
-                LostProfitMonthly = lost,
-                ImprovableRevenueMonthly = impr,
-                Status = status,
-                MainIssue = issue,
-                LastAction = "Analiz bekleniyor",
+                IsPublished = true,
             });
         }
         await db.SaveChangesAsync();

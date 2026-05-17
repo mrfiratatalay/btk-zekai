@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, HelpCircle, LayoutDashboard, LogOut, Package, Sparkles } from "lucide-react";
+import { Bell, HelpCircle, LayoutDashboard, LogOut, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -11,7 +11,6 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 const NAV = [
   { label: "Dashboard", href: "/seller", icon: LayoutDashboard },
   { label: "Ürünlerim", href: "/seller/products", icon: Package },
-  { label: "AI Studio", href: "/seller/ai-studio", icon: Sparkles },
 ];
 
 /* ZekAI four-diamond logo mark */

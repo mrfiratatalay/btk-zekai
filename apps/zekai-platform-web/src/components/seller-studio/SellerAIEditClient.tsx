@@ -16,17 +16,10 @@ function mapToPerformance(sp: SellerProduct, pd: ProductDetail): SellerProductPe
     category: pd.category,
     price: pd.price,
     stock: pd.stock,
-    sales30d: sp.sales30d,
-    returnRate: sp.returnRate,
-    conversionRate: sp.conversionRate,
-    aiRiskScore: sp.healthScore,
-    healthScore: sp.healthScore,
-    lostProfitMonthly: sp.lostProfitMonthly,
-    improvableRevenueMonthly: sp.improvableRevenueMonthly,
-    status: sp.status.toLowerCase() as "urgent" | "watch" | "healthy",
-    mainIssue: sp.mainIssue,
-    lastAction: "Analiz bekleniyor",
     updatedAt: new Date(sp.updatedAt).toLocaleDateString("tr-TR"),
+    description: pd.description ?? "",
+    shortDescription: pd.shortDescription ?? "",
+    features: Object.values(pd.features ?? {}),
   };
 }
 
@@ -49,11 +42,10 @@ export function SellerAIEditClient({ productId }: { productId: string }) {
           setProduct({
             id: pd.id, title: pd.title, image: pd.images[0] ?? "",
             category: pd.category, price: pd.price, stock: pd.stock,
-            sales30d: 0, returnRate: 0, conversionRate: 0,
-            aiRiskScore: 70, healthScore: 70,
-            lostProfitMonthly: 0, improvableRevenueMonthly: 0,
-            status: "healthy", mainIssue: "", lastAction: "",
             updatedAt: new Date(pd.updatedAt).toLocaleDateString("tr-TR"),
+            description: pd.description ?? "",
+            shortDescription: pd.shortDescription ?? "",
+            features: Object.values(pd.features ?? {}),
           });
         }
       } catch {

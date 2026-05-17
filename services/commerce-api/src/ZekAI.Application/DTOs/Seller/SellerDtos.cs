@@ -18,21 +18,16 @@ public record SellerProductDto(
     string Category,
     decimal Price,
     int Stock,
-    int Sales30d,
-    double ReturnRate,
-    double ConversionRate,
-    int HealthScore,
-    decimal LostProfitMonthly,
-    decimal ImprovableRevenueMonthly,
-    string Status,
-    string MainIssue,
+    bool IsPublished,
     DateTime UpdatedAt
 );
 
 public class UpdateProductContentRequest
 {
     public string? Title { get; set; }
+    public string? ShortDescription { get; set; }
     public string? Description { get; set; }
+    public List<string>? Features { get; set; }
     public decimal? Price { get; set; }
     public int? Stock { get; set; }
 }
@@ -53,7 +48,6 @@ public class CreateProductRequest
 
 public record PublishProductRequest(bool Published);
 
-public record KpiDto(string Label, string Value, string Note, string Tone);
 
 public record StoreConnectionDto(
     string Platform,

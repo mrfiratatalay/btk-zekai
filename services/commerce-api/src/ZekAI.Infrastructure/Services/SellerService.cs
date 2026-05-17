@@ -1,7 +1,7 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using ZekAI.Application.DTOs.Seller;
 using ZekAI.Domain.Entities;
-using ZekAI.Domain.Enums;
 using ZekAI.Infrastructure.Data;
 
 namespace ZekAI.Infrastructure.Services;
@@ -21,6 +21,43 @@ public class SellerService(AppDbContext db)
             seller.Id, seller.StoreName, seller.OwnerName,
             seller.TrustScore, seller.StoreRating, seller.TotalReviewCount,
             seller.FastShipping, seller.ReturnDays
+        );
+    }
+
+    public async Task<List<SellerProductDto>> GetProductsAsync(Guid userId)
+    {
+        var seller = await GetSellerByUserIdAsync(userId);
+        return await db.SellerProducts
+            .Where(sp => sp.SellerId == seller.Id)
+            .Include(sp => sp.Product).ThenInclude(p => p!.Images)
+            .Include(sp => sp.Product).ThenInclude(p => p!.Category)
+            .Select(sp => new SellerProductDto(
+                sp.ProductId,
+                sp.Product!.Title,
+                sp.Product.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault() ?? "",
+                sp.Product.Category!.Name,
+                sp.Product.Price,
+                sp.Product.Stock,
+                sp.IsPublished,
+                sp.UpdatedAt
+            )).ToListAsync();
+    }
+
+    public async Task<SellerProductDto?> GetProductAsync(Guid userId, string productId)
+    {
+        var seller = await GetSellerByUserIdAsync(userId);
+        var sp = await db.SellerProducts
+            .Where(sp => sp.SellerId == seller.Id && sp.ProductId == productId)
+            .Include(sp => sp.Product).ThenInclude(p => p!.Images)
+            .Include(sp => sp.Product).ThenInclude(p => p!.Category)
+            .FirstOrDefaultAsync();
+
+        if (sp is null) return null;
+        return new SellerProductDto(
+            sp.ProductId, sp.Product!.Title,
+            sp.Product.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault() ?? "",
+            sp.Product.Category!.Name, sp.Product.Price, sp.Product.Stock,
+            sp.IsPublished, sp.UpdatedAt
         );
     }
 
@@ -69,8 +106,7 @@ public class SellerService(AppDbContext db)
         {
             SellerId = seller.Id,
             ProductId = slug,
-            Status = ProductStatus.Healthy,
-            MainIssue = "",
+            IsPublished = true,
         };
         db.SellerProducts.Add(sellerProduct);
 
@@ -80,8 +116,7 @@ public class SellerService(AppDbContext db)
             slug, product.Title,
             req.PrimaryImageUrl ?? "",
             category.Name, product.Price, product.Stock,
-            0, 0, 0, 100, 0, 0,
-            sellerProduct.Status.ToString(), "", sellerProduct.UpdatedAt
+            true, sellerProduct.UpdatedAt
         );
     }
 
@@ -99,7 +134,6 @@ public class SellerService(AppDbContext db)
             .FirstOrDefaultAsync(p => p.Id == productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
-        // FK constraint'leri bozmamak için ilişkili tüm kayıtlar önce silinir
         db.ProductImages.RemoveRange(product.Images);
         db.ProductReviews.RemoveRange(product.Reviews);
         db.ProductPriceHistories.RemoveRange(product.PriceHistory);
@@ -115,66 +149,9 @@ public class SellerService(AppDbContext db)
             .FirstOrDefaultAsync(sp => sp.SellerId == seller.Id && sp.ProductId == productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
-        sp.Status = published ? ProductStatus.Healthy : ProductStatus.Watch;
+        sp.IsPublished = published;
         sp.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
-    }
-
-    private static string GenerateSlug(string title)
-    {
-        var slug = title.ToLowerInvariant()
-            .Replace("ş", "s").Replace("ğ", "g").Replace("ü", "u")
-            .Replace("ö", "o").Replace("ı", "i").Replace("ç", "c")
-            .Replace(" ", "-");
-        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9\-]", "");
-        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"-+", "-").Trim('-');
-        return slug.Length > 60 ? slug[..60] : slug;
-    }
-
-    public async Task<List<SellerProductDto>> GetProductsAsync(Guid userId)
-    {
-        var seller = await GetSellerByUserIdAsync(userId);
-        return await db.SellerProducts
-            .Where(sp => sp.SellerId == seller.Id)
-            .Include(sp => sp.Product).ThenInclude(p => p!.Images)
-            .Include(sp => sp.Product).ThenInclude(p => p!.Category)
-            .Select(sp => new SellerProductDto(
-                sp.ProductId,
-                sp.Product!.Title,
-                sp.Product.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault() ?? "",
-                sp.Product.Category!.Name,
-                sp.Product.Price,
-                sp.Product.Stock,
-                sp.Sales30d,
-                sp.ReturnRate,
-                sp.ConversionRate,
-                sp.HealthScore,
-                sp.LostProfitMonthly,
-                sp.ImprovableRevenueMonthly,
-                sp.Status.ToString(),
-                sp.MainIssue,
-                sp.UpdatedAt
-            )).ToListAsync();
-    }
-
-    public async Task<SellerProductDto?> GetProductAsync(Guid userId, string productId)
-    {
-        var seller = await GetSellerByUserIdAsync(userId);
-        var sp = await db.SellerProducts
-            .Where(sp => sp.SellerId == seller.Id && sp.ProductId == productId)
-            .Include(sp => sp.Product).ThenInclude(p => p!.Images)
-            .Include(sp => sp.Product).ThenInclude(p => p!.Category)
-            .FirstOrDefaultAsync();
-
-        if (sp is null) return null;
-        return new SellerProductDto(
-            sp.ProductId, sp.Product!.Title,
-            sp.Product.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault() ?? "",
-            sp.Product.Category!.Name, sp.Product.Price, sp.Product.Stock,
-            sp.Sales30d, sp.ReturnRate, sp.ConversionRate, sp.HealthScore,
-            sp.LostProfitMonthly, sp.ImprovableRevenueMonthly,
-            sp.Status.ToString(), sp.MainIssue, sp.UpdatedAt
-        );
     }
 
     public async Task UpdateProductContentAsync(Guid userId, string productId, UpdateProductContentRequest req)
@@ -188,7 +165,15 @@ public class SellerService(AppDbContext db)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
         if (req.Title is not null) product.Title = req.Title;
+        if (req.ShortDescription is not null) product.ShortDescription = req.ShortDescription;
         if (req.Description is not null) product.Description = req.Description;
+        if (req.Features is not null)
+        {
+            var dict = req.Features
+                .Select((f, i) => new { Key = i.ToString(), Value = f })
+                .ToDictionary(x => x.Key, x => x.Value);
+            product.FeaturesJson = JsonSerializer.Serialize(dict);
+        }
         if (req.Price.HasValue) product.Price = req.Price.Value;
         if (req.Stock.HasValue) product.Stock = req.Stock.Value;
         product.UpdatedAt = DateTime.UtcNow;
@@ -197,23 +182,14 @@ public class SellerService(AppDbContext db)
         await db.SaveChangesAsync();
     }
 
-    public async Task<List<KpiDto>> GetKpisAsync(Guid userId)
+    private static string GenerateSlug(string title)
     {
-        var seller = await GetSellerByUserIdAsync(userId);
-        var products = await db.SellerProducts.Where(sp => sp.SellerId == seller.Id).ToListAsync();
-
-        var totalLost = products.Sum(p => p.LostProfitMonthly);
-        var active = products.Count;
-        var avgReturn = products.Any() ? products.Average(p => p.ReturnRate) : 0;
-        var totalOpportunity = products.Sum(p => p.ImprovableRevenueMonthly);
-
-        return
-        [
-            new("Aylık Tahmini Kayıp", $"₺{totalLost:N0}", "İade ve düşük dönüşüm etkisi", "danger"),
-            new("Aktif Ürün", active.ToString(), "Demo Store'dan senkronize", "neutral"),
-            new("Ort. İade Oranı", $"%{avgReturn:F0}", "Sektör ortalaması %12", "warning"),
-            new("İyileştirme Fırsatı", $"+₺{totalOpportunity:N0}", "Aylık potansiyel gelir", "success"),
-        ];
+        var slug = title.ToLowerInvariant()
+            .Replace("ş", "s").Replace("ğ", "g").Replace("ü", "u")
+            .Replace("ö", "o").Replace("ı", "i").Replace("ç", "c")
+            .Replace(" ", "-");
+        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9\-]", "");
+        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"-+", "-").Trim('-');
+        return slug.Length > 60 ? slug[..60] : slug;
     }
-
 }

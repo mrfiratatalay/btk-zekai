@@ -19,13 +19,6 @@ public record CommerceProductDto(
     string Category,
     decimal Price,
     int Stock,
-    int Sales30d,
-    int ReturnRate,
-    int ConversionRate,
-    int HealthScore,
-    decimal LostProfitMonthly,
-    decimal ImprovableRevenueMonthly,
-    string Status,
-    string MainIssue,
+    bool IsPublished,
     DateTime UpdatedAt
 );

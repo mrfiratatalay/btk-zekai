@@ -29,9 +29,9 @@ export interface ProductDetail extends ProductListItem {
   updatedAt: string;
 }
 
-async function apiFetch<T>(path: string, fallback?: T): Promise<T> {
+async function apiFetch<T>(path: string, fallback?: T, init?: RequestInit): Promise<T> {
   try {
-    const res = await fetch(`${API_BASE}${path}`, { next: { revalidate: 30 } });
+    const res = await fetch(`${API_BASE}${path}`, init ?? { next: { revalidate: 30 } });
     if (!res.ok) {
       if (fallback !== undefined) return fallback;
       throw new Error(`HTTP ${res.status}`);
@@ -59,7 +59,8 @@ export const getProducts = (params?: { category?: string; search?: string }) => 
   return apiFetch<ProductListItem[]>(`/api/products${query}`, []);
 };
 
-export const getProduct = (id: string) => apiFetch<ProductDetail>(`/api/products/${id}`);
+export const getProduct = (id: string) =>
+  apiFetch<ProductDetail>(`/api/products/${id}`, undefined, { cache: "no-store" });
 
 export const getProductReviews = (id: string) =>
   apiFetch<ProductReview[]>(`/api/products/${id}/reviews`, []);

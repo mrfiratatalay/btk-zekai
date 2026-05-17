@@ -1,8 +1,6 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import {
   ArrowRight,
   BarChart2,
@@ -10,12 +8,10 @@ import {
   ChevronRight,
   FileText,
   Lightbulb,
-  Loader2,
   Sparkles,
   TrendingUp,
   Users,
 } from "lucide-react";
-import { getSellerProducts, type SellerProduct } from "@/lib/api/seller";
 
 const AI_TOOLS = [
   {
@@ -77,20 +73,6 @@ const tagStyle: Record<string, string> = {
 };
 
 export function SellerAIStudio() {
-  const [urgentProducts, setUrgentProducts] = useState<SellerProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getSellerProducts()
-      .then((products) => {
-        const sorted = [...products]
-          .sort((a, b) => a.healthScore - b.healthScore)
-          .slice(0, 3);
-        setUrgentProducts(sorted);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
 
   return (
     <div className="space-y-6">
@@ -169,59 +151,6 @@ export function SellerAIStudio() {
             );
           })}
         </div>
-      </div>
-
-      {/* ── Urgent products from real API ── */}
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-bold text-gray-900 dark:text-white">Acil Müdahale Gereken Ürünler</h2>
-          <Link href="/seller/products" className="flex items-center gap-1 text-sm font-semibold text-green-600 hover:text-green-700 dark:text-green-400">
-            Tüm ürünler <ChevronRight className="size-4" />
-          </Link>
-        </div>
-
-        {loading ? (
-          <div className="flex h-32 items-center justify-center">
-            <Loader2 className="size-6 animate-spin text-green-500" />
-          </div>
-        ) : urgentProducts.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 py-12 text-center dark:border-white/10">
-            <p className="text-sm text-gray-400">Tüm ürünler sağlıklı görünüyor.</p>
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#111]">
-            {urgentProducts.map((product, i) => (
-              <Link
-                key={product.id}
-                href={`/seller/product/${product.id}/simulation`}
-                className={`flex items-center gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors ${i > 0 ? "border-t border-gray-100 dark:border-white/8" : ""}`}
-              >
-                <div className="relative size-10 shrink-0 overflow-hidden rounded-xl bg-gray-50">
-                  {product.primaryImage && (
-                    <Image src={product.primaryImage} alt={product.title} fill sizes="40px" className="object-contain p-1" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{product.title}</p>
-                  <p className="mt-0.5 text-xs text-gray-400">{product.mainIssue || product.category}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  {product.lostProfitMonthly > 0 && (
-                    <p className="text-sm font-bold text-red-500">
-                      -{new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: 0 }).format(product.lostProfitMonthly)}
-                    </p>
-                  )}
-                  <span className={`mt-0.5 inline-block text-[11px] font-semibold ${
-                    product.status === "Urgent" ? "text-red-500" : product.status === "Watch" ? "text-amber-500" : "text-green-500"
-                  }`}>
-                    {product.status === "Urgent" ? "Acil" : product.status === "Watch" ? "Takip Et" : "Sağlıklı"}
-                  </span>
-                </div>
-                <ChevronRight className="size-4 shrink-0 text-gray-300" />
-              </Link>
-            ))}
-          </div>
-        )}
       </div>
 
     </div>

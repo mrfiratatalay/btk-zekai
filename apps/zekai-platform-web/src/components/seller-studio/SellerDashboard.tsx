@@ -1,16 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   ArrowRight, Bot, ChevronRight, Loader2,
-  Package, RefreshCw, Sparkles, Store, Zap,
+  RefreshCw, Sparkles, Store, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  getSellerProducts, getSellerStore, connectStore,
-  type SellerProduct, type StoreConnection,
+  getSellerStore, connectStore,
+  type StoreConnection,
 } from "@/lib/api/seller";
 import { getCurrentUser } from "@/lib/api/auth";
 
@@ -28,7 +27,7 @@ const PLATFORMS = [
 type OnboardingStep = 1 | 2 | 3;
 
 interface OnboardingPopupProps {
-  onDone: (conn: StoreConnection, prods: SellerProduct[]) => void;
+  onDone: (conn: StoreConnection) => void;
   onSkip: () => void;
 }
 
@@ -45,9 +44,8 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
     setLoading(true);
     try {
       const conn = await connectStore(selectedPlatform, apiKey.trim());
-      const prods = await getSellerProducts();
       setStep(3);
-      setTimeout(() => onDone(conn, prods), 1400);
+      setTimeout(() => onDone(conn), 1400);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Bağlantı kurulamadı.");
     } finally {
@@ -188,7 +186,7 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
               <Sparkles className="size-8 text-green-500" />
             </div>
             <h2 className="text-xl font-black text-gray-900 dark:text-white">Mağazan Bağlandı!</h2>
-            <p className="mt-2 text-sm text-gray-400">Ürünlerin yükleniyor...</p>
+            <p className="mt-2 text-sm text-gray-400">Dashboard hazırlanıyor...</p>
             <div className="mt-6 flex justify-center">
               <Loader2 className="size-6 animate-spin text-green-500" />
             </div>
@@ -199,36 +197,11 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
   );
 }
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: SellerProduct["status"] }) {
-  if (status === "Urgent") {
-    return (
-      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600 dark:bg-red-500/15 dark:text-red-400">
-        Acil
-      </span>
-    );
-  }
-  if (status === "Watch") {
-    return (
-      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
-        Takipte
-      </span>
-    );
-  }
-  return (
-    <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-600 dark:bg-green-500/15 dark:text-green-400">
-      Sağlıklı
-    </span>
-  );
-}
-
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export function SellerDashboard() {
   const user = getCurrentUser();
 
-  const [products, setProducts] = useState<SellerProduct[]>([]);
   const [storeConn, setStoreConn] = useState<StoreConnection | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -238,8 +211,6 @@ export function SellerDashboard() {
       try {
         const conn = await getSellerStore().catch(() => null);
         if (conn) {
-          const prods = await getSellerProducts();
-          setProducts(prods);
           setStoreConn(conn);
         } else {
           setShowOnboarding(true);
@@ -254,15 +225,13 @@ export function SellerDashboard() {
     load();
   }, []);
 
-  function handleOnboardingDone(conn: StoreConnection, prods: SellerProduct[]) {
+  function handleOnboardingDone(conn: StoreConnection) {
     setStoreConn(conn);
-    setProducts(prods);
     setShowOnboarding(false);
   }
 
   function handleReset() {
     setStoreConn(null);
-    setProducts([]);
     setShowOnboarding(true);
   }
 
@@ -276,11 +245,6 @@ export function SellerDashboard() {
 
   const isConnected = storeConn !== null;
 
-  // Products sorted by health score ascending (worst first), max 6 shown
-  const productQueue = [...products]
-    .sort((a, b) => a.healthScore - b.healthScore)
-    .slice(0, 6);
-
   return (
     <>
       {/* Onboarding popup */}
@@ -291,7 +255,6 @@ export function SellerDashboard() {
         />
       )}
 
-      {/* Blurred placeholder when not connected and no popup (after skip) */}
       <div className={cn("space-y-8", showOnboarding && "pointer-events-none select-none blur-sm")}>
 
         {/* Header */}
@@ -316,23 +279,14 @@ export function SellerDashboard() {
             </button>
           )}
           {isConnected && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleReset}
-                title="Mağaza bağlantısını değiştir"
-                className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:border-white/10 dark:bg-[#111] dark:text-gray-400 dark:hover:bg-white/5"
-              >
-                <RefreshCw className="size-3.5" />
-                Mağazayı Değiştir
-              </button>
-              <Link
-                href="/seller/products"
-                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:bg-[#111] dark:text-gray-300 dark:hover:bg-white/5"
-              >
-                <Package className="size-4" />
-                Tüm Ürünler
-              </Link>
-            </div>
+            <button
+              onClick={handleReset}
+              title="Mağaza bağlantısını değiştir"
+              className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:border-white/10 dark:bg-[#111] dark:text-gray-400 dark:hover:bg-white/5"
+            >
+              <RefreshCw className="size-3.5" />
+              Mağazayı Değiştir
+            </button>
           )}
         </div>
 
@@ -377,74 +331,7 @@ export function SellerDashboard() {
           </Link>
         </div>
 
-        {/* Ürün listesi */}
-        {isConnected && productQueue.length > 0 && (
-          <div>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold text-gray-900 dark:text-white">Ürünlerin</h2>
-              {products.length > 6 && (
-                <Link
-                  href="/seller/products"
-                  className="flex items-center gap-1 text-sm font-semibold text-green-600 hover:text-green-700 dark:text-green-400"
-                >
-                  Tümünü gör <ArrowRight className="size-4" />
-                </Link>
-              )}
-            </div>
-
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[#111]">
-              {productQueue.map((product, i) => (
-                <div
-                  key={product.id}
-                  className={cn(
-                    "flex items-center gap-4 px-5 py-4",
-                    i > 0 && "border-t border-gray-100 dark:border-white/8"
-                  )}
-                >
-                  {/* Görsel */}
-                  <div className="relative size-11 shrink-0 overflow-hidden rounded-xl bg-gray-50 dark:bg-white/5">
-                    {product.primaryImage ? (
-                      <Image src={product.primaryImage} alt={product.title} fill sizes="44px" className="object-contain p-1" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <Package className="size-4 text-gray-300" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bilgi */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{product.title}</p>
-                      <StatusBadge status={product.status} />
-                    </div>
-                    <p className="mt-0.5 truncate text-xs text-gray-400">{product.category}</p>
-                  </div>
-
-                  {/* Aksiyon butonları */}
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Link
-                      href={`/seller/product/${product.id}/simulation`}
-                      className="flex h-8 items-center gap-1.5 rounded-lg bg-green-500 px-3 text-xs font-bold text-white hover:bg-green-600"
-                    >
-                      <Zap className="size-3" />
-                      Simüle Et
-                    </Link>
-                    <Link
-                      href={`/seller/product/${product.id}/ai-edit`}
-                      className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/8"
-                    >
-                      <Bot className="size-3" />
-                      AI Düzenle
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Bağlı değil + popup kapatıldıysa (skip) basit CTA */}
+        {/* Bağlı değil + popup kapatıldıysa basit CTA */}
         {!isConnected && !showOnboarding && (
           <div className="rounded-2xl border-2 border-dashed border-gray-200 py-16 text-center dark:border-white/10">
             <Store className="mx-auto mb-3 size-8 text-gray-300" />

@@ -79,10 +79,4 @@ public class SellerController(SellerService seller) : ControllerBase
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
-    // ── Analytics ──────────────────────────────────────────────────────────
-
-    [HttpGet("analytics/kpis")]
-    public async Task<IActionResult> GetKpis()
-        => Ok(await seller.GetKpisAsync(UserId));
-
 }

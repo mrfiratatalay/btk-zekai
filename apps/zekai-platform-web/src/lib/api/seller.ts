@@ -18,22 +18,8 @@ export interface SellerProduct {
   category: string;
   price: number;
   stock: number;
-  sales30d: number;
-  returnRate: number;
-  conversionRate: number;
-  healthScore: number;
-  lostProfitMonthly: number;
-  improvableRevenueMonthly: number;
-  status: "Urgent" | "Watch" | "Healthy";
-  mainIssue: string;
+  isPublished: boolean;
   updatedAt: string;
-}
-
-export interface KpiDto {
-  label: string;
-  value: string;
-  note: string;
-  tone: "neutral" | "warning" | "danger" | "success";
 }
 
 
@@ -63,14 +49,37 @@ export const getSellerProducts = () => apiFetch<SellerProduct[]>("/api/seller/pr
 export const getSellerProduct = (id: string) =>
   apiFetch<SellerProduct>(`/api/seller/products/${id}`);
 
-export const updateProductContent = (
+export const updateProductContent = async (
   id: string,
-  data: { title?: string; description?: string; price?: number; stock?: number },
-) =>
-  apiFetch<{ message: string }>(`/api/seller/products/${id}`, {
+  data: {
+    title?: string;
+    shortDescription?: string;
+    description?: string;
+    features?: string[];
+    price?: number;
+    stock?: number;
+  },
+  options: { publish: boolean } = { publish: false },
+): Promise<{ message: string }> => {
+  const result = await apiFetch<{ message: string }>(`/api/seller/products/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
   });
 
-export const getSellerKpis = () => apiFetch<KpiDto[]>("/api/seller/analytics/kpis");
+  // Sadece "Yayınla" seçildiğinde Akıllı Market cache'ini temizle
+  if (options.publish) {
+    const commerceWebUrl = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
+    try {
+      await fetch(
+        `${commerceWebUrl}/api/revalidate?secret=zekai-revalidate-2024&productId=${encodeURIComponent(id)}`,
+        { method: "POST" },
+      );
+    } catch {
+      // Revalidation başarısız olsa da kayıt tamamdır
+    }
+  }
+
+  return result;
+};
+
 
