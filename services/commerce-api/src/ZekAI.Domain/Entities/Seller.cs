@@ -19,4 +19,5 @@ public class Seller
     public User? User { get; set; }
     public ICollection<SellerProduct> SellerProducts { get; set; } = [];
     public ICollection<StoreConnection> StoreConnections { get; set; } = [];
+    public ICollection<ProductBundle> ProductBundles { get; set; } = [];
 }

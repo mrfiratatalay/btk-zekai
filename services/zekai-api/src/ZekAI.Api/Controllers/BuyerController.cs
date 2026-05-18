@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ZekAI.Application.DTOs;
+using ZekAI.Infrastructure.Http;
 using ZekAI.Infrastructure.Services;
 
 namespace ZekAI.Api.Controllers;
@@ -11,7 +12,7 @@ namespace ZekAI.Api.Controllers;
 [ApiController]
 [Route("api/buyer")]
 [Authorize]
-public class BuyerController(BuyerService buyer) : ControllerBase
+public class BuyerController(BuyerService buyer, CommerceApiClient commerce) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -94,6 +95,76 @@ public class BuyerController(BuyerService buyer) : ControllerBase
     {
         try { return Ok(await buyer.RemoveAnalysisFromProjectAsync(UserId, id, analysisExternalId)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    // ── AI Agent Buyer Analysis (SSE stream) ───────────────────────────────────
+
+    [HttpPost("analyze")]
+    public async Task AnalyzeBuyer(
+        [FromBody] BuyerAnalyzeRequest req,
+        [FromServices] IHttpClientFactory httpClientFactory)
+    {
+        if (string.IsNullOrWhiteSpace(req.ProductId) || string.IsNullOrWhiteSpace(req.BuyerNeed))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            await Response.WriteAsJsonAsync(new { message = "productId ve buyerNeed zorunludur." });
+            return;
+        }
+
+        // Fetch product details from commerce-api
+        var product = await commerce.GetProductDetailAsync(req.ProductId);
+        if (product is null)
+        {
+            Response.StatusCode = StatusCodes.Status404NotFound;
+            await Response.WriteAsJsonAsync(new { message = "Ürün bulunamadı." });
+            return;
+        }
+
+        // Fetch reviews
+        var reviews = await commerce.GetProductReviewsAsync(req.ProductId);
+
+        // Build ai-service payload
+        var aiPayload = new
+        {
+            product_id = product.Id,
+            product_title = product.Title,
+            product_category = product.Category,
+            product_price = (double)product.Price,
+            product_description = product.Description,
+            product_features = product.Features?.Values.ToList() ?? new List<string>(),
+            product_image_url = product.Images?.FirstOrDefault(),
+            product_rating = product.Rating,
+            product_review_count = product.ReviewCount,
+            buyer_need = req.BuyerNeed,
+            reviews = reviews.Take(25).Select(r => new
+            {
+                id = r.Id.ToString(),
+                rating = r.Rating,
+                comment = r.Text,
+                userName = r.AuthorName,
+            }).ToList(),
+        };
+
+        var client = httpClientFactory.CreateClient("AiService");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/buyer/analyze")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(aiPayload), Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Accept.ParseAdd("text/event-stream");
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, HttpContext.RequestAborted);
+        if (!response.IsSuccessStatusCode)
+        {
+            Response.StatusCode = (int)response.StatusCode;
+            await Response.WriteAsJsonAsync(new { message = "AI servisinden analiz alınamadı." });
+            return;
+        }
+
+        Response.ContentType = "text/event-stream";
+        Response.Headers["Cache-Control"] = "no-cache";
+        Response.Headers["X-Accel-Buffering"] = "no";
+        await using var stream = await response.Content.ReadAsStreamAsync(HttpContext.RequestAborted);
+        await stream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
     }
 
     [HttpPost("agent/sessions/{sessionId}")]

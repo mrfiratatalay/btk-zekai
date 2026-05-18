@@ -7,7 +7,6 @@ export type AgentStepType =
   | "need"
   | "product"
   | "review"
-  | "visual"
   | "price"
   | "return"
   | "synthesis"
@@ -56,19 +55,6 @@ export type TrustSignal = {
 export type MarketComparison = {
   label: string;
   value: string;
-};
-
-export type PricePoint = {
-  day: string;
-  price: number;
-  median: number;
-};
-
-
-export type AlternativeProduct = {
-  title: string;
-  fitScore: number;
-  price: string;
 };
 
 // ── Buyer Decision Center types ──────────────────────────────────────────────
@@ -139,8 +125,6 @@ export type BuyerAnalysis = {
     summary: string;
     warning: string;
     marketComparison: MarketComparison[];
-    priceHistory: PricePoint[];
   };
   finalAdvice: string;
-  alternatives: AlternativeProduct[];
 };

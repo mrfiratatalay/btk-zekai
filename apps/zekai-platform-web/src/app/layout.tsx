@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { AppProviders } from "@/components/layout/app-providers";
 import "./globals.css";
@@ -24,8 +25,10 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning className={jakarta.variable}>
       <body className="min-h-full flex flex-col antialiased">
-        <AppProviders>{children}</AppProviders>
-        <Toaster richColors position="top-right" />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          <AppProviders>{children}</AppProviders>
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   );

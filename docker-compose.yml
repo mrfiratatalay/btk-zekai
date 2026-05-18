@@ -19,19 +19,6 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: zekai-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - zekai-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   commerce-api:
     build:
       context: ./services/commerce-api
@@ -68,65 +55,32 @@ services:
       Jwt__ExpiryMinutes: "1440"
       CommerceApi__BaseUrl: "http://commerce-api:8080"
       AiService__BaseUrl: "http://ai-service:8000"
-      Redis__ConnectionString: "redis:6379"
     ports:
       - "5002:8080"
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       commerce-api:
+        condition: service_started
+      ai-service:
         condition: service_started
     networks:
       - zekai-network
 
-# ai-service: Henuz hazir degil, sonradan devreye alinacak.
-#   ai-service:
-#     build:
-#       context: ./services/ai-service
-#       dockerfile: Dockerfile
-#     container_name: ai-service
-#     environment:
-#       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-#       GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
-#     ports:
-#       - "8000:8000"
-#     networks:
-#       - zekai-network
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+    container_name: ai-service
+    env_file:
+      - .env
+    environment:
+      GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
+    ports:
+      - "8000:8000"
+    networks:
+      - zekai-network
 
-#   akilli-market-web:
-#     build:
-#       context: ./apps/akilli-market-web
-#       dockerfile: Dockerfile
-#     container_name: akilli-market-web
-#     environment:
-#       NEXT_PUBLIC_API_URL: "http://localhost:5001"
-#       NEXT_PUBLIC_COMMERCE_API_URL: "http://localhost:5001"
-#     ports:
-#       - "3000:3000"
-#     depends_on:
-#       - commerce-api
-#     networks:
-#       - zekai-network
-# 
-#   zekai-platform-web:
-#     build:
-#       context: ./apps/zekai-platform-web
-#       dockerfile: Dockerfile
-#     container_name: zekai-platform-web
-#     environment:
-#       NEXT_PUBLIC_API_URL: "http://localhost:5002"
-#       NEXT_PUBLIC_ZEKAI_API_URL: "http://localhost:5002"
-#       NEXT_PUBLIC_COMMERCE_API_URL: "http://localhost:5001"
-#       NEXT_PUBLIC_COMMERCE_WEB_URL: "http://localhost:3000"
-#       NEXT_PUBLIC_ENABLE_ADK_AGENT: "true"
-#     ports:
-#       - "3001:3000"
-#     depends_on:
-#       - zekai-api
-#     networks:
-#       - zekai-network
 
 volumes:
   zekai_postgres_data:

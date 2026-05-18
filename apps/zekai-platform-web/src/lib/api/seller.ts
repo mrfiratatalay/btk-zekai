@@ -24,25 +24,28 @@ export interface SellerProduct {
 
 
 export interface StoreConnection {
+  id: string;
   platform: string;
   storeName: string;
   status: string;
   lastSyncAt: string | null;
   productCount: number;
+  hasApiKey: boolean;
 }
 
 export const getSellerProfile = () => apiFetch<SellerProfile>("/api/seller/me");
 
-export const getSellerStore = () => apiFetch<StoreConnection>("/api/seller/store");
+export const getStoreConnections = () =>
+  apiFetch<StoreConnection[]>("/api/seller/connections");
 
-export const connectStore = (platform: string, apiKey: string) =>
-  apiFetch<StoreConnection>("/api/seller/store/connect", {
+export const connectStore = (storeApiKey: string, storeName: string, platform = "DemoStore") =>
+  apiFetch<StoreConnection>("/api/seller/connections", {
     method: "POST",
-    body: JSON.stringify({ platform, apiKey }),
+    body: JSON.stringify({ storeApiKey, storeName, platform }),
   });
 
-export const syncStore = () =>
-  apiFetch<{ message: string }>("/api/seller/store/sync", { method: "POST" });
+export const disconnectStore = (connectionId: string) =>
+  apiFetch<void>(`/api/seller/connections/${connectionId}`, { method: "DELETE" });
 
 export const getSellerProducts = () => apiFetch<SellerProduct[]>("/api/seller/products");
 
@@ -68,15 +71,282 @@ export const generateSocialContent = (productId: string, tone: string) =>
     body: JSON.stringify({ tone }),
   });
 
+export interface BundleProduct {
+  id: string;
+  title: string;
+  brand: string;
+  category: string;
+  price: number;
+  stock: number;
+  image: string;
+}
+
+export interface ProductBundle {
+  id: string;
+  title: string;
+  shortDescription: string;
+  campaignText: string;
+  ctaLabel: string;
+  discountPercent: number;
+  status: "Draft" | "Published" | "Archived";
+  recommendationReason: string;
+  score: number;
+  primaryProduct: BundleProduct;
+  complementaryProduct: BundleProduct;
+  originalTotal: number;
+  discountAmount: number;
+  bundleTotal: number;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+}
+
+export interface BundleRecommendation {
+  primaryProduct: BundleProduct;
+  complementaryProduct: BundleProduct;
+  suggestedTitle: string;
+  suggestedShortDescription: string;
+  suggestedCampaignText: string;
+  suggestedCtaLabel: string;
+  suggestedDiscountPercent: number;
+  recommendationReason: string;
+  score: number;
+  originalTotal: number;
+  discountAmount: number;
+  bundleTotal: number;
+}
+
+export interface MissingBundleOpportunity {
+  title: string;
+  message: string;
+  suggestedProductIdeas: string[];
+}
+
+export interface BundleRecommendationResponse {
+  recommendations: BundleRecommendation[];
+  missingOpportunity: MissingBundleOpportunity | null;
+}
+
+export interface CreateProductBundlePayload {
+  complementaryProductId: string;
+  title: string;
+  shortDescription: string;
+  campaignText: string;
+  ctaLabel: string;
+  discountPercent: number;
+  recommendationReason: string;
+  score: number;
+  publish: boolean;
+}
+
+export interface UpdateProductBundlePayload {
+  title?: string;
+  shortDescription?: string;
+  campaignText?: string;
+  ctaLabel?: string;
+  discountPercent?: number;
+}
+
+export const getSellerProductBundles = (productId: string) =>
+  apiFetch<ProductBundle[]>(`/api/seller/products/${productId}/bundles`);
+
+export const generateBundleRecommendations = (productId: string) =>
+  apiFetch<BundleRecommendationResponse>(`/api/seller/products/${productId}/bundle-recommendations`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+
+export const createProductBundle = (productId: string, data: CreateProductBundlePayload) =>
+  apiFetch<ProductBundle>(`/api/seller/products/${productId}/bundles`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const updateProductBundle = (productId: string, bundleId: string, data: UpdateProductBundlePayload) =>
+  apiFetch<ProductBundle>(`/api/seller/products/${productId}/bundles/${bundleId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+
+export const publishProductBundle = (productId: string, bundleId: string, published = true) =>
+  apiFetch<ProductBundle>(`/api/seller/products/${productId}/bundles/${bundleId}/publish`, {
+    method: "POST",
+    body: JSON.stringify({ published }),
+  });
+
+export const archiveProductBundle = (productId: string, bundleId: string) =>
+  apiFetch<void>(`/api/seller/products/${productId}/bundles/${bundleId}/archive`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+
+export interface AiGeneratedContent {
+  title: string;
+  shortDescription: string;
+  description: string;
+  features: string[];
+  whatIImproved: string;
+}
+
+/** AI features (string[]) → Record<string,string> (indexed bullets) */
+export function aiFeaturesToRecord(features: string[]): Record<string, string> {
+  return Object.fromEntries(features.map((f, i) => [String(i), f]));
+}
+
+export interface SimulationInsight {
+  buyCount: number;
+  skipCount: number;
+  undecidedCount: number;
+  skipperReasons: string[];
+  undecidedConcerns: string[];
+  recommendations: string[];
+}
+
+export const generateAiContent = (productId: string, simulationInsight?: SimulationInsight) =>
+  apiFetch<AiGeneratedContent>(`/api/seller/products/${productId}/ai-content`, {
+    method: "POST",
+    body: simulationInsight ? JSON.stringify({ simulationInsight }) : undefined,
+  });
+
+export interface SimulatedPersona {
+  id: string;
+  name: string;
+  age: number;
+  city: string;
+  segment: string;
+  profile: string;
+  caresAbout: string;
+  decision: "buy" | "skip" | "undecided";
+  reason: string;
+  lookedAt: string[];
+  recommendation: string;
+  monologue: string;
+}
+
+export interface SimulationResult {
+  personas: SimulatedPersona[];
+}
+
+export const simulateProduct = (productId: string) =>
+  apiFetch<SimulationResult>(`/api/seller/products/${productId}/simulate`, {
+    method: "POST",
+  });
+
+export type SimulationStreamEvent =
+  | { type: "step"; message: string }
+  | { type: "persona"; persona: SimulatedPersona }
+  | { type: "done" }
+  | { type: "error"; message: string };
+
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window === "undefined" ? null : localStorage.getItem("zekai_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+const ZEKAI_API_URL =
+  process.env.NEXT_PUBLIC_ZEKAI_API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5002";
+
+export async function streamSimulateProduct(
+  productId: string,
+  onEvent: (event: SimulationStreamEvent) => void,
+): Promise<void> {
+  const response = await fetch(
+    `${ZEKAI_API_URL}/api/seller/products/${productId}/simulate-stream`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        ...getAuthHeaders(),
+      },
+      signal: AbortSignal.timeout(180_000),
+    },
+  );
+
+  if (!response.ok || !response.body) {
+    throw new Error(`Simulation stream failed: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const json = line.replace(/^data:\s*/, "").trim();
+      if (!json) continue;
+      try {
+        onEvent(JSON.parse(json) as SimulationStreamEvent);
+      } catch {
+        // skip malformed
+      }
+    }
+  }
+}
+
+export interface GeneratedProductImage {
+  imageBase64: string;
+  mimeType: string;
+  description: string;
+}
+
+export interface GeneratedProductImageItem {
+  type: "studio" | "unboxing" | "lifestyle";
+  label: string;
+  imageBase64: string;
+  mimeType: string;
+}
+
+export interface GeneratedProductImagesResponse {
+  images: GeneratedProductImageItem[];
+}
+
+export const generateProductImage = (productId: string) =>
+  apiFetch<GeneratedProductImage>(`/api/seller/products/${productId}/ai-image`, {
+    method: "POST",
+  });
+
+export const generateProductImages = (productId: string) =>
+  apiFetch<GeneratedProductImagesResponse>(`/api/seller/products/${productId}/ai-images`, {
+    method: "POST",
+  });
+
+export const applyProductImage = (productId: string, imageBase64: string, mimeType: string) =>
+  apiFetch<{ imageUrl: string; message: string }>(`/api/seller/products/${productId}/image`, {
+    method: "PUT",
+    body: JSON.stringify({ imageBase64, mimeType }),
+  });
+
+export const publishProduct = (productId: string, published = true) =>
+  apiFetch<{ message: string }>(`/api/seller/products/${productId}/publish`, {
+    method: "PUT",
+    body: JSON.stringify({ published }),
+  });
+
 export const updateProductContent = async (
   id: string,
   data: {
     title?: string;
     shortDescription?: string;
     description?: string;
-    features?: string[];
+    features?: Record<string, string>;
     price?: number;
     stock?: number;
+    brand?: string;
+    originalPrice?: number | null;
+    clearOriginalPrice?: boolean;
+    cargoText?: string;
+    categoryId?: number;
   },
   options: { publish: boolean } = { publish: false },
 ): Promise<{ message: string }> => {
@@ -85,8 +355,11 @@ export const updateProductContent = async (
     body: JSON.stringify(data),
   });
 
-  // Sadece "Yayınla" seçildiğinde Akıllı Market cache'ini temizle
   if (options.publish) {
+    // IsPublished = true → Akıllı Market'e yayınla
+    await publishProduct(id, true);
+
+    // Next.js cache temizle
     const commerceWebUrl = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
     try {
       await fetch(
@@ -100,5 +373,4 @@ export const updateProductContent = async (
 
   return result;
 };
-
 

@@ -7,6 +7,10 @@ public class OrderItem
     public string ProductId { get; set; } = "";
     public string Title { get; set; } = "";
     public string SellerName { get; set; } = "";
+    public Guid? BundleId { get; set; }
+    public string? BundleTitle { get; set; }
+    public decimal OriginalUnitPrice { get; set; }
+    public decimal DiscountAmount { get; set; }
     public decimal Price { get; set; }
     public int Quantity { get; set; }
 

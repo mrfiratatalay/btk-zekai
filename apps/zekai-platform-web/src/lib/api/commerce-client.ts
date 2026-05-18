@@ -1,5 +1,3 @@
-"use client";
-
 export const COMMERCE_API_BASE =
   process.env.NEXT_PUBLIC_COMMERCE_API_URL ?? "http://localhost:5001";
 

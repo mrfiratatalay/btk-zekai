@@ -285,22 +285,12 @@ export function ProjectsListPage() {
       <PlatformNav />
 
       <main className="mx-auto max-w-3xl px-4 py-8 md:px-6">
-        {/* Header */}
-        <div className="mb-10 mt-6 text-center">
-          <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center justify-center gap-3">
-            <FolderOpen className="size-8 text-[#5a8a00] dark:text-[#adff41]" />
-            Karar Odaları
-          </h1>
-          <p className="mt-3 text-base text-muted-foreground">
-            Alışveriş projelerini yönet, aday ürünlerini aynı klasörde topla.
-          </p>
-        </div>
-        <div className="mb-8 flex justify-center">
+        <div className="mb-8 flex justify-end">
           <Button
             onClick={() => setShowModal(true)}
-            className="h-12 rounded-full bg-[#adff41] px-8 text-[#0a0a0f] font-bold hover:bg-[#9aef30] shadow-md shadow-[#adff41]/20 transition-transform hover:scale-105"
+            className="h-10 rounded-xl bg-[#adff41] px-6 text-[#0a0a0f] font-bold hover:bg-[#9aef30] shadow-sm shadow-[#adff41]/20 transition-transform hover:scale-105"
           >
-            <Plus className="mr-2 size-5" />
+            <Plus className="mr-1.5 size-4" />
             Yeni Oda Oluştur
           </Button>
         </div>
@@ -316,13 +306,6 @@ export function ProjectsListPage() {
             <p className="mt-2 text-sm text-muted-foreground/80 relative z-10">
               "Yeni Bilgisayar", "Ev İhtiyaçları" gibi odalar oluşturup analizleri içinde topla.
             </p>
-            <button
-              onClick={() => setShowModal(true)}
-              className="mt-8 inline-flex h-12 items-center justify-center rounded-full bg-foreground px-8 text-sm font-bold text-background hover:bg-foreground/90 transition-transform hover:scale-105 relative z-10 shadow-lg"
-            >
-              <Plus className="size-4 mr-2" />
-              İlk Odanı Kur
-            </button>
           </div>
         )}
 

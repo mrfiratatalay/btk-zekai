@@ -7,11 +7,9 @@ import { ProductHeroSection } from "@/components/shop/ProductHeroSection";
 import { ProductDetailTabs } from "@/components/shop/ProductDetailTabs";
 import {
   getProduct,
-  getProductPriceHistory,
   getProductReviews,
-  getProducts,
+  getProductBundles,
   mapProductDetailToProduct,
-  mapProductListItemToProduct,
 } from "@/lib/api/products";
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,41 +21,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     notFound();
   }
 
-  const [reviews, priceHistory, similarItems] = await Promise.all([
+  const [reviews, bundles] = await Promise.all([
     getProductReviews(id),
-    getProductPriceHistory(id),
-    getProducts({ category: productDetail.category }),
+    getProductBundles(id),
   ]);
-  const product = {
-    ...mapProductDetailToProduct(productDetail),
-    analysisEvidence: {
-      reviews: reviews.map((review) => ({ ...review, id: String(review.id) })),
-      visualNotes: {
-        studioPhotoCount: productDetail.images.length,
-        customerPhotoCount: 0,
-        consistencyNotes: productDetail.images.length > 1 ? ["Ürün için birden fazla görsel var."] : [],
-        redFlags: productDetail.images.length === 0 ? ["Ürün görseli yok."] : [],
-      },
-      priceHistory,
-      market: {
-        medianPrice: priceHistory.at(-1)?.marketMedian ?? productDetail.price,
-        fairPriceMin: Math.round((priceHistory.at(-1)?.marketMedian ?? productDetail.price) * 0.92),
-        fairPriceMax: Math.round((priceHistory.at(-1)?.marketMedian ?? productDetail.price) * 1.08),
-        alternativeSellers: [],
-      },
-      returnReasons: [],
-      sellerSignals: {
-        storeRating: productDetail.rating,
-        shippingScore: productDetail.cargoText ? 80 : 50,
-        responseTime: "API kaydında yok",
-        riskNotes: [],
-      },
-    },
-  };
-  const similar = similarItems
-    .filter((item) => item.id !== product.id)
-    .slice(0, 4)
-    .map(mapProductListItemToProduct);
+  const product = mapProductDetailToProduct(productDetail);
 
   return (
     <div className="min-h-screen bg-white">
@@ -72,10 +40,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <ChevronRight className="size-3.5" />
           <span className="line-clamp-1 text-slate-600">{product.title}</span>
         </nav>
-        <ProductHeroSection product={product} />
+        <ProductHeroSection product={product} bundles={bundles} />
       </div>
       <div className="border-t border-slate-100">
-        <ProductDetailTabs product={product} similarProducts={similar} reviews={reviews.map((review) => ({ ...review, id: String(review.id) }))} />
+        <ProductDetailTabs product={product} reviews={reviews.map((review) => ({ ...review, id: String(review.id) }))} />
       </div>
     </div>
   );

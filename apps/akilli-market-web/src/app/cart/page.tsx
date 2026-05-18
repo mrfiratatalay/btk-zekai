@@ -6,12 +6,14 @@ import Image from "next/image";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { ShopHeader } from "@/components/shop/ShopHeader";
 import { Button } from "@/components/ui/button";
-import { useCartStore, cartTotal } from "@/lib/store/cart-store";
+import { useCartStore, cartDiscountTotal, cartItemCount, cartPayableTotal, cartSubtotal } from "@/lib/store/cart-store";
 import { formatPrice } from "@/lib/api/products";
 
 export default function CartPage() {
   const { items, loading, loadCart, removeItem, updateQty } = useCartStore();
-  const total = cartTotal(items);
+  const subtotal = cartSubtotal(items);
+  const discountTotal = cartDiscountTotal(items);
+  const total = cartPayableTotal(items);
 
   useEffect(() => {
     loadCart();
@@ -61,6 +63,11 @@ export default function CartPage() {
                     <p className="line-clamp-2 text-sm font-semibold text-[#111827]">
                       {item.title}
                     </p>
+                    {item.bundleId && (
+                      <p className="mt-1 w-fit rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold text-[#FF6000]">
+                        {item.bundleTitle}
+                      </p>
+                    )}
                     <button
                       onClick={() => removeItem(item.id)}
                       className="shrink-0 text-[#9CA3AF] transition hover:text-[#DC2626]"
@@ -74,6 +81,11 @@ export default function CartPage() {
                     <span className="text-lg font-bold text-[#FF6000]">
                       {formatPrice(item.price * item.quantity)}
                     </span>
+                    {item.discountAmount > 0 && (
+                      <span className="text-xs font-semibold text-emerald-600">
+                        -{formatPrice(item.discountAmount * item.quantity)}
+                      </span>
+                    )}
 
                     <div className="flex items-center gap-1 rounded-lg border border-[#E5E7EB] px-1">
                       <button
@@ -101,9 +113,21 @@ export default function CartPage() {
             ))}
 
             <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-[#6B7280]">Toplam ({items.reduce((s, i) => s + i.quantity, 0)} ürün)</span>
-                <span className="text-xl font-extrabold text-[#111827]">{formatPrice(total)}</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold text-[#6B7280]">Ara toplam ({cartItemCount(items)} urun)</span>
+                  <span className="font-bold text-[#111827]">{formatPrice(subtotal)}</span>
+                </div>
+                {discountTotal > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-emerald-600">Paket indirimi</span>
+                    <span className="font-bold text-emerald-600">-{formatPrice(discountTotal)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-[#E5E7EB] pt-2">
+                  <span className="font-semibold text-[#6B7280]">Toplam</span>
+                  <span className="text-xl font-extrabold text-[#111827]">{formatPrice(total)}</span>
+                </div>
               </div>
             </div>
 

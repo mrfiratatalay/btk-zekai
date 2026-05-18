@@ -4,6 +4,13 @@ import uvicorn
 from fastapi.responses import JSONResponse
 from google.adk.cli.fast_api import get_fast_api_app
 
+from seller.social_router import router as social_router
+from seller.content_router import router as content_router
+from seller.simulation_router import router as simulation_router
+from seller.image_router import router as image_router
+from seller.bundle_router import router as bundle_router
+from buyer.buyer_router import router as buyer_router
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -19,6 +26,14 @@ app = get_fast_api_app(
     web=True,
 )
 
+# Seller AI endpoints (Native Gemini SDK)
+app.include_router(social_router, prefix="/seller", tags=["seller-ai"])
+app.include_router(content_router, prefix="/seller", tags=["seller-ai"])
+app.include_router(simulation_router, prefix="/seller", tags=["seller-ai"])
+app.include_router(image_router, prefix="/seller", tags=["seller-ai"])
+app.include_router(bundle_router, prefix="/seller", tags=["seller-ai"])
+app.include_router(buyer_router, prefix="/buyer", tags=["buyer-ai"])
+
 
 def _has_google_api_key() -> bool:
     key = os.getenv("GOOGLE_API_KEY", "").strip()
@@ -27,7 +42,7 @@ def _has_google_api_key() -> bool:
 
 @app.middleware("http")
 async def require_google_api_key(request, call_next):
-    ai_paths = ("/run", "/run_sse", "/apps/")
+    ai_paths = ("/run", "/run_sse", "/apps/", "/seller/", "/buyer/")
     if request.url.path.startswith(ai_paths) and not _has_google_api_key():
         return JSONResponse(
             status_code=503,

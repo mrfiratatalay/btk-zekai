@@ -5,21 +5,31 @@ import { Loader2 } from "lucide-react";
 import { getSellerProduct, type SellerProduct } from "@/lib/api/seller";
 import { getProduct, type ProductDetail } from "@/lib/api/products";
 import { getCurrentUser } from "@/lib/api/auth";
+import { resolveCommerceImage } from "@/lib/utils";
 import { SellerAIEdit } from "./SellerAIEdit";
 import type { SellerProductPerformance } from "@/types/seller";
+
+const CATEGORIES_BY_NAME: Record<string, number> = {
+  "Elektronik": 1, "Spor & Outdoor": 2, "Mutfak": 3,
+  "Ev & Yaşam": 4, "Aksesuar": 5, "Anne & Bebek": 6,
+};
 
 function mapToPerformance(sp: SellerProduct, pd: ProductDetail): SellerProductPerformance {
   return {
     id: sp.id,
     title: pd.title,
-    image: pd.images[0] ?? "",
+    image: resolveCommerceImage(pd.images[0]),
+    brand: pd.brand ?? "",
     category: pd.category,
+    categoryId: CATEGORIES_BY_NAME[pd.category] ?? 1,
     price: pd.price,
+    originalPrice: pd.originalPrice ?? null,
     stock: pd.stock,
+    cargoText: pd.cargoText ?? "Ücretsiz Kargo",
     updatedAt: new Date(sp.updatedAt).toLocaleDateString("tr-TR"),
     description: pd.description ?? "",
     shortDescription: pd.shortDescription ?? "",
-    features: Object.values(pd.features ?? {}),
+    features: pd.features ?? {},
   };
 }
 
@@ -40,12 +50,18 @@ export function SellerAIEditClient({ productId }: { productId: string }) {
           setProduct(mapToPerformance(sp, pd));
         } else {
           setProduct({
-            id: pd.id, title: pd.title, image: pd.images[0] ?? "",
-            category: pd.category, price: pd.price, stock: pd.stock,
+            id: pd.id, title: pd.title, image: resolveCommerceImage(pd.images[0]),
+            brand: pd.brand ?? "",
+            category: pd.category,
+            categoryId: CATEGORIES_BY_NAME[pd.category] ?? 1,
+            price: pd.price,
+            originalPrice: pd.originalPrice ?? null,
+            stock: pd.stock,
+            cargoText: pd.cargoText ?? "Ücretsiz Kargo",
             updatedAt: new Date(pd.updatedAt).toLocaleDateString("tr-TR"),
             description: pd.description ?? "",
             shortDescription: pd.shortDescription ?? "",
-            features: Object.values(pd.features ?? {}),
+            features: pd.features ?? {},
           });
         }
       } catch {

@@ -43,6 +43,10 @@ public class ProductsController(ProductService products) : ControllerBase
     public async Task<IActionResult> GetPriceHistory(string id)
         => Ok(await products.GetPriceHistoryAsync(id));
 
+    [HttpGet("{id}/bundles")]
+    public async Task<IActionResult> GetBundles(string id)
+        => Ok(await products.GetPublishedBundlesAsync(id));
+
     [HttpGet("from-url")]
     public async Task<IActionResult> GetByUrl([FromQuery] string url)
     {

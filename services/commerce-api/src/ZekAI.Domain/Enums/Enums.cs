@@ -9,3 +9,5 @@ public enum StorePlatform { DemoStore, Trendyol, Hepsiburada, Shopify, WooCommer
 public enum StoreConnectionStatus { Connected, NotConnected, ComingSoon }
 
 public enum OrderStatus { Pending, Delivered, Completed }
+
+public enum ProductBundleStatus { Draft = 0, Published = 1, Archived = 2 }

@@ -36,8 +36,8 @@ export function ShopProductGrid() {
             </p>
           )}
         </div>
-        {!activeCategory && (
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-[#FF6000]">
+        {activeCategory && (
+          <Link href="/" className="inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-[#FF6000]">
             Tümünü Gör
             <ArrowRight className="size-4" />
           </Link>

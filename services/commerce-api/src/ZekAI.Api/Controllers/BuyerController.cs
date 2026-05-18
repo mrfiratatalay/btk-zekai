@@ -20,7 +20,7 @@ public class BuyerController(BuyerService buyer, FavoriteService favorites) : Co
         => Ok(await buyer.GetOrdersAsync(UserId));
 
     [HttpPost("orders")]
-    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest req)
+    public async Task<IActionResult> CreateOrder([FromBody] CreateCheckoutOrderRequest req)
     {
         try
         {

@@ -1,2 +1,4 @@
-import { SellerDashboard } from '@/components/seller-studio/SellerDashboard';
-export default function SellerPage() { return <SellerDashboard />; }
+import { redirect } from "next/navigation";
+export default function SellerPage() {
+  redirect("/seller/products");
+}

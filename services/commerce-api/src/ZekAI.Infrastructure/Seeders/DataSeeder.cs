@@ -10,27 +10,35 @@ public class DataSeeder(AppDbContext db)
 {
     public async Task SeedAsync()
     {
-        if (await db.Categories.AnyAsync()) return; // already seeded
-
-        // ── Categories ──
-        var categories = new List<Category>
+        // ── Categories (seed once) ──
+        if (!await db.Categories.AnyAsync())
         {
-            new() { Name = "Elektronik",      Slug = "elektronik" },
-            new() { Name = "Spor & Outdoor",  Slug = "spor-outdoor" },
-            new() { Name = "Mutfak",          Slug = "mutfak" },
-            new() { Name = "Ev & Yaşam",      Slug = "ev-yasam" },
-            new() { Name = "Aksesuar",        Slug = "aksesuar" },
-            new() { Name = "Anne & Bebek",    Slug = "anne-bebek" },
-        };
-        db.Categories.AddRange(categories);
-        await db.SaveChangesAsync();
+            var categories = new List<Category>
+            {
+                new() { Name = "Elektronik",      Slug = "elektronik" },
+                new() { Name = "Spor & Outdoor",  Slug = "spor-outdoor" },
+                new() { Name = "Mutfak",          Slug = "mutfak" },
+                new() { Name = "Ev & Yaşam",      Slug = "ev-yasam" },
+                new() { Name = "Aksesuar",        Slug = "aksesuar" },
+                new() { Name = "Anne & Bebek",    Slug = "anne-bebek" },
+            };
+            db.Categories.AddRange(categories);
+            await db.SaveChangesAsync();
+        }
 
-        var elec   = categories[0].Id;
-        var spor   = categories[1].Id;
-        var mut    = categories[2].Id;
-        var ev     = categories[3].Id;
-        var akc    = categories[4].Id;
-        var bebek  = categories[5].Id;
+        // ── Resolve category IDs by slug ──
+        var catMap = await db.Categories.ToDictionaryAsync(c => c.Slug, c => c.Id);
+        if (!catMap.ContainsKey("elektronik")) return; // unexpected state — bail
+
+        var elec  = catMap["elektronik"];
+        var spor  = catMap["spor-outdoor"];
+        var mut   = catMap["mutfak"];
+        var ev    = catMap["ev-yasam"];
+        var akc   = catMap["aksesuar"];
+        var bebek = catMap["anne-bebek"];
+
+        // ── Products — add only if missing by ID ──
+        var existingProductIds = await db.Products.Select(p => p.Id).ToHashSetAsync();
 
         // ── Products ──
         var products = new List<Product>
@@ -241,10 +249,15 @@ public class DataSeeder(AppDbContext db)
                 CargoText = "2-3 iş günü",
             },
         };
-        db.Products.AddRange(products);
-        await db.SaveChangesAsync();
+        var missingProducts = products.Where(p => !existingProductIds.Contains(p.Id)).ToList();
+        if (missingProducts.Count > 0)
+        {
+            db.Products.AddRange(missingProducts);
+            await db.SaveChangesAsync();
+        }
 
-        // ── Product Images ──
+        // ── Product Images — add only if missing ──
+        var existingImageProductIds = await db.ProductImages.Select(i => i.ProductId).ToHashSetAsync();
         var images = new List<ProductImage>
         {
             new() { ProductId = "bluetooth-kulaklik-pro-x1", Url = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80", IsPrimary = true, SortOrder = 0 },
@@ -260,10 +273,15 @@ public class DataSeeder(AppDbContext db)
             new() { ProductId = "masa-lambasi-led",          Url = "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&q=80", IsPrimary = true, SortOrder = 0 },
             new() { ProductId = "kahve-degirmeni-burr",      Url = "https://images.unsplash.com/photo-1571068316344-75bc76f77890?w=800&q=80", IsPrimary = true, SortOrder = 0 },
         };
-        db.ProductImages.AddRange(images);
-        await db.SaveChangesAsync();
+        var missingImages = images.Where(i => !existingImageProductIds.Contains(i.ProductId)).ToList();
+        if (missingImages.Count > 0)
+        {
+            db.ProductImages.AddRange(missingImages);
+            await db.SaveChangesAsync();
+        }
 
-        // ── Price History ──
+        // ── Price History — add only if missing ──
+        var existingPriceHistoryProductIds = await db.ProductPriceHistories.Select(h => h.ProductId).ToHashSetAsync();
         var days = new[] { "G-30", "G-20", "G-10", "G-5", "Bugün" };
         var priceHistories = new List<ProductPriceHistory>();
         foreach (var product in products)
@@ -279,10 +297,15 @@ public class DataSeeder(AppDbContext db)
                 });
             }
         }
-        db.ProductPriceHistories.AddRange(priceHistories);
-        await db.SaveChangesAsync();
+        var missingPriceHistories = priceHistories.Where(h => !existingPriceHistoryProductIds.Contains(h.ProductId)).ToList();
+        if (missingPriceHistories.Count > 0)
+        {
+            db.ProductPriceHistories.AddRange(missingPriceHistories);
+            await db.SaveChangesAsync();
+        }
 
-        // ── Reviews for Bluetooth Kulaklık ──
+        // ── Reviews — add only if missing ──
+        var existingReviewProductIds = await db.ProductReviews.Select(r => r.ProductId).ToHashSetAsync();
         var reviews = new List<ProductReview>
         {
             // Bluetooth Kulaklık
@@ -347,57 +370,123 @@ public class DataSeeder(AppDbContext db)
             // Ergonomik Sandalye (ek)
             new() { ProductId = "ergonomik-calisma-sandalyesi", Rating = 4, Title = "Ev ofisi için biçilmiş kaftan", Text = "Uzaktan çalışıyorum, 8 saat oturuyorum. Sandalye bel ve boyun ağrısını çözdü.", VerifiedPurchase = true, Date = DateTime.UtcNow.AddDays(-22), HelpfulCount = 37, TagsJson = """["ev ofisi","uzun kullanım"]""" },
         };
-        db.ProductReviews.AddRange(reviews);
-        await db.SaveChangesAsync();
-
-        // ── Seller User ──
-        var sellerUser = new User
+        var missingReviews = reviews.Where(r => !existingReviewProductIds.Contains(r.ProductId)).ToList();
+        if (missingReviews.Count > 0)
         {
-            Id = Guid.NewGuid(),
-            Email = "mehmet@ornekstore.com",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Seller123!"),
-            FullName = "Mehmet Kaya",
-            Role = UserRole.Seller,
-        };
-        db.Users.Add(sellerUser);
-        await db.SaveChangesAsync();
-
-        // ── Seller ──
-        var seller = new Seller
-        {
-            Id = Guid.NewGuid(),
-            UserId = sellerUser.Id,
-            StoreName = "Mehmet Elektronik",
-            OwnerName = "Mehmet Kaya",
-            TrustScore = 64,
-            StoreRating = 4.6,
-            TotalReviewCount = 1642,
-            FastShipping = true,
-            ReturnDays = 14,
-            ApiKey = "am_live_demo_mehmet_elektronik_2024",
-        };
-        db.Sellers.Add(seller);
-        await db.SaveChangesAsync();
-
-        // ── SellerProducts ──
-        var productIds = products.Select(p => p.Id).ToList();
-        foreach (var pid in productIds)
-        {
-            db.SellerProducts.Add(new SellerProduct
-            {
-                SellerId = seller.Id,
-                ProductId = pid,
-                IsPublished = true,
-            });
+            db.ProductReviews.AddRange(missingReviews);
+            await db.SaveChangesAsync();
         }
-        await db.SaveChangesAsync();
 
-        // ── Buyer Users ──
-        db.Users.AddRange(
-            new User { Id = Guid.NewGuid(), Email = "burak@ornekstore.com", PasswordHash = BCrypt.Net.BCrypt.HashPassword("Buyer123!"), FullName = "Burak Yılmaz", Role = UserRole.Buyer },
-            new User { Id = Guid.NewGuid(), Email = "ali@test.com",         PasswordHash = BCrypt.Net.BCrypt.HashPassword("Buyer123!"), FullName = "Ali Demir",    Role = UserRole.Buyer }
-        );
-        await db.SaveChangesAsync();
+        // ── Seller User & Seller (create if missing) ──
+        var sellerUser = await db.Users.FirstOrDefaultAsync(u => u.Email == "mehmet@ornekstore.com");
+        if (sellerUser is null)
+        {
+            sellerUser = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = "mehmet@ornekstore.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Seller123!"),
+                FullName = "Mehmet Kaya",
+                Role = UserRole.Seller,
+            };
+            db.Users.Add(sellerUser);
+            await db.SaveChangesAsync();
+        }
+
+        var seller = await db.Sellers.FirstOrDefaultAsync(s => s.UserId == sellerUser.Id);
+        if (seller is null)
+        {
+            seller = new Seller
+            {
+                Id = Guid.NewGuid(),
+                UserId = sellerUser.Id,
+                StoreName = "Mehmet Elektronik",
+                OwnerName = "Mehmet Kaya",
+                TrustScore = 64,
+                StoreRating = 4.6,
+                TotalReviewCount = 1642,
+                FastShipping = true,
+                ReturnDays = 14,
+                ApiKey = "am_live_demo_mehmet_elektronik_2024",
+            };
+            db.Sellers.Add(seller);
+            await db.SaveChangesAsync();
+        }
+        else if (seller.ApiKey != "am_live_demo_mehmet_elektronik_2024")
+        {
+            seller.ApiKey = "am_live_demo_mehmet_elektronik_2024";
+            await db.SaveChangesAsync();
+        }
+
+        // ── SellerProducts — add only if missing ──
+        var existingSellerProductIds = await db.SellerProducts
+            .Where(sp => sp.SellerId == seller.Id)
+            .Select(sp => sp.ProductId)
+            .ToHashSetAsync();
+
+        var missingSellerProducts = products
+            .Where(p => !existingSellerProductIds.Contains(p.Id))
+            .ToList();
+
+        if (missingSellerProducts.Count > 0)
+        {
+            foreach (var p in missingSellerProducts)
+            {
+                db.SellerProducts.Add(new SellerProduct
+                {
+                    SellerId = seller.Id,
+                    ProductId = p.Id,
+                    IsPublished = true,
+                });
+            }
+            await db.SaveChangesAsync();
+        }
+
+        // ── ProductBundles — add only if missing ──
+        if (!await db.ProductBundles.AnyAsync(b => b.SellerId == seller.Id))
+        {
+            db.ProductBundles.AddRange(
+                new ProductBundle
+                {
+                    SellerId = seller.Id,
+                    PrimaryProductId = "bluetooth-kulaklik-pro-x1",
+                    ComplementaryProductId = "telefon-kilifi-magsafe",
+                    Title = "Günlük Teknoloji Paketi",
+                    ShortDescription = "Kulaklık deneyimini telefon korumasıyla tamamla.",
+                    CampaignText = "İkisini birlikte al, sepette %5 avantaj yakala.",
+                    DiscountPercent = 5,
+                    Status = ProductBundleStatus.Published,
+                    RecommendationReason = "Aksesuar kategorisi elektronik ürünlerle birlikte sepet değerini artırır.",
+                    Score = 94,
+                    PublishedAt = DateTime.UtcNow,
+                },
+                new ProductBundle
+                {
+                    SellerId = seller.Id,
+                    PrimaryProductId = "kahve-degirmeni-burr",
+                    ComplementaryProductId = "mutfak-robotu-compact",
+                    Title = "Mutfak Hazırlık Paketi",
+                    ShortDescription = "Taze kahve ve pratik hazırlık ekipmanını birlikte sun.",
+                    CampaignText = "Mutfakta iki tamamlayıcı ürünü birlikte al, %5 tasarruf et.",
+                    DiscountPercent = 5,
+                    Status = ProductBundleStatus.Published,
+                    RecommendationReason = "Aynı mutfak kategorisindeki tamamlayıcı ürünler birlikte kullanım ihtiyacına hitap eder.",
+                    Score = 91,
+                    PublishedAt = DateTime.UtcNow,
+                }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        // ── Buyer Users — add only if missing ──
+        if (!await db.Users.AnyAsync(u => u.Email == "burak@ornekstore.com"))
+        {
+            db.Users.AddRange(
+                new User { Id = Guid.NewGuid(), Email = "burak@ornekstore.com", PasswordHash = BCrypt.Net.BCrypt.HashPassword("Buyer123!"), FullName = "Burak Yılmaz", Role = UserRole.Buyer },
+                new User { Id = Guid.NewGuid(), Email = "ali@test.com",         PasswordHash = BCrypt.Net.BCrypt.HashPassword("Buyer123!"), FullName = "Ali Demir",    Role = UserRole.Buyer }
+            );
+            await db.SaveChangesAsync();
+        }
 
         Console.WriteLine("✅ Database seeded successfully.");
     }

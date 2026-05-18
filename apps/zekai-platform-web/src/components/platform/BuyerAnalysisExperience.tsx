@@ -125,9 +125,11 @@ export function BuyerAnalysisExperience({
   }, [analysis.agentSteps, completedStepIds, useLiveAgent]);
 
   const liveFindings = [
-    `${liveAnalysis.trustAnalysis.signals[0]?.value ?? "Yorumlar"} tarandi`,
-    liveAnalysis.trustAnalysis.signals[1]?.description ?? "Gorsel analiz tamamlandi",
-    liveAnalysis.priceAnalysis.warning || "Fiyat gecmisi kontrol edildi",
+    liveAnalysis.trustAnalysis.signals[0]?.value
+      ? `${liveAnalysis.trustAnalysis.signals[0].value} tarandi`
+      : null,
+    liveAnalysis.trustAnalysis.signals[1]?.description ?? null,
+    liveAnalysis.priceAnalysis.warning || null,
     `Iade riski %${liveAnalysis.scores.returnRiskPercent} olarak hesaplandi`,
   ].filter(Boolean) as string[];
 

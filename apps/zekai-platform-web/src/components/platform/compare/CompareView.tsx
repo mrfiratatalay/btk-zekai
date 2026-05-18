@@ -104,11 +104,11 @@ function ProductColumn({
   isPending,
 }: {
   analysis: SavedAnalysis;
-  row: CompareResult["table"][number];
+  row: CompareResult["table"][number] | null;
   onRemove: (id: string) => void;
   isPending?: boolean;
 }) {
-  const verdict = isPending ? VERDICT_CONFIG["pending"] : VERDICT_CONFIG[row.verdict];
+  const verdict = (isPending || !row) ? VERDICT_CONFIG["pending"] : VERDICT_CONFIG[row.verdict];
   const lv = LEVEL[analysis.recommendationLevel];
 
   return (
@@ -117,7 +117,7 @@ function ProductColumn({
       animate={{ opacity: 1, y: 0 }}
       className={cn(
         "relative flex flex-col overflow-hidden rounded-[32px] border-2 bg-card/80 backdrop-blur-3xl shadow-sm transition-all hover:shadow-xl",
-        row.verdict === "best"
+        row?.verdict === "best"
           ? "border-[#adff41]/50 shadow-[#adff41]/10 z-10 scale-[1.02]"
           : "border-border/30"
       )}
@@ -153,26 +153,34 @@ function ProductColumn({
 
       {/* Scores */}
       <div className="space-y-4 border-t border-border/50 px-6 py-6 bg-muted/10">
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Uygunluk</p>
-          <ScoreBar value={row.fitScore} color="bg-[#adff41]" />
-        </div>
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Güven</p>
-          <ScoreBar value={row.trustScore} color="bg-blue-500" />
-        </div>
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Fiyat Skoru</p>
-          <ScoreBar value={row.priceScore} color="bg-purple-500" />
-        </div>
-        <div>
-          <p className="mb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">İade Güveni</p>
-          <ScoreBar value={100 - row.returnRiskPercent} color="bg-emerald-500" />
-        </div>
-        <div className="border-t border-border/50 pt-4 mt-2">
-          <p className="mb-1.5 text-xs font-black text-foreground uppercase tracking-wide">Zekai Skoru</p>
-          <ScoreBar value={row.compositeScore} color="bg-foreground" />
-        </div>
+        {row ? (
+          <>
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Uygunluk</p>
+              <ScoreBar value={row.fitScore} color="bg-[#adff41]" />
+            </div>
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Güven</p>
+              <ScoreBar value={row.trustScore} color="bg-blue-500" />
+            </div>
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Fiyat Skoru</p>
+              <ScoreBar value={row.priceScore} color="bg-purple-500" />
+            </div>
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-wide">İade Güveni</p>
+              <ScoreBar value={100 - row.returnRiskPercent} color="bg-emerald-500" />
+            </div>
+            <div className="border-t border-border/50 pt-4 mt-2">
+              <p className="mb-1.5 text-xs font-black text-foreground uppercase tracking-wide">Zekai Skoru</p>
+              <ScoreBar value={row.compositeScore} color="bg-foreground" />
+            </div>
+          </>
+        ) : (
+          <p className="text-center text-xs text-muted-foreground py-4">
+            Karşılaştırma bekleniyor...
+          </p>
+        )}
       </div>
 
       {/* Actions */}
@@ -265,24 +273,16 @@ export function CompareView() {
       <PlatformNav />
 
       <main className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-        {/* Header */}
-        <div className="mb-10 mt-6 text-center relative">
-          <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center justify-center gap-3">
-            <GitCompare className="size-8 text-[#5a8a00] dark:text-[#adff41]" />
-            Ürün Karşılaştırma
-          </h1>
-          <p className="mt-3 text-base text-muted-foreground">
-            {queue.length} ürün seçili · Hangi ürünün senin için daha doğru olduğunu öğren.
-          </p>
-          {queue.length > 0 && (
+        {queue.length > 0 && (
+          <div className="mb-6 flex justify-end">
             <button
               onClick={handleClear}
-              className="absolute right-0 top-0 text-xs font-bold text-muted-foreground hover:text-red-500 transition-colors"
+              className="text-xs font-bold text-muted-foreground hover:text-red-500 transition-colors"
             >
               Listeyi Temizle
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Empty state */}
         {queue.length === 0 && (
@@ -345,27 +345,11 @@ export function CompareView() {
                 {analyses.map((analysis) => {
                   const row = result?.table.find((r) => r.id === analysis.id);
                   if (!row) {
-                    // karşılaştırma henüz yapılmadı, placeholder row
-                    const composite = (analysis.scores.fitScore * 0.35) + 
-                                      (analysis.scores.trustScore * 0.25) + 
-                                      (analysis.scores.priceScore * 0.2) + 
-                                      ((100 - analysis.scores.returnRiskPercent) * 0.2);
-
-                    const placeholderRow = {
-                      id: analysis.id,
-                      productTitle: analysis.productTitle,
-                      fitScore: analysis.scores.fitScore,
-                      trustScore: analysis.scores.trustScore,
-                      priceScore: analysis.scores.priceScore,
-                      returnRiskPercent: analysis.scores.returnRiskPercent,
-                      compositeScore: Math.round(composite),
-                      verdict: "ok" as const,
-                    };
                     return (
                       <ProductColumn
                         key={analysis.id}
                         analysis={analysis}
-                        row={placeholderRow}
+                        row={null}
                         onRemove={handleRemove}
                         isPending={true}
                       />

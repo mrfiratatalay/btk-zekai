@@ -17,6 +17,10 @@ public class CartItem
     public string ProductId { get; set; } = "";
     public string Title { get; set; } = "";
     public decimal Price { get; set; }
+    public decimal OriginalPrice { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public Guid? BundleId { get; set; }
+    public string? BundleTitle { get; set; }
     public string Image { get; set; } = "";
     public int Quantity { get; set; }
     public int Stock { get; set; }

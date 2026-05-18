@@ -27,9 +27,14 @@ public class UpdateProductContentRequest
     public string? Title { get; set; }
     public string? ShortDescription { get; set; }
     public string? Description { get; set; }
-    public List<string>? Features { get; set; }
+    public Dictionary<string, string>? Features { get; set; }
     public decimal? Price { get; set; }
     public int? Stock { get; set; }
+    public string? Brand { get; set; }
+    public decimal? OriginalPrice { get; set; }
+    public bool ClearOriginalPrice { get; set; }
+    public string? CargoText { get; set; }
+    public int? CategoryId { get; set; }
 }
 
 public class CreateProductRequest
@@ -44,12 +49,101 @@ public class CreateProductRequest
     public string CargoText { get; set; } = "Ücretsiz Kargo";
     public int Stock { get; set; } = 1;
     public string? PrimaryImageUrl { get; set; }
+    public Dictionary<string, string>? Features { get; set; }
 }
 
 public record PublishProductRequest(bool Published);
 
+public record UpdateProductImageRequest(string ImageBase64, string MimeType);
 public record GenerateSocialContentRequest(string Tone);
 
+public class SaveSocialContentRequest
+{
+    public string Tone { get; set; } = "";
+    public string Instagram { get; set; } = "";
+    public string TiktokScriptJson { get; set; } = "";
+    public string Twitter { get; set; } = "";
+}
+
+public record BundleProductDto(
+    string Id,
+    string Title,
+    string Brand,
+    string Category,
+    decimal Price,
+    int Stock,
+    string Image
+);
+
+public record ProductBundleDto(
+    Guid Id,
+    string Title,
+    string ShortDescription,
+    string CampaignText,
+    string CtaLabel,
+    decimal DiscountPercent,
+    string Status,
+    string RecommendationReason,
+    int Score,
+    BundleProductDto PrimaryProduct,
+    BundleProductDto ComplementaryProduct,
+    decimal OriginalTotal,
+    decimal DiscountAmount,
+    decimal BundleTotal,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    DateTime? PublishedAt
+);
+
+public record BundleRecommendationDto(
+    BundleProductDto PrimaryProduct,
+    BundleProductDto ComplementaryProduct,
+    string SuggestedTitle,
+    string SuggestedShortDescription,
+    string SuggestedCampaignText,
+    string SuggestedCtaLabel,
+    decimal SuggestedDiscountPercent,
+    string RecommendationReason,
+    int Score,
+    decimal OriginalTotal,
+    decimal DiscountAmount,
+    decimal BundleTotal
+);
+
+public record MissingBundleOpportunityDto(
+    string Title,
+    string Message,
+    List<string> SuggestedProductIdeas
+);
+
+public record BundleRecommendationResponse(
+    List<BundleRecommendationDto> Recommendations,
+    MissingBundleOpportunityDto? MissingOpportunity
+);
+
+public class CreateProductBundleRequest
+{
+    public string ComplementaryProductId { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string ShortDescription { get; set; } = "";
+    public string CampaignText { get; set; } = "";
+    public string CtaLabel { get; set; } = "Paketi Sepete Ekle";
+    public decimal DiscountPercent { get; set; } = 5;
+    public string RecommendationReason { get; set; } = "";
+    public int Score { get; set; }
+    public bool Publish { get; set; }
+}
+
+public class UpdateProductBundleRequest
+{
+    public string? Title { get; set; }
+    public string? ShortDescription { get; set; }
+    public string? CampaignText { get; set; }
+    public string? CtaLabel { get; set; }
+    public decimal? DiscountPercent { get; set; }
+}
+
+public record PublishBundleRequest(bool Published);
 public record TiktokScene(string Time, string Text);
 
 public record SocialMediaContentDto(
@@ -61,12 +155,14 @@ public record SocialMediaContentDto(
 );
 
 public record StoreConnectionDto(
+    int Id,
     string Platform,
     string StoreName,
     string Status,
     DateTime? LastSyncAt,
-    int ProductCount
+    int ProductCount,
+    bool HasApiKey
 );
 
-public record ConnectStoreRequest(string StoreUrl, string Platform = "demo-store");
-
+public record ConnectStoreRequest(string StoreApiKey, string StoreName, string Platform = "DemoStore");
+public record DisconnectStoreRequest(int ConnectionId);

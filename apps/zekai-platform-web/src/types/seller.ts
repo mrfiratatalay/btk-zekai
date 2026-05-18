@@ -20,13 +20,17 @@ export type SellerProductPerformance = {
   id: string;
   title: string;
   image: string;
+  brand: string;
   category: string;
+  categoryId: number;
   price: number;
+  originalPrice: number | null;
   stock: number;
+  cargoText: string;
   updatedAt: string;
   description: string;
   shortDescription: string;
-  features: string[];
+  features: Record<string, string>;
 };
 
 export type SyntheticPersonaDecision = "buy" | "skip" | "undecided";

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { ShopHeader } from "@/components/shop/ShopHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useCartStore, cartTotal } from "@/lib/store/cart-store";
+import { useCartStore, cartDiscountTotal, cartPayableTotal, cartSubtotal } from "@/lib/store/cart-store";
 import { createOrder, type Order } from "@/lib/api/buyer";
 import { getCurrentUser } from "@/lib/api/auth";
 import { formatPrice } from "@/lib/api/products";
@@ -18,7 +18,9 @@ const PAYMENT_METHODS = ["Kredi Kartı", "Havale/EFT", "Kapıda Ödeme"] as cons
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, clearCart } = useCartStore();
-  const total = cartTotal(items);
+  const subtotal = cartSubtotal(items);
+  const discountTotal = cartDiscountTotal(items);
+  const total = cartPayableTotal(items);
 
   const [address, setAddress] = useState("");
   const [payment, setPayment] = useState<string>("Kredi Kartı");
@@ -59,18 +61,22 @@ export default function CheckoutPage() {
     }
     setLoading(true);
     try {
-      const created: Order[] = [];
+      const bundleMap = new Map<string, number>();
       for (const item of items) {
-        const order = await createOrder({
-          productId: item.productId,
-          quantity: item.quantity,
-          deliveryAddress: address,
-          paymentMethod: payment,
-        });
-        created.push(order);
+        if (item.bundleId && !bundleMap.has(item.bundleId)) {
+          bundleMap.set(item.bundleId, item.quantity);
+        }
       }
+      const order = await createOrder({
+        items: items
+          .filter((item) => !item.bundleId)
+          .map((item) => ({ productId: item.productId, quantity: item.quantity })),
+        bundles: Array.from(bundleMap.entries()).map(([bundleId, quantity]) => ({ bundleId, quantity })),
+        deliveryAddress: address,
+        paymentMethod: payment,
+      });
       await clearCart();
-      setPlacedOrders(created);
+      setPlacedOrders([order]);
       setDone(true);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Sipariş oluşturulamadı.");
@@ -130,18 +136,29 @@ export default function CheckoutPage() {
           <div className="space-y-2 rounded-xl border border-[#E5E7EB] p-4">
             <p className="mb-3 text-sm font-bold text-[#111827]">Sipariş Özeti</p>
             {items.map((item) => (
-              <div key={item.productId} className="flex items-center justify-between text-sm">
+              <div key={item.id} className="flex items-center justify-between text-sm">
                 <span className="line-clamp-1 flex-1 text-[#374151]">
                   {item.title}{" "}
                   <span className="text-[#9CA3AF]">x{item.quantity}</span>
+                  {item.bundleTitle && <span className="ml-1 text-[#FF6000]">({item.bundleTitle})</span>}
                 </span>
                 <span className="ml-4 font-bold text-[#111827]">
                   {formatPrice(item.price * item.quantity)}
                 </span>
               </div>
             ))}
+            <div className="flex items-center justify-between border-t border-[#E5E7EB] pt-3 text-sm">
+              <span className="text-[#6B7280]">Ara toplam</span>
+              <span className="font-bold text-[#111827]">{formatPrice(subtotal)}</span>
+            </div>
+            {discountTotal > 0 && (
+              <div className="flex items-center justify-between text-sm font-bold text-emerald-600">
+                <span>Paket indirimi</span>
+                <span>-{formatPrice(discountTotal)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-[#E5E7EB] pt-3 font-bold">
-              <span className="text-[#6B7280]">Toplam</span>
+              <span className="text-[#6B7280]">Odenecek toplam</span>
               <span className="text-[#111827]">{formatPrice(total)}</span>
             </div>
           </div>

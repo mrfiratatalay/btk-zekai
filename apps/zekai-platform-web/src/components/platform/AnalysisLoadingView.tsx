@@ -8,7 +8,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
   CheckCircle2, Circle, FileCheck2, FileSearch,
-  Gauge, GitBranch, ImageIcon, Loader2, MessageSquareText,
+  Gauge, GitBranch, Loader2, MessageSquareText,
   PackageSearch, ReceiptText, RefreshCw, ScanLine,
   ShieldCheck, UserRoundSearch,
 } from "lucide-react";
@@ -30,39 +30,37 @@ const stages = [
 ] as const;
 
 const FEED = [
-  { at:1, text:"Yorum forensiği tamamlandı" },
-  { at:3, text:"Görsel tutarlılık kontrol edildi" },
-  { at:4, text:"Satıcı güven sinyalleri değerlendirildi" },
-  { at:5, text:"Fiyat ve pazar analizi yapıldı" },
-  { at:7, text:"Risk skorları hesaplandı" },
-  { at:8, text:"Kanıtsız iddialar rapordan elendi" },
+  { at:1, text:"Yorumlar değerlendirildi" },
+  { at:3, text:"Görseller kontrol edildi" },
+  { at:4, text:"Satıcı bilgileri değerlendirildi" },
+  { at:5, text:"Fiyat analizi yapıldı" },
+  { at:7, text:"Risk değerlendirmesi tamamlandı" },
+  { at:8, text:"Rapor hazırlandı" },
 ];
 
 /* ── React Flow setup ────────────────────────────────────────────────────── */
 const ICON: Record<string, React.FC<{ className?: string }>> = {
   need: UserRoundSearch, product: PackageSearch, review: MessageSquareText,
-  visual: ImageIcon, price: Gauge, return: RefreshCw,
+  price: Gauge, return: RefreshCw,
   synthesis: GitBranch, verification: ShieldCheck, report: ReceiptText,
 };
 
-// 2-row layout — max width ~960px so nodes stay readable inside 92vw drawer
 const POSITIONS: Record<string, { x: number; y: number }> = {
   "need-agent":         { x: 0,   y: 160 },
   "product-agent":      { x: 260, y: 20  },
   "review-agent":       { x: 260, y: 300 },
-  "visual-agent":       { x: 520, y: 20  },
-  "price-agent":        { x: 520, y: 300 },
-  "return-agent":       { x: 780, y: 20  },
-  "synthesis-agent":    { x: 780, y: 300 },
+  "price-agent":        { x: 520, y: 20  },
+  "return-agent":       { x: 520, y: 300 },
+  "synthesis-agent":    { x: 780, y: 160 },
   "verification-agent": { x: 1040,y: 160 },
   "report-agent":       { x: 1300,y: 160 },
 };
 
 const EDGE_PAIRS = [
   ["need-agent","product-agent"], ["need-agent","review-agent"],
-  ["product-agent","visual-agent"], ["review-agent","price-agent"],
-  ["visual-agent","return-agent"], ["price-agent","synthesis-agent"],
-  ["return-agent","verification-agent"], ["synthesis-agent","verification-agent"],
+  ["product-agent","price-agent"], ["review-agent","return-agent"],
+  ["price-agent","synthesis-agent"], ["return-agent","synthesis-agent"],
+  ["synthesis-agent","verification-agent"],
   ["verification-agent","report-agent"],
 ];
 
@@ -147,7 +145,7 @@ const EDGE_TYPES = { agent: AgentEdge };
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 export function AnalysisLoadingView({
-  agentSteps, userNeedText, product, analysisId, onComplete, completedOverride, disableTimer,
+  agentSteps, userNeedText, product, liveFindings, analysisId, onComplete, completedOverride, disableTimer,
 }: {
   agentSteps: AgentStep[];
   userNeedText: string;
@@ -246,8 +244,10 @@ export function AnalysisLoadingView({
 
         {/* Live feed */}
         <div className="space-y-3">
-          {FEED.map(item => {
-            const revealed = completed >= item.at;
+          {(liveFindings && liveFindings.length > 0 ? liveFindings.map((text, i) => ({ at: i, text })) : FEED).map((item, _i) => {
+            const revealed = liveFindings && liveFindings.length > 0
+              ? true
+              : completed >= item.at;
             return (
               <div key={item.text} className={cn(
                 "flex items-center gap-2.5 text-sm transition-opacity duration-500",

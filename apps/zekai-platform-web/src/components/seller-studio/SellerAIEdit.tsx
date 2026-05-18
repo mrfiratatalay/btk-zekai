@@ -14,6 +14,7 @@ import {
   Wand2,
   X,
   Info,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { SellerProductPerformance } from "@/types/seller";
@@ -24,6 +25,7 @@ import {
   generateProductImages,
   applyProductImage,
   getStoreConnections,
+  aiFeaturesToRecord,
   type GeneratedProductImageItem,
   type SimulationInsight,
 } from "@/lib/api/seller";
@@ -32,16 +34,23 @@ import { useSearchParams } from "next/navigation";
 
 const COMMERCE_API = process.env.NEXT_PUBLIC_COMMERCE_API_URL ?? "http://localhost:5001";
 
+const CATEGORIES = [
+  { id: 1, name: "Elektronik" },
+  { id: 2, name: "Spor & Outdoor" },
+  { id: 3, name: "Mutfak" },
+  { id: 4, name: "Ev & Yaşam" },
+  { id: 5, name: "Aksesuar" },
+  { id: 6, name: "Anne & Bebek" },
+];
+
 function loadSimulationInsight(productId: string): SimulationInsight | null {
   try {
     const raw = sessionStorage.getItem(`zekai_sim_${productId}`);
     if (!raw) return null;
     const { personas } = JSON.parse(raw) as { personas: SyntheticPersona[] };
     if (!personas?.length) return null;
-
     const skippers  = personas.filter((p) => p.decision === "skip");
     const undecided = personas.filter((p) => p.decision === "undecided");
-
     return {
       buyCount:          personas.filter((p) => p.decision === "buy").length,
       skipCount:         skippers.length,
@@ -53,32 +62,49 @@ function loadSimulationInsight(productId: string): SimulationInsight | null {
   } catch { return null; }
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+      {children}
+    </label>
+  );
+}
+
 export function SellerAIEdit({ product }: { product: SellerProductPerformance }) {
-  const [title, setTitle] = useState(product.title);
-  const [shortDescription, setShortDescription] = useState(product.shortDescription);
-  const [description, setDescription] = useState(product.description);
-  const [features, setFeatures] = useState<string[]>(product.features);
-  const [price, setPrice] = useState(String(product.price));
-  const [stock, setStock] = useState(String(product.stock));
+  const [title, setTitle]                   = useState(product.title);
+  const [brand, setBrand]                   = useState(product.brand);
+  const [categoryId, setCategoryId]         = useState(product.categoryId);
+  const [shortDescription, setShortDesc]    = useState(product.shortDescription);
+  const [description, setDescription]       = useState(product.description);
+  const [features, setFeatures]             = useState<Record<string, string>>(product.features);
+  const [price, setPrice]                   = useState(String(product.price));
+  const [originalPrice, setOriginalPrice]   = useState(product.originalPrice != null ? String(product.originalPrice) : "");
+  const [cargoText, setCargoText]           = useState(product.cargoText);
+  const [stock, setStock]                   = useState(String(product.stock));
 
-  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGenerating, setAiGenerating]           = useState(false);
   const [aiImprovementNote, setAiImprovementNote] = useState<string | null>(null);
-  const [imageGenerating, setImageGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [aiApplied, setAiApplied] = useState(false);
-  const [addingFeature, setAddingFeature] = useState(false);
-  const [newFeature, setNewFeature] = useState("");
-  const [isDraft, setIsDraft] = useState(false);
+  const [imageGenerating, setImageGenerating]     = useState(false);
+  const [saving, setSaving]                       = useState(false);
+  const [publishing, setPublishing]               = useState(false);
+  const [aiApplied, setAiApplied]                 = useState(false);
+  const [isDraft, setIsDraft]                     = useState(false);
 
-  // 3-shot generated images
-  const [generatedImages, setGeneratedImages] = useState<GeneratedProductImageItem[]>([]);
-  const [selectedImageType, setSelectedImageType] = useState<string | null>(null);
-  const [applyingImage, setApplyingImage] = useState(false);
-  const [appliedImageUrl, setAppliedImageUrl] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages]       = useState<GeneratedProductImageItem[]>([]);
+  const [selectedImageType, setSelectedImageType]   = useState<string | null>(null);
+  const [applyingImage, setApplyingImage]           = useState(false);
+  const [appliedImageUrl, setAppliedImageUrl]       = useState<string | null>(null);
+
+  // Özellik ekleme
+  const [addingFeature, setAddingFeature] = useState(false);
+  const [newFeatureKey, setNewFeatureKey] = useState("");
+  const [newFeatureVal, setNewFeatureVal] = useState("");
+  // Satır düzenleme
+  const [editingKey, setEditingKey]       = useState<string | null>(null);
+  const [editingVal, setEditingVal]       = useState("");
 
   const [hasStoreConnection, setHasStoreConnection] = useState(false);
-  const [simulationInsight, setSimulationInsight] = useState<SimulationInsight | null>(null);
+  const [simulationInsight, setSimulationInsight]   = useState<SimulationInsight | null>(null);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -95,8 +121,26 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
   }, [product.id, searchParams]);
 
   const optimizationScore = aiApplied ? "AI İçerik Uygulandı" : description ? "Temel İçerik Var" : "İçerik Eksik";
-
   const selectedImage = generatedImages.find((img) => img.type === selectedImageType) ?? null;
+
+  function markDraft() { setIsDraft(true); }
+
+  function buildPayload() {
+    const originalPriceNum = originalPrice ? Number(originalPrice) : null;
+    return {
+      title,
+      shortDescription,
+      description,
+      features,
+      price: Number(price),
+      stock: Number(stock),
+      brand,
+      originalPrice: originalPriceNum ?? undefined,
+      clearOriginalPrice: !originalPrice,
+      cargoText,
+      categoryId,
+    };
+  }
 
   async function handleGenerateCEO() {
     setAiGenerating(true);
@@ -104,9 +148,9 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
     try {
       const result = await generateAiContent(product.id, simulationInsight ?? undefined);
       setTitle(result.title);
-      setShortDescription(result.shortDescription);
+      setShortDesc(result.shortDescription);
       setDescription(result.description);
-      if (result.features.length > 0) setFeatures(result.features);
+      if (result.features.length > 0) setFeatures(aiFeaturesToRecord(result.features));
       if (result.whatIImproved) setAiImprovementNote(result.whatIImproved);
       setAiApplied(true);
       setIsDraft(true);
@@ -154,10 +198,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
   async function handleSaveDraft() {
     setSaving(true);
     try {
-      await updateProductContent(product.id, {
-        title, shortDescription, description, features,
-        price: Number(price), stock: Number(stock),
-      }, { publish: false });
+      await updateProductContent(product.id, buildPayload(), { publish: false });
       setIsDraft(true);
       toast.success("Taslak kaydedildi");
     } catch (err: unknown) {
@@ -170,10 +211,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
   async function handlePublish() {
     setPublishing(true);
     try {
-      await updateProductContent(product.id, {
-        title, shortDescription, description, features,
-        price: Number(price), stock: Number(stock),
-      }, { publish: true });
+      await updateProductContent(product.id, buildPayload(), { publish: true });
       setIsDraft(false);
       toast.success("Değişiklikler Akıllı Market'e yayınlandı");
     } catch (err: unknown) {
@@ -184,18 +222,38 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
   }
 
   function addFeature() {
-    const trimmed = newFeature.trim();
-    if (!trimmed) return;
-    setFeatures((prev) => [...prev, trimmed]);
-    setNewFeature("");
+    const k = newFeatureKey.trim();
+    const v = newFeatureVal.trim();
+    if (!k || !v) return;
+    setFeatures((prev) => ({ ...prev, [k]: v }));
+    setNewFeatureKey("");
+    setNewFeatureVal("");
     setAddingFeature(false);
-    setIsDraft(true);
+    markDraft();
   }
 
-  function removeFeature(i: number) {
-    setFeatures((prev) => prev.filter((_, idx) => idx !== i));
-    setIsDraft(true);
+  function removeFeature(key: string) {
+    setFeatures((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    markDraft();
   }
+
+  function startEdit(key: string) {
+    setEditingKey(key);
+    setEditingVal(features[key] ?? "");
+  }
+
+  function commitEdit() {
+    if (!editingKey) return;
+    setFeatures((prev) => ({ ...prev, [editingKey]: editingVal }));
+    setEditingKey(null);
+    markDraft();
+  }
+
+  const featureEntries = Object.entries(features);
 
   return (
     <div className="pb-12">
@@ -218,12 +276,9 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[300px_1fr]">
 
-        {/* ── LEFT: Image panel ── */}
+        {/* ── SOL: Görsel paneli ── */}
         <div className="flex flex-col gap-4">
-
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
-
-            {/* Main image display */}
             <div className="relative aspect-square bg-[#f8f8f8] dark:bg-white/5">
               {imageGenerating ? (
                 <div className="flex h-full flex-col items-center justify-center gap-3">
@@ -238,29 +293,17 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                 </div>
               ) : selectedImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`data:${selectedImage.mimeType};base64,${selectedImage.imageBase64}`}
-                  alt={selectedImage.label}
-                  className="size-full object-contain p-6"
-                />
+                <img src={`data:${selectedImage.mimeType};base64,${selectedImage.imageBase64}`} alt={selectedImage.label} className="size-full object-contain p-6" />
               ) : appliedImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`${COMMERCE_API}${appliedImageUrl}`}
-                  alt={product.title}
-                  className="size-full object-contain p-6"
-                />
+                <img src={`${COMMERCE_API}${appliedImageUrl}`} alt={product.title} className="size-full object-contain p-6" />
+              ) : product.image ? (
+                <Image src={product.image} alt={product.title} fill className="object-contain p-6" sizes="300px" />
               ) : (
-                <Image
-                  src={product.image}
-                  alt={product.title}
-                  fill
-                  className="object-contain p-6"
-                  sizes="300px"
-                />
+                <div className="flex h-full items-center justify-center text-gray-200 dark:text-white/10">
+                  <ImagePlus className="size-12" />
+                </div>
               )}
-
-              {/* Shot type badge */}
               {selectedImage && (
                 <span className="absolute bottom-3 left-3 rounded-full bg-violet-600/90 px-2.5 py-0.5 text-[10px] font-bold text-white">
                   {selectedImage.label}
@@ -268,7 +311,6 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
               )}
             </div>
 
-            {/* Content status */}
             <div className="border-t border-gray-100 px-4 py-3 dark:border-white/8">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-semibold text-gray-400">İçerik Durumu</p>
@@ -278,47 +320,22 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
               </div>
             </div>
 
-            {/* Thumbnail strip — original + 3 generated shots */}
             <div className="flex gap-2 px-4 pb-3">
-              {/* Current/applied product image */}
-              <button
-                onClick={() => setSelectedImageType(null)}
-                className={`relative size-14 cursor-pointer overflow-hidden rounded-xl border bg-gray-50 transition-opacity hover:opacity-70 dark:bg-white/5 ${
-                  !selectedImage ? "border-gray-300 dark:border-white/30" : "border-gray-100 dark:border-white/8"
-                }`}
-              >
+              <button onClick={() => setSelectedImageType(null)} className={`relative size-14 cursor-pointer overflow-hidden rounded-xl border bg-gray-50 transition-opacity hover:opacity-70 dark:bg-white/5 ${!selectedImage ? "border-gray-300 dark:border-white/30" : "border-gray-100 dark:border-white/8"}`}>
                 {appliedImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={`${COMMERCE_API}${appliedImageUrl}`} alt="" className="size-full object-contain p-1" />
-                ) : (
+                ) : product.image ? (
                   <Image src={product.image} alt="" fill className="object-contain p-1" sizes="56px" />
-                )}
+                ) : null}
               </button>
-
-              {/* 3 generated shots */}
               {generatedImages.map((img) => (
-                <button
-                  key={img.type}
-                  onClick={() => setSelectedImageType(img.type)}
-                  className={`relative size-14 cursor-pointer overflow-hidden rounded-xl border bg-gray-50 transition-opacity hover:opacity-80 dark:bg-white/5 ${
-                    selectedImageType === img.type
-                      ? "border-2 border-violet-400"
-                      : "border-gray-100 dark:border-white/8"
-                  }`}
-                >
+                <button key={img.type} onClick={() => setSelectedImageType(img.type)} className={`relative size-14 cursor-pointer overflow-hidden rounded-xl border bg-gray-50 transition-opacity hover:opacity-80 dark:bg-white/5 ${selectedImageType === img.type ? "border-2 border-violet-400" : "border-gray-100 dark:border-white/8"}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`data:${img.mimeType};base64,${img.imageBase64}`}
-                    alt={img.label}
-                    className="size-full object-contain p-1"
-                  />
-                  <span className="absolute bottom-0 left-0 right-0 bg-violet-600/80 py-0.5 text-center text-[7px] font-bold text-white leading-tight">
-                    {img.label}
-                  </span>
+                  <img src={`data:${img.mimeType};base64,${img.imageBase64}`} alt={img.label} className="size-full object-contain p-1" />
+                  <span className="absolute bottom-0 left-0 right-0 bg-violet-600/80 py-0.5 text-center text-[7px] font-bold text-white leading-tight">{img.label}</span>
                 </button>
               ))}
-
-              {/* Placeholder slot when no generated images */}
               {generatedImages.length === 0 && !imageGenerating && (
                 <button className="flex size-14 cursor-pointer items-center justify-center rounded-xl border border-dashed border-gray-200 text-gray-300 transition-colors hover:border-gray-300 hover:text-gray-400 dark:border-white/12">
                   <ImagePlus className="size-4" />
@@ -326,22 +343,13 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
               )}
             </div>
 
-            {/* Image action row */}
             <div className="flex border-t border-gray-100 dark:border-white/8">
-              <button
-                onClick={handleGenerateImages}
-                disabled={imageGenerating || applyingImage}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-2 py-3 text-sm font-semibold text-violet-600 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-400 dark:hover:bg-violet-500/8"
-              >
+              <button onClick={handleGenerateImages} disabled={imageGenerating || applyingImage} className="flex flex-1 cursor-pointer items-center justify-center gap-2 py-3 text-sm font-semibold text-violet-600 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-400 dark:hover:bg-violet-500/8">
                 <Wand2 className="size-4" />
                 {imageGenerating ? "Üretiliyor..." : "Görsel Üret (3 çekim)"}
               </button>
               {selectedImage && (
-                <button
-                  onClick={handleApplyImage}
-                  disabled={applyingImage}
-                  className="flex cursor-pointer items-center gap-1.5 border-l border-gray-100 px-4 py-3 text-sm font-bold text-green-600 transition-colors hover:bg-green-50 disabled:opacity-60 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8"
-                >
+                <button onClick={handleApplyImage} disabled={applyingImage} className="flex cursor-pointer items-center gap-1.5 border-l border-gray-100 px-4 py-3 text-sm font-bold text-green-600 transition-colors hover:bg-green-50 disabled:opacity-60 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8">
                   {applyingImage ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
                   Uygula
                 </button>
@@ -349,185 +357,189 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
             </div>
           </div>
 
-          {/* Action buttons */}
+          {/* Aksiyon butonları */}
           <div className="flex flex-col gap-2">
-            <button
-              onClick={handleSaveDraft}
-              disabled={saving || publishing}
-              className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/8"
-            >
+            <button onClick={handleSaveDraft} disabled={saving || publishing} className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/8">
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
               {saving ? "Kaydediliyor..." : "Taslak Kaydet"}
             </button>
-
-            <button
-              onClick={handlePublish}
-              disabled={saving || publishing || !hasStoreConnection}
-              title={!hasStoreConnection ? "Önce bir mağaza bağlamalısın" : undefined}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-500 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            <button onClick={handlePublish} disabled={saving || publishing || !hasStoreConnection} title={!hasStoreConnection ? "Önce bir mağaza bağlamalısın" : undefined} className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-500 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60">
               {publishing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {publishing ? "Yayınlanıyor..." : hasStoreConnection ? "Akıllı Market'e Yayınla" : "Mağaza Bağlı Değil"}
             </button>
-
-            <Link
-              href={`/seller/product/${product.id}`}
-              className="flex h-9 w-full items-center justify-center rounded-xl text-sm font-medium text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
-            >
+            <Link href={`/seller/product/${product.id}`} className="flex h-9 w-full cursor-pointer items-center justify-center rounded-xl text-sm font-medium text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200">
               İptal
             </Link>
           </div>
         </div>
 
-        {/* ── RIGHT: Content editor ── */}
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        {/* ── SAĞ: İçerik editörü ── */}
+        <div className="space-y-px overflow-hidden rounded-2xl border border-border bg-card">
 
-          {/* Simulation context banner */}
+          {/* Simülasyon banner */}
           {simulationInsight && (
             <div className="flex items-start gap-3 border-b border-amber-100 bg-amber-50 px-5 py-3.5 dark:border-amber-500/15 dark:bg-amber-500/8">
               <Sparkles className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300 mb-1">
-                  Simülasyon Modu — AI müşteri itirazlarını baz alacak
-                </p>
+                <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300 mb-1">Simülasyon Modu</p>
                 <p className="text-[11px] text-amber-600/80 dark:text-amber-400/70 leading-relaxed">
                   {simulationInsight.buyCount} satın aldı · {simulationInsight.skipCount} vazgeçti · {simulationInsight.undecidedCount} kararsız
-                  {simulationInsight.skipperReasons.length > 0 && (
-                    <> · İtiraz: &ldquo;{simulationInsight.skipperReasons[0].split(": ")[1]}&rdquo;</>
-                  )}
+                  {simulationInsight.skipperReasons.length > 0 && <> · İtiraz: &ldquo;{simulationInsight.skipperReasons[0].split(": ")[1]}&rdquo;</>}
                 </p>
               </div>
-              <button onClick={() => setSimulationInsight(null)} className="ml-auto shrink-0 text-amber-400 hover:text-amber-600">
-                <X className="size-3.5" />
-              </button>
+              <button onClick={() => setSimulationInsight(null)} className="cursor-pointer ml-auto shrink-0 text-amber-400 hover:text-amber-600"><X className="size-3.5" /></button>
             </div>
           )}
 
-          {/* AI improvement note */}
+          {/* AI improvement notu */}
           {aiImprovementNote && (
             <div className="flex items-start gap-3 border-b border-green-100 bg-green-50 px-5 py-3.5 dark:border-green-500/15 dark:bg-green-500/8">
               <Info className="mt-0.5 size-3.5 shrink-0 text-green-600 dark:text-green-400" />
               <p className="text-xs leading-relaxed text-green-700 dark:text-green-300">{aiImprovementNote}</p>
-              <button onClick={() => setAiImprovementNote(null)} className="ml-auto shrink-0 text-green-400 hover:text-green-600">
-                <X className="size-3.5" />
-              </button>
+              <button onClick={() => setAiImprovementNote(null)} className="cursor-pointer ml-auto shrink-0 text-green-400 hover:text-green-600"><X className="size-3.5" /></button>
             </div>
           )}
 
-          {/* Başlık */}
-          <div className="px-6 pt-6 pb-5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Ürün Başlığı</label>
-            <input
-              value={title}
-              onChange={(e) => { setTitle(e.target.value); setIsDraft(true); }}
-              className="mt-2 block w-full bg-transparent text-lg font-semibold leading-snug text-gray-900 outline-none placeholder-gray-300 dark:text-white"
-              placeholder="Ürün başlığı..."
-            />
+          {/* ── Temel Bilgiler ── */}
+          <div className="px-6 pt-6 pb-5 space-y-4">
+            <div>
+              <SectionLabel>Ürün Başlığı</SectionLabel>
+              <input value={title} onChange={(e) => { setTitle(e.target.value); markDraft(); }} className="mt-2 block w-full bg-transparent text-lg font-semibold leading-snug text-gray-900 outline-none placeholder-gray-300 dark:text-white" placeholder="Ürün başlığı..." />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <SectionLabel>Marka</SectionLabel>
+                <input value={brand} onChange={(e) => { setBrand(e.target.value); markDraft(); }} className="mt-2 block w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/8 dark:bg-white/5 dark:text-white" placeholder="Marka adı" />
+              </div>
+              <div>
+                <SectionLabel>Kategori</SectionLabel>
+                <select value={categoryId} onChange={(e) => { setCategoryId(Number(e.target.value)); markDraft(); }} className="mt-2 block w-full cursor-pointer rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/8 dark:bg-white/5 dark:text-white">
+                  {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
           </div>
 
-          <div className="border-t border-gray-100 dark:border-white/8" />
+          <div className="h-px bg-gray-100 dark:bg-white/8" />
 
-          {/* Açıklama */}
+          {/* ── Kısa Açıklama ── */}
+          <div className="px-6 py-5">
+            <SectionLabel>Kısa Açıklama</SectionLabel>
+            <input value={shortDescription} onChange={(e) => { setShortDesc(e.target.value); markDraft(); }} className="mt-2 block w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-400 dark:border-white/8 dark:bg-white/5 dark:text-gray-300" placeholder="Ürünü tek satırda özetle..." />
+          </div>
+
+          <div className="h-px bg-gray-100 dark:bg-white/8" />
+
+          {/* ── Detaylı Açıklama ── */}
           <div className="px-6 pt-5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Ürün Açıklaması</label>
-            <textarea
-              value={description}
-              onChange={(e) => { setDescription(e.target.value); setIsDraft(true); }}
-              rows={6}
-              className="mt-2 block w-full resize-none bg-transparent text-sm leading-relaxed text-gray-700 outline-none placeholder-gray-300 dark:text-gray-300"
-              placeholder="Açıklama yazın ya da AI ile otomatik üretin..."
-            />
+            <SectionLabel>Detaylı Açıklama</SectionLabel>
+            <textarea value={description} onChange={(e) => { setDescription(e.target.value); markDraft(); }} rows={6} className="mt-2 block w-full resize-none bg-transparent text-sm leading-relaxed text-gray-700 outline-none placeholder-gray-300 dark:text-gray-300" placeholder="Açıklama yazın ya da AI ile otomatik üretin..." />
           </div>
-          <button
-            disabled={aiGenerating}
-            onClick={handleGenerateCEO}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-gray-100 py-3 text-sm font-semibold text-green-600 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8"
-          >
-            {aiGenerating
-              ? <><Loader2 className="size-4 animate-spin" /> Üretiliyor (Vision + AI)...</>
-              : <><Sparkles className="size-4" /> AI ile İçerik Üret</>
-            }
+          <button disabled={aiGenerating} onClick={handleGenerateCEO} className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-gray-100 py-3 text-sm font-semibold text-green-600 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8">
+            {aiGenerating ? <><Loader2 className="size-4 animate-spin" /> Üretiliyor...</> : <><Sparkles className="size-4" /> AI ile İçerik Üret</>}
           </button>
 
-          <div className="border-t border-gray-100 dark:border-white/8" />
+          <div className="h-px bg-gray-100 dark:bg-white/8" />
 
-          {/* Özellikler */}
+          {/* ── Teknik Özellikler (key-value) ── */}
           <div className="px-6 py-5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Ürün Özellikleri</label>
-            {features.length === 0 && !addingFeature ? (
-              <p className="mt-2 text-sm text-gray-300 dark:text-gray-600">
-                Henüz özellik eklenmemiş.
-              </p>
-            ) : (
-              <ul className="mt-3 space-y-2">
-                {features.map((f, i) => (
-                  <li key={i} className="group flex items-start gap-2.5">
-                    <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-green-500" />
-                    <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">{f}</span>
-                    <button
-                      onClick={() => removeFeature(i)}
-                      className="mt-0.5 rounded p-0.5 text-gray-200 opacity-0 transition hover:text-red-400 group-hover:opacity-100 dark:text-white/20"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </li>
+            <SectionLabel>Teknik Özellikler</SectionLabel>
+            <p className="mt-1 text-[11px] text-gray-400">Her satır alıcıya özellik tablosu olarak gösterilir (ör. RAM → 16 GB)</p>
+
+            {featureEntries.length > 0 && (
+              <div className="mt-3 overflow-hidden rounded-xl border border-gray-100 dark:border-white/8">
+                {featureEntries.map(([key, val]) => (
+                  <div key={key} className="group grid grid-cols-[1fr_1.5fr_auto] items-center divide-x divide-gray-100 border-b border-gray-100 last:border-b-0 dark:divide-white/8 dark:border-white/8">
+                    <span className="bg-gray-50 px-3 py-2.5 text-xs font-semibold text-gray-500 dark:bg-white/5">{key}</span>
+                    {editingKey === key ? (
+                      <input
+                        autoFocus
+                        value={editingVal}
+                        onChange={(e) => setEditingVal(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditingKey(null); }}
+                        className="px-3 py-2 text-xs text-gray-700 outline-none dark:bg-transparent dark:text-gray-300"
+                      />
+                    ) : (
+                      <span className="px-3 py-2.5 text-xs text-gray-700 dark:text-gray-300">{val}</span>
+                    )}
+                    <div className="flex gap-1 px-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button onClick={() => startEdit(key)} className="cursor-pointer rounded p-1 text-gray-300 hover:text-blue-400 dark:text-white/20"><Pencil className="size-3" /></button>
+                      <button onClick={() => removeFeature(key)} className="cursor-pointer rounded p-1 text-gray-300 hover:text-red-400 dark:text-white/20"><X className="size-3" /></button>
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
+            )}
+
+            {featureEntries.length === 0 && !addingFeature && (
+              <p className="mt-3 text-sm text-gray-300 dark:text-gray-600">Henüz özellik eklenmemiş.</p>
             )}
 
             {addingFeature ? (
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-3 flex gap-2">
                 <input
                   autoFocus
-                  value={newFeature}
-                  onChange={(e) => setNewFeature(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") addFeature();
-                    if (e.key === "Escape") { setAddingFeature(false); setNewFeature(""); }
-                  }}
-                  placeholder="Özellik yaz, Enter ile ekle..."
+                  value={newFeatureKey}
+                  onChange={(e) => setNewFeatureKey(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Tab") { e.preventDefault(); } if (e.key === "Escape") { setAddingFeature(false); setNewFeatureKey(""); setNewFeatureVal(""); } }}
+                  placeholder="Özellik adı (ör. RAM)"
+                  className="h-9 w-32 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                />
+                <input
+                  value={newFeatureVal}
+                  onChange={(e) => setNewFeatureVal(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addFeature(); if (e.key === "Escape") { setAddingFeature(false); setNewFeatureKey(""); setNewFeatureVal(""); } }}
+                  placeholder="Değer (ör. 16 GB)"
                   className="h-9 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 />
-                <button onClick={addFeature} className="flex h-9 items-center gap-1 rounded-xl bg-green-500 px-3 text-xs font-bold text-white hover:bg-green-600">
-                  <Check className="size-3.5" /> Ekle
-                </button>
-                <button onClick={() => { setAddingFeature(false); setNewFeature(""); }} className="h-9 rounded-xl px-2 text-gray-400 hover:text-gray-600">
-                  <X className="size-4" />
-                </button>
+                <button onClick={addFeature} className="flex h-9 cursor-pointer items-center gap-1 rounded-xl bg-green-500 px-3 text-xs font-bold text-white hover:bg-green-600"><Check className="size-3.5" /> Ekle</button>
+                <button onClick={() => { setAddingFeature(false); setNewFeatureKey(""); setNewFeatureVal(""); }} className="h-9 cursor-pointer rounded-xl px-2 text-gray-400 hover:text-gray-600"><X className="size-4" /></button>
               </div>
             ) : (
-              <button
-                onClick={() => setAddingFeature(true)}
-                className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-gray-400 transition-colors hover:text-green-500"
-              >
-                <Plus className="size-3.5" />
-                Özellik ekle
+              <button onClick={() => setAddingFeature(true)} className="mt-3 flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-gray-400 transition-colors hover:text-green-500">
+                <Plus className="size-3.5" /> Özellik ekle
               </button>
             )}
           </div>
 
-          <div className="border-t border-gray-100 dark:border-white/8" />
+          <div className="h-px bg-gray-100 dark:bg-white/8" />
 
-          {/* Fiyat & Stok */}
+          {/* ── Fiyat, İndirim, Stok, Kargo ── */}
           <div className="px-6 py-5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Fiyat & Stok</label>
+            <SectionLabel>Fiyat & Stok</SectionLabel>
             <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
               {[
-                { label: "Fiyat (₺)", val: price, set: (v: string) => { setPrice(v); setIsDraft(true); } },
-                { label: "Stok Adedi", val: stock, set: (v: string) => { setStock(v); setIsDraft(true); } },
+                { label: "Satış Fiyatı (₺)", val: price, set: (v: string) => { setPrice(v); markDraft(); }, type: "number" },
+                { label: "İndirim Öncesi (₺)", val: originalPrice, set: (v: string) => { setOriginalPrice(v); markDraft(); }, type: "number" },
+                { label: "Stok Adedi", val: stock, set: (v: string) => { setStock(v); markDraft(); }, type: "number" },
               ].map((f) => (
                 <div key={f.label}>
                   <label className="mb-1.5 block text-xs text-gray-400">{f.label}</label>
                   <input
-                    type="number"
+                    type={f.type}
                     value={f.val}
                     onChange={(e) => f.set(e.target.value)}
                     className="h-10 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-bold text-gray-900 outline-none transition focus:border-green-400 focus:ring-2 focus:ring-green-400/10 dark:border-white/8 dark:bg-white/5 dark:text-white"
                   />
                 </div>
               ))}
+              <div>
+                <label className="mb-1.5 block text-xs text-gray-400">Kargo Bilgisi</label>
+                <input
+                  type="text"
+                  value={cargoText}
+                  onChange={(e) => { setCargoText(e.target.value); markDraft(); }}
+                  className="h-10 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-bold text-gray-900 outline-none transition focus:border-green-400 focus:ring-2 focus:ring-green-400/10 dark:border-white/8 dark:bg-white/5 dark:text-white"
+                />
+              </div>
             </div>
-            <p className="mt-2.5 text-[11px] text-gray-400">
+            {originalPrice && Number(originalPrice) > Number(price) && (
+              <p className="mt-2 text-[11px] font-semibold text-green-500">
+                %{Math.round(((Number(originalPrice) - Number(price)) / Number(originalPrice)) * 100)} indirim uygulanacak
+              </p>
+            )}
+            <p className="mt-1.5 text-[11px] text-gray-400">
               Mevcut fiyat: <span className="font-semibold text-gray-600 dark:text-gray-300">{formatSellerPrice(product.price)}</span>
             </p>
           </div>

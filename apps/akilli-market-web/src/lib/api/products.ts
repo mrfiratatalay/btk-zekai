@@ -1,4 +1,4 @@
-import type { Product, ProductPricePoint, ProductReview } from "@/types/product";
+import type { Product, ProductReview } from "@/types/product";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_COMMERCE_API_URL ??
@@ -29,6 +29,30 @@ export interface ProductDetail extends ProductListItem {
   updatedAt: string;
 }
 
+export interface PublicBundleProduct {
+  id: string;
+  title: string;
+  brand: string;
+  category: string;
+  price: number;
+  stock: number;
+  image: string;
+}
+
+export interface PublicProductBundle {
+  id: string;
+  title: string;
+  shortDescription: string;
+  campaignText: string;
+  ctaLabel: string;
+  discountPercent: number;
+  primaryProduct: PublicBundleProduct;
+  complementaryProduct: PublicBundleProduct;
+  originalTotal: number;
+  discountAmount: number;
+  bundleTotal: number;
+}
+
 async function apiFetch<T>(path: string, fallback?: T, init?: RequestInit): Promise<T> {
   try {
     const res = await fetch(`${API_BASE}${path}`, init ?? { next: { revalidate: 30 } });
@@ -41,6 +65,12 @@ async function apiFetch<T>(path: string, fallback?: T, init?: RequestInit): Prom
     if (fallback !== undefined) return fallback;
     throw new Error("API bağlantısı kurulamadı.");
   }
+}
+
+function resolveImage(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("/")) return `${API_BASE}${url}`;
+  return url;
 }
 
 export function formatPrice(value: number) {
@@ -87,8 +117,8 @@ export async function postProductReview(
   return res.json();
 }
 
-export const getProductPriceHistory = (id: string) =>
-  apiFetch<ProductPricePoint[]>(`/api/products/${id}/price-history`, []);
+export const getProductBundles = (id: string) =>
+  apiFetch<PublicProductBundle[]>(`/api/products/${id}/bundles`, []);
 
 export interface Category {
   id: number;
@@ -99,7 +129,7 @@ export interface Category {
 export const getCategories = () => apiFetch<Category[]>("/api/categories", []);
 
 export function mapProductDetailToProduct(product: ProductDetail): Product {
-  const primaryImage = product.images[0] ?? product.primaryImage ?? "";
+  const primaryImage = resolveImage(product.images[0] ?? product.primaryImage);
   return {
     id: product.id,
     title: product.title,
@@ -114,7 +144,7 @@ export function mapProductDetailToProduct(product: ProductDetail): Product {
     rating: product.rating,
     reviewCount: product.reviewCount,
     image: primaryImage,
-    thumbnails: product.images.length > 0 ? product.images : [primaryImage],
+    thumbnails: (product.images.length > 0 ? product.images : [product.primaryImage]).map(resolveImage),
     shortDescription: product.shortDescription,
     description: product.description,
     features: product.features,
@@ -138,8 +168,8 @@ export function mapProductListItemToProduct(product: ProductListItem): Product {
       : undefined,
     rating: product.rating,
     reviewCount: product.reviewCount,
-    image: product.primaryImage,
-    thumbnails: [product.primaryImage],
+    image: resolveImage(product.primaryImage),
+    thumbnails: [resolveImage(product.primaryImage)],
     shortDescription: product.shortDescription,
     description: product.shortDescription,
     features: {},

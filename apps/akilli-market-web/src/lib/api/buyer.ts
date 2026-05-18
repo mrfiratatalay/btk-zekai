@@ -5,6 +5,10 @@ export interface OrderItem {
   title: string;
   image: string;
   sellerName: string;
+  bundleId: string | null;
+  bundleTitle: string | null;
+  originalUnitPrice: number;
+  discountAmount: number;
   price: number;
   quantity: number;
 }
@@ -12,6 +16,8 @@ export interface OrderItem {
 export interface Order {
   id: string;
   orderNumber: string;
+  subtotal: number;
+  discountTotal: number;
   total: number;
   status: string;
   deliveryAddress: string;
@@ -26,9 +32,13 @@ export interface CartItem {
   productId: string;
   title: string;
   price: number;
+  originalPrice: number;
+  discountAmount: number;
   image: string;
   quantity: number;
   stock: number;
+  bundleId: string | null;
+  bundleTitle: string | null;
 }
 
 export interface Cart {
@@ -51,8 +61,8 @@ export const getOrders = () => apiFetch<Order[]>("/api/buyer/orders");
 export const getOrder = (id: string) => apiFetch<Order>(`/api/buyer/orders/${id}`);
 
 export const createOrder = (data: {
-  productId: string;
-  quantity: number;
+  items: Array<{ productId: string; quantity: number }>;
+  bundles: Array<{ bundleId: string; quantity: number }>;
   deliveryAddress: string;
   paymentMethod?: string;
 }) =>
@@ -76,14 +86,29 @@ export const addToCart = (productId: string, quantity = 1) =>
     body: JSON.stringify({ productId, quantity }),
   });
 
+export const addBundleToCart = (bundleId: string, quantity = 1) =>
+  apiFetch<CartItem[]>(`/api/buyer/cart/bundles/${bundleId}`, {
+    method: "POST",
+    body: JSON.stringify({ quantity }),
+  });
+
 export const updateCartItem = (itemId: number, quantity: number) =>
   apiFetch<CartItem>(`/api/buyer/cart/items/${itemId}`, {
     method: "PUT",
     body: JSON.stringify({ quantity }),
   });
 
+export const updateCartBundle = (bundleId: string, quantity: number) =>
+  apiFetch<CartItem[]>(`/api/buyer/cart/bundles/${bundleId}`, {
+    method: "PUT",
+    body: JSON.stringify({ quantity }),
+  });
+
 export const removeFromCart = (itemId: number) =>
   apiFetch<void>(`/api/buyer/cart/items/${itemId}`, { method: "DELETE" });
+
+export const removeBundleFromCart = (bundleId: string) =>
+  apiFetch<void>(`/api/buyer/cart/bundles/${bundleId}`, { method: "DELETE" });
 
 export const clearCartApi = () =>
   apiFetch<void>("/api/buyer/cart", { method: "DELETE" });
@@ -97,4 +122,3 @@ export const addFavoriteApi = (productId: string) =>
 
 export const removeFavoriteApi = (productId: string) =>
   apiFetch<void>(`/api/buyer/favorites/${productId}`, { method: "DELETE" });
-

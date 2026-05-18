@@ -10,10 +10,9 @@ echo   ZekAI - Backend Servisleri (Docker)
 echo ============================================================
 echo.
 echo   postgres       : localhost:5432
-echo   redis          : localhost:6379
 echo   commerce-api   : http://localhost:5001/swagger
 echo   zekai-api      : http://localhost:5002/swagger
-echo   ai-service     : (devre disi - sonradan eklenecek)
+echo   ai-service     : http://localhost:8000/health
 echo.
 echo   Frontend icin   : scripts\start-frontends.bat
 echo.
@@ -50,7 +49,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
-docker compose up --build
+docker image inspect commerce-api >nul 2>nul
+if errorlevel 1 (
+  echo [BUILD] Ilk kurulum - image'lar build ediliyor, biraz surebilir...
+  docker compose up --build
+) else (
+  echo [OK] Image'lar hazir, hizlica baslatiliyor...
+  docker compose up
+)
 set "EXIT_CODE=%ERRORLEVEL%"
 
 popd

@@ -37,12 +37,6 @@ export interface ProductReview {
   tags: string[];
 }
 
-export interface PriceHistory {
-  day: string;
-  price: number;
-  marketMedian: number;
-}
-
 export interface Category {
   id: number;
   name: string;
@@ -62,9 +56,6 @@ export const getProduct = (id: string) =>
 
 export const getProductReviews = (id: string) =>
   apiFetch<ProductReview[]>(`/api/products/${id}/reviews`);
-
-export const getProductPriceHistory = (id: string) =>
-  apiFetch<PriceHistory[]>(`/api/products/${id}/price-history`);
 
 export const getCategories = () =>
   apiFetch<Category[]>("/api/categories");

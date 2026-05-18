@@ -72,8 +72,9 @@ function ProductCard({ product, activeSection }: {
   product: SellerProductPerformance;
   activeSection: Section | null;
 }) {
-  const displayFeatures = product.features.length > 0
-    ? product.features.slice(0, 4)
+  const featureValues = Object.values(product.features);
+  const displayFeatures = featureValues.length > 0
+    ? featureValues.slice(0, 4)
     : ["Ürün özellikleri yükleniyor..."];
   const hl = (s: Section) => cn(
     "transition-all duration-300",

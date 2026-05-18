@@ -1,12 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PlatformAnalysisPage } from "@/components/platform/PlatformAnalysisPage";
-import {
-  getProduct,
-  getProductPriceHistory,
-  getProductReviews,
-  mapProductDetailToProduct,
-} from "@/lib/api/products";
+import { getProduct, mapProductDetailToProduct } from "@/lib/api/products";
 import { buildBuyerAnalysisFromProduct } from "@/lib/analysis/build-buyer-analysis";
 
 export default async function AnalysisPage({
@@ -21,14 +16,8 @@ export default async function AnalysisPage({
     productId = productId.replace("analysis-", "");
   }
   let product;
-  let reviews = [];
-  let priceHistory = [];
   try {
     product = mapProductDetailToProduct(await getProduct(productId));
-    [reviews, priceHistory] = await Promise.all([
-      getProductReviews(productId),
-      getProductPriceHistory(productId),
-    ]);
   } catch {
     notFound();
   }
@@ -39,8 +28,6 @@ export default async function AnalysisPage({
   const analysis = buildBuyerAnalysisFromProduct({
     analysisId,
     product,
-    reviews: reviews.map((review) => ({ ...review, id: String(review.id) })),
-    priceHistory,
     userNeedText: userNeed,
   });
 

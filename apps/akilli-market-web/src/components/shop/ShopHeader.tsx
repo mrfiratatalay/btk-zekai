@@ -42,10 +42,12 @@ export function ShopHeader() {
           {/* Arama */}
           <div className="relative min-w-0 flex-1">
             <input
+              suppressHydrationWarning
               className="h-11 w-full rounded-xl border border-[#D1D5DB] bg-white pl-4 pr-14 text-sm outline-none focus:border-[#FF6000]"
               placeholder="Ürün ara..."
             />
             <button
+              suppressHydrationWarning
               className="absolute right-0 top-0 flex h-11 w-12 cursor-pointer items-center justify-center rounded-r-xl bg-[#FF6000] text-white transition-colors hover:bg-[#E65700]"
               aria-label="Ara"
             >

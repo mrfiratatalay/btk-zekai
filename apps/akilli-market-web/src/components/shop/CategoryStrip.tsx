@@ -32,7 +32,7 @@ export function CategoryStrip() {
           onClick={() => router.push("/")}
           suppressHydrationWarning
           className={cn(
-            "flex min-w-max items-center gap-2 text-sm font-bold transition",
+            "flex min-w-max cursor-pointer items-center gap-2 text-sm font-bold transition",
             activeSlug === "" ? "text-[#FF6000]" : "text-[#111827] hover:text-[#FF6000]"
           )}
         >
@@ -48,7 +48,7 @@ export function CategoryStrip() {
               suppressHydrationWarning
               onClick={() => selectCategory(cat.slug)}
               className={cn(
-                "relative whitespace-nowrap text-sm font-semibold transition",
+                "relative cursor-pointer whitespace-nowrap text-sm font-semibold transition",
                 activeSlug === cat.slug
                   ? "text-[#FF6000]"
                   : "text-[#111827] hover:text-[#FF6000]"

@@ -1,12 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { BadgeCheck, Star, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import type { Product, ProductReview } from "@/types/product";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { postProductReview } from "@/lib/api/products";
 import { getCurrentUser } from "@/lib/api/auth";
@@ -38,7 +35,7 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
-function ReviewForm({ productId, onSubmitted }: { productId: string; onSubmitted: () => void }) {
+function ReviewForm({ productId, onSubmitted }: { productId: string; onSubmitted: (review: ProductReview) => void }) {
   const user = getCurrentUser();
   const [rating, setRating] = useState(0);
   const [title, setTitle] = useState("");
@@ -51,7 +48,7 @@ function ReviewForm({ productId, onSubmitted }: { productId: string; onSubmitted
     return (
       <div className="rounded-xl border border-slate-100 bg-slate-50 px-5 py-4 text-sm text-slate-500">
         Yorum yapmak için{" "}
-        <Link href="/login" className="font-semibold text-[#FF6000] hover:underline cursor-pointer">
+        <Link href="/login" className="cursor-pointer font-semibold text-[#FF6000] hover:underline">
           giriş yapın
         </Link>
         .
@@ -73,9 +70,9 @@ function ReviewForm({ productId, onSubmitted }: { productId: string; onSubmitted
     setError("");
     setLoading(true);
     try {
-      await postProductReview(productId, { rating, title, text });
+      const newReview = await postProductReview(productId, { rating, title, text });
       setSuccess(true);
-      onSubmitted();
+      onSubmitted(newReview);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Yorum gönderilemedi.");
     } finally {
@@ -86,12 +83,10 @@ function ReviewForm({ productId, onSubmitted }: { productId: string; onSubmitted
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-slate-100 bg-slate-50 p-5">
       <p className="text-sm font-semibold text-slate-800">Yorum Yap</p>
-
       <div>
         <p className="mb-1.5 text-xs font-medium text-slate-500">Puanınız</p>
         <StarPicker value={rating} onChange={setRating} />
       </div>
-
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">Başlık</label>
         <input
@@ -104,7 +99,6 @@ function ReviewForm({ productId, onSubmitted }: { productId: string; onSubmitted
           className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-[#FF6000]"
         />
       </div>
-
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">Yorumunuz</label>
         <textarea
@@ -115,14 +109,10 @@ function ReviewForm({ productId, onSubmitted }: { productId: string; onSubmitted
           maxLength={1000}
           rows={4}
           placeholder="Ürün hakkındaki deneyiminizi paylaşın..."
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#FF6000] resize-none"
+          className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#FF6000]"
         />
       </div>
-
-      {error && (
-        <p className="text-xs text-red-500">{error}</p>
-      )}
-
+      {error && <p className="text-xs text-red-500">{error}</p>}
       <button
         type="submit"
         disabled={loading}
@@ -148,61 +138,70 @@ function Stars({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) 
   );
 }
 
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency: "TRY",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+const TABS = [
+  { id: "description", label: "Açıklama" },
+  { id: "specs", label: "Özellikler" },
+  { id: "reviews", label: "Yorumlar" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
 
 export function ProductDetailTabs({
   product,
-  similarProducts,
   reviews: initialReviews,
 }: {
   product: Product;
-  similarProducts: Product[];
+  similarProducts?: Product[];
   reviews: ProductReview[];
 }) {
-  const router = useRouter();
+  const [active, setActive] = useState<TabId>("description");
   const [reviews, setReviews] = useState(initialReviews);
+
   const avgRating = reviews.length
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : product.rating.toFixed(1);
+
   const ratingDist = [5, 4, 3, 2, 1].map((stars) => {
-    const count = reviews.filter((review) => Math.round(review.rating) === stars).length;
-    return {
-      stars,
-      pct: reviews.length ? Math.round((count / reviews.length) * 100) : 0,
-    };
+    const count = reviews.filter((r) => Math.round(r.rating) === stars).length;
+    return { stars, pct: reviews.length ? Math.round((count / reviews.length) * 100) : 0 };
   });
 
   return (
-    <Tabs defaultValue="description">
+    <div>
+      {/* Tab bar */}
       <div className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-5xl">
-          <TabsList className="flex h-auto w-full justify-start gap-0 rounded-none border-0 bg-transparent p-0">
-            {[
-              { value: "description", label: "Açıklama" },
-              { value: "specs", label: "Özellikler" },
-              { value: "reviews", label: `Yorumlar (${product.reviewCount.toLocaleString("tr-TR")})` },
-              { value: "similar", label: "Benzer Ürünler" },
-            ].map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                className="h-12 rounded-none border-b-2 border-transparent bg-transparent px-5 text-sm font-medium text-slate-500 transition-none hover:text-slate-900 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900"
-              >
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="flex">
+            {TABS.map((tab) => {
+              const label = tab.id === "reviews"
+                ? `Yorumlar (${product.reviewCount.toLocaleString("tr-TR")})`
+                : tab.label;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActive(tab.id)}
+                  className={cn(
+                    "cursor-pointer relative h-12 px-5 text-sm font-medium transition-colors",
+                    active === tab.id
+                      ? "text-slate-900"
+                      : "text-slate-500 hover:text-slate-800"
+                  )}
+                >
+                  {label}
+                  {active === tab.id && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-slate-900" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
+      {/* Tab content */}
       <div className="mx-auto max-w-5xl px-6 py-10">
-        <TabsContent value="description" className="mt-0">
+        {active === "description" && (
           <div className="max-w-2xl space-y-6">
             <p className="text-base leading-8 text-slate-600">{product.description}</p>
             {product.badges?.length > 0 && (
@@ -215,9 +214,9 @@ export function ProductDetailTabs({
               </div>
             )}
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="specs" className="mt-0">
+        {active === "specs" && (
           <div className="max-w-lg">
             <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100">
               {Object.entries(product.features).map(([key, value]) => (
@@ -228,9 +227,9 @@ export function ProductDetailTabs({
               ))}
             </div>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="reviews" className="mt-0">
+        {active === "reviews" && (
           <div className="grid gap-10 lg:grid-cols-[240px_1fr]">
             <div className="space-y-5">
               <div>
@@ -257,9 +256,8 @@ export function ProductDetailTabs({
             <div className="space-y-6">
               <ReviewForm
                 productId={product.id}
-                onSubmitted={() => router.refresh()}
+                onSubmitted={(review) => setReviews((prev) => [review, ...prev])}
               />
-
               <div className="divide-y divide-slate-100">
                 {reviews.map((review) => (
                   <div key={review.id} className="py-6">
@@ -276,14 +274,14 @@ export function ProductDetailTabs({
                       <div className="shrink-0 text-right">
                         <div className="flex items-center gap-1 text-xs text-slate-400">
                           <span className="font-medium text-slate-600">
-                            {review.authorName ?? "Müşteri"}
+                            {review.authorName || "Müşteri"}
                           </span>
                           {review.verifiedPurchase && <BadgeCheck className="size-3.5 text-emerald-500" />}
                         </div>
                       </div>
                     </div>
                     <p className="mt-2 text-sm leading-6 text-slate-500">{review.text}</p>
-                    <button type="button" className="mt-3 flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 cursor-pointer">
+                    <button type="button" className="mt-3 flex cursor-pointer items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
                       <ThumbsUp className="size-3.5" />
                       Faydalı ({review.helpfulCount})
                     </button>
@@ -295,37 +293,8 @@ export function ProductDetailTabs({
               </div>
             </div>
           </div>
-        </TabsContent>
-
-        <TabsContent value="similar" className="mt-0">
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
-            {similarProducts.map((item) => (
-              <Link
-                key={item.id}
-                href={`/product/${item.id}`}
-                className="group space-y-3 rounded-2xl border border-slate-100 bg-white p-3 transition hover:border-slate-200 hover:shadow-sm"
-              >
-                <div className="relative aspect-square overflow-hidden rounded-xl bg-slate-50">
-                  <Image
-                    src={item.image}
-                    alt={item.title}
-                    fill
-                    sizes="200px"
-                    className="object-contain p-4 transition-transform duration-300 group-hover:scale-105"
-                  />
-                </div>
-                <div className="space-y-0.5">
-                  <p className="line-clamp-2 text-xs font-medium leading-4 text-slate-800">{item.title}</p>
-                  <p className="text-sm font-bold text-slate-900">{formatPrice(item.price)}</p>
-                </div>
-              </Link>
-            ))}
-            {similarProducts.length === 0 && (
-              <p className="col-span-full text-sm text-slate-500">Bu kategori için benzer ürün bulunamadı.</p>
-            )}
-          </div>
-        </TabsContent>
+        )}
       </div>
-    </Tabs>
+    </div>
   );
 }

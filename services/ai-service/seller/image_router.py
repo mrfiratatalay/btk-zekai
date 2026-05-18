@@ -1,0 +1,151 @@
+import asyncio
+import os
+
+from fastapi import APIRouter, HTTPException
+from google import genai
+from google.genai import errors as genai_errors
+from pydantic import BaseModel
+
+router = APIRouter()
+
+# Nano Banana 2 — speed-optimized image generation
+IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+
+
+class ImageGenerateRequest(BaseModel):
+    product_title: str
+    category: str
+    description: str | None = None
+    style: str = "ecommerce"
+
+
+class ImageGenerateResponse(BaseModel):
+    image_base64: str
+    mime_type: str
+    description: str
+
+
+class MultiImageRequest(BaseModel):
+    product_title: str
+    category: str
+    description: str | None = None
+
+
+class ImageResult(BaseModel):
+    type: str  # studio | unboxing | lifestyle
+    label: str
+    image_base64: str
+    mime_type: str
+
+
+class MultiImageResponse(BaseModel):
+    images: list[ImageResult]
+
+
+def _get_client() -> genai.Client:
+    api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+    if not api_key or api_key == "your_google_api_key_here":
+        raise HTTPException(status_code=503, detail="GOOGLE_API_KEY tanımlı değil.")
+    return genai.Client(api_key=api_key)
+
+
+def _generate_image_sync(client: genai.Client, prompt: str) -> tuple[str, str]:
+    """Returns (base64_data, mime_type). Runs synchronously — wrap in asyncio.to_thread."""
+    interaction = client.interactions.create(
+        model=IMAGE_MODEL,
+        input=prompt,
+    )
+    for step in interaction.steps:
+        if step.type == "model_output":
+            for content_block in step.content:
+                if content_block.type == "image" and content_block.data:
+                    mime = getattr(content_block, "mime_type", "image/png") or "image/png"
+                    return content_block.data, mime
+    raise ValueError("AI'dan görsel alınamadı.")
+
+
+def _build_studio_prompt(title: str, category: str, desc: str | None) -> str:
+    extra = f" — {desc[:80]}" if desc else ""
+    return (
+        f"Professional product photograph of: {title}{extra}. "
+        f"Category: {category}. "
+        "Perfectly clean white background, professional studio lighting, product perfectly centered, "
+        "sharp focus, no shadows, no text, no watermarks, no people. "
+        "High resolution commercial quality suitable for online marketplace listing."
+    )
+
+
+def _build_unboxing_prompt(title: str, category: str, desc: str | None) -> str:
+    extra = f" — {desc[:80]}" if desc else ""
+    return (
+        f"Flat lay unboxing photograph of: {title}{extra}. "
+        f"Category: {category}. "
+        "Product taken out of its box, arranged neatly on a clean white or light gray surface together with its box and all included accessories. "
+        "Top-down view, soft natural light, minimal style, no people, no text, no watermarks. "
+        "Shows everything included in the package."
+    )
+
+
+def _build_lifestyle_prompt(title: str, category: str, desc: str | None) -> str:
+    extra = f" — {desc[:80]}" if desc else ""
+    return (
+        f"Lifestyle photograph of: {title}{extra}. "
+        f"Category: {category}. "
+        "Product being naturally used by a person in a realistic everyday environment. "
+        "Warm, inviting ambient lighting, natural setting that matches the product use case. "
+        "Professional photography, no text, no watermarks. Shows the product in real-life context."
+    )
+
+
+@router.post("/ai-image", response_model=ImageGenerateResponse)
+async def generate_product_image(req: ImageGenerateRequest) -> ImageGenerateResponse:
+    """Single image generation (legacy endpoint — kept for backwards compatibility)."""
+    client = _get_client()
+    prompt = _build_studio_prompt(req.product_title, req.category, req.description)
+    try:
+        image_b64, mime_type = await asyncio.to_thread(_generate_image_sync, client, prompt)
+    except genai_errors.APIError as exc:
+        raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return ImageGenerateResponse(
+        image_base64=image_b64,
+        mime_type=mime_type,
+        description=f"{req.product_title} için AI tarafından üretildi.",
+    )
+
+
+@router.post("/ai-images", response_model=MultiImageResponse)
+async def generate_product_images(req: MultiImageRequest) -> MultiImageResponse:
+    """Generate 3 distinct product shots in parallel: Studio, Unboxing, Lifestyle."""
+    client = _get_client()
+
+    studio_prompt = _build_studio_prompt(req.product_title, req.category, req.description)
+    unboxing_prompt = _build_unboxing_prompt(req.product_title, req.category, req.description)
+    lifestyle_prompt = _build_lifestyle_prompt(req.product_title, req.category, req.description)
+
+    shot_specs = [
+        ("studio",    "Stüdyo",   studio_prompt),
+        ("unboxing",  "Kutu Açma", unboxing_prompt),
+        ("lifestyle", "Kullanım",  lifestyle_prompt),
+    ]
+
+    try:
+        results = await asyncio.gather(
+            *[asyncio.to_thread(_generate_image_sync, client, prompt) for _, _, prompt in shot_specs],
+            return_exceptions=True,
+        )
+    except genai_errors.APIError as exc:
+        raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
+
+    images: list[ImageResult] = []
+    for (shot_type, label, _), result in zip(shot_specs, results):
+        if isinstance(result, Exception):
+            continue
+        b64, mime = result
+        images.append(ImageResult(type=shot_type, label=label, image_base64=b64, mime_type=mime))
+
+    if not images:
+        raise HTTPException(status_code=500, detail="Hiçbir görsel üretilemedi. Lütfen tekrar deneyin.")
+
+    return MultiImageResponse(images=images)

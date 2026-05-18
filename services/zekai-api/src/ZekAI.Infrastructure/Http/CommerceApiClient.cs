@@ -47,6 +47,22 @@ public class CommerceApiClient(HttpClient http)
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> PublishProductAsync(string commerceToken, string productId, bool published)
+    {
+        SetBearerToken(commerceToken);
+        var response = await http.PutAsJsonAsync($"/api/seller/products/{productId}/publish", new { published });
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<JsonDocument?> UpdateProductImageAsync(string commerceToken, string productId, string imageBase64, string mimeType)
+    {
+        SetBearerToken(commerceToken);
+        var response = await http.PutAsJsonAsync($"/api/seller/products/{productId}/image", new { imageBase64, mimeType });
+        if (!response.IsSuccessStatusCode) return null;
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonDocument.Parse(json);
+    }
+
     // Proxy: raw JSON pass-through for complex commerce responses
     public async Task<JsonDocument?> ProxyGetAsync(string commerceToken, string path)
     {
@@ -71,7 +87,9 @@ public class CommerceApiClient(HttpClient http)
         SetBearerToken(commerceToken);
         var response = await http.PostAsJsonAsync(path, body);
         if (!response.IsSuccessStatusCode) return null;
+        if (response.Content.Headers.ContentLength == 0) return JsonDocument.Parse("{}");
         var json = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(json)) return JsonDocument.Parse("{}");
         return JsonDocument.Parse(json);
     }
 
@@ -82,8 +100,31 @@ public class CommerceApiClient(HttpClient http)
         if (!response.IsSuccessStatusCode) return null;
         return await response.Content.ReadFromJsonAsync<CommerceSellerProfileDto>();
     }
+
+    public async Task<CommerceProductDetailDto?> GetProductDetailAsync(string productId)
+    {
+        var response = await http.GetAsync($"/api/products/{productId}");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<CommerceProductDetailDto>(
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    }
+
+    public async Task<List<CommerceReviewDto>> GetProductReviewsAsync(string productId)
+    {
+        var response = await http.GetAsync($"/api/products/{productId}/reviews");
+        if (!response.IsSuccessStatusCode) return [];
+        return await response.Content.ReadFromJsonAsync<List<CommerceReviewDto>>(
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+    }
 }
 
 public record CommerceAuthResponse(string Token, string RefreshToken, CommerceUserDto User);
 public record CommerceUserDto(Guid Id, string Email, string FullName, string Role);
 public record CommerceSellerProfileDto(Guid Id, string StoreName, string OwnerName, int TrustScore, double StoreRating, int TotalReviewCount, bool FastShipping, int ReturnDays);
+public record CommerceProductDetailDto(
+    string Id, string Title, string Brand, string SellerName, string Category,
+    decimal Price, decimal? OriginalPrice, double Rating, int ReviewCount, int Stock,
+    List<string>? Images, string? ShortDescription, string? Description,
+    Dictionary<string, string>? Features, List<string>? Badges, string? CargoText);
+
+public record CommerceReviewDto(int Id, string AuthorName, int Rating, string Title, string Text, bool VerifiedPurchase);

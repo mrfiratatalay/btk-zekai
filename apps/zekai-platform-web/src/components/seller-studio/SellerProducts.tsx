@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Package, Search, Settings, Store, Tag } from "lucide-react";
 import { getSellerProducts, getStoreConnections, type SellerProduct, type StoreConnection } from "@/lib/api/seller";
+import { resolveCommerceImage } from "@/lib/utils";
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -109,7 +110,7 @@ export function SellerProducts() {
           >
             <div className="relative m-4 size-36 shrink-0 overflow-hidden rounded-xl bg-muted">
               {product.primaryImage ? (
-                <Image src={product.primaryImage} alt={product.title} fill sizes="144px" className="object-contain p-3" />
+                <Image src={resolveCommerceImage(product.primaryImage)} alt={product.title} fill sizes="144px" className="object-contain p-3" />
               ) : (
                 <div className="flex h-full items-center justify-center text-muted-foreground">
                   <Package className="size-10" />

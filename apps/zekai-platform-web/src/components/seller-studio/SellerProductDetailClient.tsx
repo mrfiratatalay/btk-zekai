@@ -13,13 +13,17 @@ function mapToPerformance(sp: SellerProduct, pd: ProductDetail): SellerProductPe
     id: sp.id,
     title: pd.title,
     image: pd.images[0] ?? "",
+    brand: pd.brand ?? "",
     category: pd.category,
+    categoryId: 0,
     price: pd.price,
+    originalPrice: pd.originalPrice ?? null,
     stock: pd.stock,
+    cargoText: pd.cargoText ?? "",
     updatedAt: new Date(sp.updatedAt).toLocaleDateString("tr-TR"),
     description: pd.description ?? "",
     shortDescription: pd.shortDescription ?? "",
-    features: Object.values(pd.features ?? {}),
+    features: pd.features ?? {},
   };
 }
 
@@ -28,13 +32,17 @@ function mapPublicToPerformance(pd: ProductDetail): SellerProductPerformance {
     id: pd.id,
     title: pd.title,
     image: pd.images[0] ?? "",
+    brand: pd.brand ?? "",
     category: pd.category,
+    categoryId: 0,
     price: pd.price,
+    originalPrice: pd.originalPrice ?? null,
     stock: pd.stock,
+    cargoText: pd.cargoText ?? "",
     updatedAt: new Date(pd.updatedAt).toLocaleDateString("tr-TR"),
     description: pd.description ?? "",
     shortDescription: pd.shortDescription ?? "",
-    features: Object.values(pd.features ?? {}),
+    features: pd.features ?? {},
   };
 }
 

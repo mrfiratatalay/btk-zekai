@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using ZekAI.Application.DTOs.Products;
+using ZekAI.Domain.Entities;
+using ZekAI.Domain.Enums;
 using ZekAI.Infrastructure.Data;
 
 namespace ZekAI.Infrastructure.Services;
@@ -82,6 +84,11 @@ public class ProductService(AppDbContext db)
         if (!await db.Products.AnyAsync(p => p.Id == productId))
             throw new KeyNotFoundException("Ürün bulunamadı.");
 
+        var isProductOwner = await db.SellerProducts
+            .AnyAsync(sp => sp.ProductId == productId && sp.Seller!.UserId == userId);
+        if (isProductOwner)
+            throw new InvalidOperationException("Kendi ürününüze yorum yapamazsınız.");
+
         if (await db.ProductReviews.AnyAsync(r => r.ProductId == productId && r.UserId == userId))
             throw new InvalidOperationException("Bu ürün için zaten bir yorum yaptınız.");
 
@@ -143,4 +150,63 @@ public class ProductService(AppDbContext db)
         var id = Uri.UnescapeDataString(match.Groups[1].Value);
         return await GetByIdAsync(id);
     }
+
+    public async Task<List<PublicProductBundleDto>> GetPublishedBundlesAsync(string productId)
+    {
+        var bundles = await db.ProductBundles
+            .Where(b => b.PrimaryProductId == productId && b.Status == ProductBundleStatus.Published)
+            .Include(b => b.PrimaryProduct).ThenInclude(p => p!.Images)
+            .Include(b => b.PrimaryProduct).ThenInclude(p => p!.Category)
+            .Include(b => b.PrimaryProduct).ThenInclude(p => p!.SellerProduct)
+            .Include(b => b.ComplementaryProduct).ThenInclude(p => p!.Images)
+            .Include(b => b.ComplementaryProduct).ThenInclude(p => p!.Category)
+            .Include(b => b.ComplementaryProduct).ThenInclude(p => p!.SellerProduct)
+            .OrderByDescending(b => b.Score)
+            .ToListAsync();
+
+        return bundles
+            .Where(IsPublicBundleVisible)
+            .Select(MapPublicBundle)
+            .ToList();
+    }
+
+    private static bool IsPublicBundleVisible(ProductBundle bundle)
+    {
+        return bundle.PrimaryProduct is not null &&
+               bundle.ComplementaryProduct is not null &&
+               bundle.PrimaryProduct.Stock > 0 &&
+               bundle.ComplementaryProduct.Stock > 0 &&
+               bundle.PrimaryProduct.SellerProduct?.IsPublished == true &&
+               bundle.ComplementaryProduct.SellerProduct?.IsPublished == true;
+    }
+
+    private static PublicProductBundleDto MapPublicBundle(ProductBundle bundle)
+    {
+        var originalTotal = bundle.PrimaryProduct!.Price + bundle.ComplementaryProduct!.Price;
+        var discountAmount = Math.Round(originalTotal * bundle.DiscountPercent / 100, 2);
+        return new PublicProductBundleDto(
+            bundle.Id,
+            bundle.Title,
+            bundle.ShortDescription,
+            bundle.CampaignText,
+            bundle.CtaLabel,
+            bundle.DiscountPercent,
+            MapPublicBundleProduct(bundle.PrimaryProduct),
+            MapPublicBundleProduct(bundle.ComplementaryProduct),
+            originalTotal,
+            discountAmount,
+            originalTotal - discountAmount
+        );
+    }
+
+    private static PublicBundleProductDto MapPublicBundleProduct(Product product) => new(
+        product.Id,
+        product.Title,
+        product.Brand,
+        product.Category?.Name ?? "",
+        product.Price,
+        product.Stock,
+        product.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault()
+            ?? product.Images.Select(i => i.Url).FirstOrDefault() ?? ""
+    );
 }

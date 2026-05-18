@@ -20,6 +20,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Favorite> Favorites => Set<Favorite>();
     public DbSet<SocialMediaContent> SocialMediaContents => Set<SocialMediaContent>();
+    public DbSet<ProductBundle> ProductBundles => Set<ProductBundle>();
+    public DbSet<StoreConnection> StoreConnections => Set<StoreConnection>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -33,9 +35,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasIndex(sp => new { sp.SellerId, sp.ProductId }).IsUnique();
 
         mb.Entity<Order>().HasIndex(o => o.OrderNumber).IsUnique();
+        mb.Entity<Order>().Property(o => o.Subtotal).HasColumnType("numeric(10,2)");
+        mb.Entity<Order>().Property(o => o.DiscountTotal).HasColumnType("numeric(10,2)");
         mb.Entity<Order>().Property(o => o.Total).HasColumnType("numeric(10,2)");
 
         mb.Entity<OrderItem>().Property(oi => oi.Price).HasColumnType("numeric(10,2)");
+        mb.Entity<OrderItem>().Property(oi => oi.OriginalUnitPrice).HasColumnType("numeric(10,2)");
+        mb.Entity<OrderItem>().Property(oi => oi.DiscountAmount).HasColumnType("numeric(10,2)");
 
         mb.Entity<Seller>()
             .HasOne(s => s.User)
@@ -61,6 +67,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasForeignKey(ci => ci.CartId);
         mb.Entity<CartItem>()
             .Property(ci => ci.Price).HasColumnType("numeric(10,2)");
+        mb.Entity<CartItem>()
+            .Property(ci => ci.OriginalPrice).HasColumnType("numeric(10,2)");
+        mb.Entity<CartItem>()
+            .Property(ci => ci.DiscountAmount).HasColumnType("numeric(10,2)");
 
         mb.Entity<Favorite>()
             .HasIndex(f => new { f.UserId, f.ProductId }).IsUnique();
@@ -84,6 +94,28 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasOne(s => s.Seller)
             .WithMany()
             .HasForeignKey(s => s.SellerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<ProductBundle>()
+            .Property(pb => pb.DiscountPercent).HasColumnType("numeric(5,2)");
+        mb.Entity<ProductBundle>()
+            .HasIndex(pb => new { pb.SellerId, pb.PrimaryProductId, pb.ComplementaryProductId })
+            .IsUnique()
+            .HasFilter("\"Status\" <> 2");
+        mb.Entity<ProductBundle>()
+            .HasOne(pb => pb.Seller)
+            .WithMany(s => s.ProductBundles)
+            .HasForeignKey(pb => pb.SellerId)
+            .OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<ProductBundle>()
+            .HasOne(pb => pb.PrimaryProduct)
+            .WithMany()
+            .HasForeignKey(pb => pb.PrimaryProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<ProductBundle>()
+            .HasOne(pb => pb.ComplementaryProduct)
+            .WithMany()
+            .HasForeignKey(pb => pb.ComplementaryProductId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

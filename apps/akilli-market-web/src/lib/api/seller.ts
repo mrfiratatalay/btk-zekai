@@ -40,6 +40,7 @@ export interface CreateProductPayload {
   cargoText: string;
   stock: number;
   primaryImageUrl?: string;
+  features?: Record<string, string>;
 }
 
 export async function getSellerProfile(): Promise<SellerProfile> {

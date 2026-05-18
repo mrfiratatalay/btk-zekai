@@ -27,8 +27,6 @@ const ZEKAI_API_URL =
   process.env.NEXT_PUBLIC_ZEKAI_API_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:5002";
-const APP_NAME = "buyer_agent";
-const USER_ID = "zekai-demo-user";
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -90,17 +88,12 @@ function trustTone(score: number): "warning" | "danger" | "success" {
 function fallbackReasons(report: VerifiedReport) {
   const warnings = report.verified_warnings?.filter((item) => item.warning) ?? [];
   if (warnings.length) {
-    return warnings.slice(0, 4).map((item, index) => ({
+    return warnings.slice(0, 4).map((item) => ({
       label: item.warning ?? "Dogrulanmis risk",
-      percent: Math.max(10, 38 - index * 8),
+      percent: null,
     }));
   }
-
-  return [
-    { label: "Urun beklentisiyle uyumsuzluk", percent: 30 },
-    { label: "Fiyat veya indirim belirsizligi", percent: 24 },
-    { label: "Yorum ve gorsel kanit yetersizligi", percent: 18 },
-  ];
+  return [];
 }
 
 export function extractVerifiedReport(event: AdkAgentEvent): VerifiedReport | undefined {
@@ -115,11 +108,6 @@ export function extractVerifiedReport(event: AdkAgentEvent): VerifiedReport | un
 }
 
 export function buildAgentMessage(product: Product, buyerNeed: string) {
-  const evidence = product.analysisEvidence;
-  const marketMedian = evidence?.market.medianPrice ?? Math.round(product.price * 0.86);
-  const fairLow = evidence?.market.fairPriceMin ?? Math.round(marketMedian * 0.92);
-  const fairHigh = evidence?.market.fairPriceMax ?? Math.round(marketMedian * 1.08);
-
   return [
     "ANALYSIS_INPUT:",
     JSON.stringify(
@@ -142,47 +130,21 @@ export function buildAgentMessage(product: Product, buyerNeed: string) {
           badges: product.badges,
           stock: product.stock,
           cargoText: product.cargoText,
-          image: product.image,
           thumbnails: product.thumbnails,
-          sellerSignals: evidence?.sellerSignals ?? null,
         },
         reviews: {
           total: product.reviewCount,
           rating: product.rating,
-          verified_purchase_count:
-            evidence?.reviews.filter((review) => review.verifiedPurchase).length ?? 0,
-          sample_reviews: evidence?.reviews ?? [],
-          note: evidence?.reviews.length
-            ? "Bu urun icin veritabani yorum kayitlari gonderiliyor."
-            : "Ham yorum metni yok; yalnizca puan ve yorum hacmi var.",
-        },
-        visual_data: {
-          image: product.image,
-          thumbnails: product.thumbnails,
-          customer_photos: evidence?.visualNotes.customerPhotoCount ?? 0,
-          studio_photos: evidence?.visualNotes.studioPhotoCount ?? product.thumbnails.length,
-          consistency_notes: evidence?.visualNotes.consistencyNotes ?? [],
-          visual_red_flags: evidence?.visualNotes.redFlags ?? [],
+          note: "Ham yorum metni yok; yalnizca puan ve yorum hacmi var.",
         },
         price_data: {
           current_price_tl: product.price,
           original_price_tl: product.originalPrice ?? product.price,
           discount_percent: product.discountPercent ?? 0,
-          market_median_price_tl: marketMedian,
-          fair_price_range: { min: fairLow, max: fairHigh },
-          price_history: evidence?.priceHistory ?? [],
-          alternative_sellers:
-            evidence?.market.alternativeSellers.map((seller) => ({
-              name: seller.name,
-              price_tl: seller.price,
-              seller_rating: seller.rating,
-            })) ?? [],
+          note: "Pazar medyan fiyati mevcut degil; ajan genel kategori bilgisiyle degerlendirme yapar.",
         },
         return_data: {
-          top_return_reasons: evidence?.returnReasons ?? [],
-          note: evidence?.returnReasons.length
-            ? "Kategoriye ve urune ozel veritabani iade sinyalleri gonderiliyor."
-            : "Kategori bazli iade sebepleri ajan tarafinda urun ve ihtiyac baglamindan tahmin edilir.",
+          note: "Kategori bazli iade sebepleri ajan tarafinda urun ve ihtiyac baglamindan tahmin edilir.",
         },
       },
       null,
@@ -191,48 +153,18 @@ export function buildAgentMessage(product: Product, buyerNeed: string) {
   ].join("\n");
 }
 
-const ADK_TIMEOUT_MS = 8000;
+const ANALYZE_TIMEOUT_MS = 120_000;
 
 function getAuthHeaders(): Record<string, string> {
   const token = typeof window === "undefined" ? null : localStorage.getItem("zekai_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function runBuyerAgentStream({
-  product,
-  buyerNeed,
-  analysisId,
-  onEvent,
-}: {
-  product: Product;
-  buyerNeed: string;
-  analysisId: string;
-  onEvent: (event: AdkAgentEvent) => void;
-}) {
-  await ensureAdkSession(analysisId);
-
-  const response = await fetch(`${ZEKAI_API_URL}/api/buyer/agent/run-sse`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "text/event-stream",
-      ...getAuthHeaders(),
-    },
-    signal: AbortSignal.timeout(ADK_TIMEOUT_MS),
-    body: JSON.stringify({
-      app_name: APP_NAME,
-      user_id: USER_ID,
-      session_id: analysisId,
-      new_message: {
-        role: "user",
-        parts: [{ text: buildAgentMessage(product, buyerNeed) }],
-      },
-    }),
-  });
-
-  if (!response.ok || !response.body) {
-    throw new Error(`ADK stream failed: ${response.status}`);
-  }
+async function streamSseEvents(
+  response: Response,
+  onEvent: (event: AdkAgentEvent) => void,
+): Promise<void> {
+  if (!response.body) throw new Error("No response body");
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
@@ -260,23 +192,36 @@ export async function runBuyerAgentStream({
   }
 }
 
-async function ensureAdkSession(sessionId: string) {
-  const created = await fetch(
-    `${ZEKAI_API_URL}/api/buyer/agent/sessions/${encodeURIComponent(sessionId)}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify({ appName: APP_NAME, userId: USER_ID }),
-      signal: AbortSignal.timeout(ADK_TIMEOUT_MS),
+/** New native-Gemini 4-agent buyer analysis via zekai-api */
+export async function runBuyerAgentStream({
+  product,
+  buyerNeed,
+  onEvent,
+}: {
+  product: Product;
+  buyerNeed: string;
+  analysisId: string;
+  onEvent: (event: AdkAgentEvent) => void;
+}) {
+  const response = await fetch(`${ZEKAI_API_URL}/api/buyer/analyze`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...getAuthHeaders(),
     },
-  );
+    signal: AbortSignal.timeout(ANALYZE_TIMEOUT_MS),
+    body: JSON.stringify({
+      productId: product.id,
+      buyerNeed,
+    }),
+  });
 
-  if (!created.ok) {
-    throw new Error(`ADK session ensure failed: ${created.status}`);
+  if (!response.ok || !response.body) {
+    throw new Error(`Buyer analyze stream failed: ${response.status}`);
   }
+
+  await streamSseEvents(response, onEvent);
 }
 
 export function applyVerifiedReport(
@@ -298,8 +243,6 @@ export function applyVerifiedReport(
   const level = recommendationLevel(report.final_recommendation, overallRiskPercent);
   const warnings = report.verified_warnings?.filter((item) => item.warning) ?? [];
   const strengths = report.verified_strengths?.filter((item) => item.strength) ?? [];
-  const medianPrice = Math.round(product.price * 0.86);
-
   return {
     ...base,
     overallRiskPercent,
@@ -367,7 +310,7 @@ export function applyVerifiedReport(
       summary: `ADK fiyat adaleti skoru ${priceScore}/100 olarak dogrulandi.`,
       marketComparison: [
         { label: "Bu satici", value: formatPrice(product.price) },
-        { label: "Pazar medyani", value: formatPrice(medianPrice) },
+        ...(product.originalPrice ? [{ label: "Liste fiyati", value: formatPrice(product.originalPrice) }] : []),
         { label: "ADK fiyat skoru", value: `${priceScore}/100` },
       ],
     },

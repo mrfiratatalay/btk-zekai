@@ -146,7 +146,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
         </div>
         <div className="flex items-center gap-2.5">
           <ShieldCheck className="size-4 shrink-0 text-slate-400" />
-          <span>15 gün içinde ücretsiz iade</span>
+          <span>İade koşulları için satıcıya danışın</span>
         </div>
       </div>
 
@@ -169,8 +169,8 @@ export function ProductInfoPanel({ product }: { product: Product }) {
           <span>Satıcı:</span>
           <span className="font-semibold text-slate-800">{product.sellerName}</span>
         </div>
-        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-          Güvenilir Satıcı
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+          {product.sellerName}
         </span>
       </div>
 

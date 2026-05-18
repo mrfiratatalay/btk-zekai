@@ -1,5 +1,5 @@
 import type { BuyerAnalysis, RecommendationLevel } from "@/types/analysis";
-import type { Product, ProductPricePoint, ProductReview } from "@/types/product";
+import type { Product } from "@/types/product";
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.min(max, Math.max(min, Math.round(value)));
@@ -27,31 +27,24 @@ function buildFitScore(product: Product, userNeedText: string) {
     product.category,
     product.shortDescription,
     product.description,
-    Object.entries(product.features).map(([key, value]) => `${key} ${value}`).join(" "),
+    Object.entries(product.features).map(([k, v]) => `${k} ${v}`).join(" "),
   ].join(" ");
   const productTokens = new Set(tokenize(productText));
-  const matches = [...needTokens].filter((token) => productTokens.has(token)).length;
+  const matches = [...needTokens].filter((t) => productTokens.has(t)).length;
   const matchScore = needTokens.size ? (matches / needTokens.size) * 100 : 55;
   const featureScore = Math.min(25, Object.keys(product.features).length * 5);
   return clamp(45 + matchScore * 0.35 + featureScore);
 }
 
-function buildTrustScore(product: Product, reviews: ProductReview[]) {
-  const verifiedRatio = reviews.length
-    ? reviews.filter((review) => review.verifiedPurchase).length / reviews.length
-    : 0;
+function buildTrustScore(product: Product) {
   const ratingScore = (product.rating / 5) * 70;
-  const reviewVolumeScore = Math.min(20, Math.log10(Math.max(product.reviewCount, 1)) * 8);
-  return clamp(ratingScore + reviewVolumeScore + verifiedRatio * 10);
+  const volumeScore = Math.min(20, Math.log10(Math.max(product.reviewCount, 1)) * 8);
+  return clamp(ratingScore + volumeScore);
 }
 
-function buildPriceScore(product: Product, priceHistory: ProductPricePoint[]) {
-  const latestMedian = priceHistory.at(-1)?.marketMedian;
-  const median = latestMedian && latestMedian > 0 ? latestMedian : product.price;
-  const ratio = product.price / median;
-  const base = ratio <= 0.9 ? 88 : ratio <= 1 ? 78 : ratio <= 1.12 ? 62 : 45;
-  const discountPenalty = product.originalPrice && product.originalPrice > product.price * 1.8 ? 12 : 0;
-  return clamp(base - discountPenalty);
+function buildPriceScore(product: Product) {
+  if (product.originalPrice && product.originalPrice > product.price * 1.8) return 45;
+  return 62;
 }
 
 function buildReturnRisk(product: Product, fitScore: number, trustScore: number) {
@@ -67,42 +60,27 @@ function recommendationLevel(overallRiskPercent: number): RecommendationLevel {
   return "safe";
 }
 
-function buildReviewSignals(reviews: ProductReview[]) {
-  const positive = reviews.filter((review) => review.rating >= 4).length;
-  const negative = reviews.filter((review) => review.rating <= 2).length;
-  return {
-    positive,
-    negative,
-    verified: reviews.filter((review) => review.verifiedPurchase).length,
-  };
-}
-
 export function buildBuyerAnalysisFromProduct({
   analysisId,
   product,
-  reviews = [],
-  priceHistory = [],
   userNeedText,
 }: {
   analysisId: string;
   product: Product;
-  reviews?: ProductReview[];
-  priceHistory?: ProductPricePoint[];
   userNeedText: string;
 }): BuyerAnalysis {
   const fitScore = buildFitScore(product, userNeedText);
-  const trustScore = buildTrustScore(product, reviews);
-  const priceScore = buildPriceScore(product, priceHistory);
+  const trustScore = buildTrustScore(product);
+  const priceScore = buildPriceScore(product);
   const returnRiskPercent = buildReturnRisk(product, fitScore, trustScore);
   const overallRiskPercent = clamp(100 - (fitScore + trustScore + priceScore) / 3 + returnRiskPercent * 0.35);
   const level = recommendationLevel(overallRiskPercent);
-  const reviewSignals = buildReviewSignals(reviews);
-  const median = priceHistory.at(-1)?.marketMedian ?? product.price;
-  const latestHistory = priceHistory.slice(-8).map((point) => ({
-    day: point.day,
-    price: point.price,
-    median: point.marketMedian,
-  }));
+
+  const marketComparison: { label: string; value: string }[] = [
+    { label: "Bu satıcı", value: formatPrice(product.price) },
+    ...(product.originalPrice ? [{ label: "Liste fiyatı", value: formatPrice(product.originalPrice) }] : []),
+    { label: "Fiyat skoru", value: `${priceScore}/100` },
+  ];
 
   return {
     analysisId,
@@ -112,65 +90,78 @@ export function buildBuyerAnalysisFromProduct({
     recommendationLevel: level,
     recommendationText:
       level === "safe"
-        ? "Ürün ihtiyacınla uyumlu görünüyor; fiyat ve yorum sinyalleri kabul edilebilir."
+        ? "Ürün ihtiyacınla uyumlu görünüyor; güven sinyalleri kabul edilebilir."
         : level === "caution"
-          ? "Satın almadan önce yorumları, iade koşullarını ve fiyat geçmişini dikkatle kontrol et."
-          : "Risk sinyalleri yüksek; alternatif ürünleri karşılaştırmadan satın alma.",
+          ? "Satın almadan önce yorumları ve iade koşullarını dikkatle kontrol et."
+          : "Risk sinyalleri yüksek; alternatifleri karşılaştırmadan satın alma.",
     scores: { fitScore, trustScore, priceScore, returnRiskPercent },
     agentSteps: [
-      { id: "need-agent", label: "İhtiyaç Analizi", description: "Kullanıcı ihtiyacı ürün verisiyle eşleştiriliyor.", status: "pending", summary: "İhtiyaç metni ayrıştırıldı.", durationMs: 900, type: "need" },
-      { id: "product-agent", label: "Ürün Verisi", description: "Başlık, açıklama ve teknik özellikler inceleniyor.", status: "pending", summary: "Ürün içeriği API verisinden okundu.", durationMs: 1100, type: "product" },
-      { id: "review-agent", label: "Yorumlar", description: "DB'deki ürün yorumları taranıyor.", status: "pending", summary: `${reviews.length} yorum sinyali değerlendirildi.`, durationMs: 1200, type: "review" },
-      { id: "visual-agent", label: "Görseller", description: "Ürün görsel çeşitliliği kontrol ediliyor.", status: "pending", summary: `${product.thumbnails.length} ürün görseli kontrol edildi.`, durationMs: 900, type: "visual" },
-      { id: "price-agent", label: "Fiyat", description: "Fiyat geçmişi ve pazar medyanı karşılaştırılıyor.", status: "pending", summary: `${priceHistory.length} fiyat noktası incelendi.`, durationMs: 1100, type: "price" },
-      { id: "return-agent", label: "İade Riski", description: "Kategori, yorum ve stok sinyalleriyle iade riski hesaplanıyor.", status: "pending", summary: `Tahmini risk %${returnRiskPercent}.`, durationMs: 1000, type: "return" },
-      { id: "synthesis-agent", label: "Karar Sentezi", description: "Tüm kanıtlar tek raporda birleştiriliyor.", status: "pending", summary: "Skorlar birleştirildi.", durationMs: 800, type: "synthesis" },
-      { id: "verification-agent", label: "Doğrulama", description: "Kanıtsız iddialar ayıklanıyor.", status: "pending", summary: "Rapor kanıt kalitesine göre temizlendi.", durationMs: 700, type: "verification" },
-      { id: "report-agent", label: "Rapor", description: "Satın alma kararı hazırlanıyor.", status: "pending", summary: "Rapor hazır.", durationMs: 600, type: "report" },
+      { id: "need-agent",         label: "İhtiyaç Analizi",  description: "Kullanıcı ihtiyacı ürün verisiyle eşleştiriliyor.", status: "pending", summary: "İhtiyaç metni ürün başlığı ve açıklamasıyla karşılaştırıldı.", durationMs: 900,  type: "need"         },
+      { id: "product-agent",      label: "Ürün Verisi",      description: "Başlık, açıklama ve teknik özellikler inceleniyor.", status: "pending", summary: `${Object.keys(product.features).length} teknik özellik değerlendirildi.`,            durationMs: 1100, type: "product"      },
+      { id: "review-agent",       label: "Yorum Sinyalleri", description: "Puan ve yorum hacmi analiz ediliyor.",               status: "pending", summary: `${product.reviewCount} yorum, ${product.rating.toFixed(1)} puan değerlendirildi.`,  durationMs: 1000, type: "review"       },
+      { id: "price-agent",        label: "Fiyat",            description: "Fiyat makullüğü değerlendiriliyor.",                 status: "pending", summary: `${formatPrice(product.price)} fiyatı kategoriye göre değerlendirildi.`,             durationMs: 900,  type: "price"        },
+      { id: "return-agent",       label: "İade Riski",       description: "Kategori ve stok sinyalleriyle iade riski hesaplanıyor.", status: "pending", summary: `Risk %${returnRiskPercent} tahmin edildi.`,                                   durationMs: 800,  type: "return"       },
+      { id: "synthesis-agent",    label: "Karar Sentezi",    description: "Tüm kanıtlar tek raporda birleştiriliyor.",          status: "pending", summary: "Uyum, güven ve fiyat skorları birleştirildi.",                                        durationMs: 700,  type: "synthesis"    },
+      { id: "verification-agent", label: "Doğrulama",        description: "Doğrulanamayan iddialar işaretleniyor.",             status: "pending", summary: "AI doğrulama için ADK bekleniyor.",                                                 durationMs: 600,  type: "verification" },
+      { id: "report-agent",       label: "Rapor",            description: "Satın alma kararı hazırlanıyor.",                    status: "pending", summary: "Ön rapor hazır.",                                                                     durationMs: 500,  type: "report"       },
     ],
     fitAnalysis: {
       title: "İhtiyaç Uyumu",
-      summary: `Ürün içeriği, yazdığın ihtiyaçla ${fitScore}/100 düzeyinde eşleşiyor.`,
+      summary: `Ürün içeriği ihtiyacınla ${fitScore}/100 düzeyinde eşleşiyor.`,
       subScores: [
-        { label: "Kullanım amacı", score: fitScore, reason: "İhtiyaç metni ürün başlığı, kategori, açıklama ve özelliklerle karşılaştırıldı." },
-        { label: "Özellik açıklığı", score: clamp(Object.keys(product.features).length * 18), reason: `${Object.keys(product.features).length} teknik özellik API'den geldi.` },
-        { label: "Stok uygunluğu", score: product.stock > 0 ? 85 : 15, reason: product.stock > 0 ? `${product.stock} adet stok var.` : "Ürün stokta görünmüyor." },
+        { label: "Kullanım amacı",   score: fitScore,                                                  reason: "İhtiyaç metni ürün başlığı, kategori, açıklama ve özellikleriyle karşılaştırıldı." },
+        { label: "Özellik açıklığı", score: clamp(Object.keys(product.features).length * 18),          reason: `${Object.keys(product.features).length} teknik özellik mevcut.` },
+        { label: "Stok uygunluğu",   score: product.stock > 0 ? 85 : 15,                               reason: product.stock > 0 ? `${product.stock} adet stok var.` : "Ürün stokta görünmüyor." },
       ],
       scenarioComparisons: [
-        { scenario: "Günlük kullanım", score: clamp(fitScore + 5) },
-        { scenario: "Fiyat hassasiyeti", score: priceScore },
-        { scenario: "Düşük risk beklentisi", score: clamp(100 - returnRiskPercent) },
+        { scenario: "Günlük kullanım",         score: clamp(fitScore + 5) },
+        { scenario: "Fiyat hassasiyeti",       score: priceScore },
+        { scenario: "Düşük risk beklentisi",   score: clamp(100 - returnRiskPercent) },
       ],
     },
     trustAnalysis: {
       title: "Güven Sinyalleri",
-      summary: `${product.rating.toFixed(1)} puan, ${product.reviewCount.toLocaleString("tr-TR")} değerlendirme ve ${reviews.length} yorum örneği incelendi.`,
+      summary: `${product.rating.toFixed(1)} puan ve ${product.reviewCount.toLocaleString("tr-TR")} değerlendirme incelendi.`,
       signals: [
-        { title: "Satıcı", value: product.sellerName, description: "Satıcı bilgisi ürün API kaydından alındı.", tone: "success" },
-        { title: "Doğrulanmış Yorum", value: `${reviewSignals.verified}/${reviews.length || 0}`, description: "Yorum örneklerinde doğrulanmış satın alma sinyali kontrol edildi.", tone: reviewSignals.verified ? "success" : "warning" },
-        { title: "Olumsuz Yorum", value: `${reviewSignals.negative}`, description: "Düşük puanlı yorum sayısı risk sinyali olarak hesaplandı.", tone: reviewSignals.negative > 1 ? "warning" : "success" },
-        { title: "Görsel Kanıt", value: `${product.thumbnails.length} görsel`, description: "Ürün sayfasındaki görsel sayısı DB ürün kaydından geldi.", tone: product.thumbnails.length >= 3 ? "success" : "warning" },
+        {
+          title: "Satıcı",
+          value: product.sellerName,
+          description: "Satıcı bilgisi ürün kaydından alındı.",
+          tone: "success",
+        },
+        {
+          title: "Puan",
+          value: `${product.rating.toFixed(1)} / 5`,
+          description: `${product.reviewCount.toLocaleString("tr-TR")} değerlendirme üzerinden hesaplandı.`,
+          tone: product.rating >= 4 ? "success" : product.rating >= 3 ? "warning" : "danger",
+        },
+        {
+          title: "Yorum Hacmi",
+          value: product.reviewCount.toLocaleString("tr-TR"),
+          description: product.reviewCount >= 100 ? "Yeterli yorum hacmi güven sinyali veriyor." : "Yorum sayısı sınırlı, dikkatli değerlendir.",
+          tone: product.reviewCount >= 100 ? "success" : product.reviewCount >= 20 ? "warning" : "danger",
+        },
+        {
+          title: "Görsel Sayısı",
+          value: `${product.thumbnails.length} görsel`,
+          description: "Ürün sayfasındaki görsel çeşitliliği.",
+          tone: product.thumbnails.length >= 3 ? "success" : "warning",
+        },
       ],
     },
     priceAnalysis: {
-      title: "Fiyat Analizi",
-      summary: `Mevcut fiyat ${formatPrice(product.price)}; pazar medyanı ${formatPrice(median)} olarak görünüyor.`,
+      title: "Fiyat Değerlendirmesi",
+      summary: `Mevcut fiyat ${formatPrice(product.price)}. AI genel bilgisiyle bu kategorideki fiyat makullüğü değerlendirildi.`,
       warning: product.originalPrice && product.originalPrice > product.price * 1.8
-        ? "Orijinal fiyat mevcut fiyata göre çok yüksek; indirim iddiası ayrıca kontrol edilmeli."
+        ? "Orijinal fiyat mevcut fiyata göre çok yüksek; indirim iddiası dikkatle kontrol edilmeli."
         : "",
-      marketComparison: [
-        { label: "Bu satıcı", value: formatPrice(product.price) },
-        { label: "Pazar medyanı", value: formatPrice(median) },
-        { label: "Fiyat skoru", value: `${priceScore}/100` },
-      ],
-      priceHistory: latestHistory,
+      marketComparison,
     },
     finalAdvice:
       level === "safe"
-        ? "Satın alma kararı makul görünüyor. Kritik özellikleri ve teslimat koşullarını son kez kontrol et."
+        ? "Satın alma kararı makul görünüyor. Teslimat koşullarını son kez kontrol et."
         : level === "caution"
-          ? "Karar vermeden önce benzer ürünlerle fiyat ve yorum kıyaslaması yap."
+          ? "Karar vermeden önce benzer ürünlerle yorum ve fiyat kıyaslaması yap."
           : "Bu haliyle beklemek veya alternatifleri incelemek daha doğru olur.",
-    alternatives: [],
   };
 }

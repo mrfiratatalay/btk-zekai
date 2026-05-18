@@ -11,7 +11,7 @@ export function AskReportBox() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([
-    { id: "1", role: "bot", text: "Bu ürünle ilgili aklına takılanları bana sorabilirsin. Örneğin: 'Oyun için alınır mı?'" }
+    { id: "1", role: "bot", text: "Zekai Asistan yakında bu rapor üzerinden sorularını yanıtlayabilecek. Şimdilik rapor verilerini yukarıdan inceleyebilirsin." }
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -31,19 +31,18 @@ export function AskReportBox() {
     setInput("");
     setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", text: userMsg }]);
     setIsTyping(true);
-    
-    // Simulate thinking delay
+
     setTimeout(() => {
       setIsTyping(false);
       setMessages((prev) => [
-        ...prev, 
-        { 
-          id: (Date.now() + 1).toString(), 
-          role: "bot", 
-          text: "Rapor verilerine göre bu ürün temel beklentilerini karşılıyor, ancak belirttiğin senaryolar için düşük gecikme garantisi vermediğinden bazı riskler taşıyor. Daha net bir alternatife yönelebilirsin." 
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "bot",
+          text: "Bu özellik şu an geliştirme aşamasında. Ürün raporunu incelemek için yukarıdaki sekmeleri kullanabilirsin.",
         }
       ]);
-    }, 1500);
+    }, 800);
   }
 
   return (
@@ -60,7 +59,7 @@ export function AskReportBox() {
             <div className="flex size-7 items-center justify-center rounded-full bg-black/10 text-[#0a0a0f] transition-transform group-hover:scale-110">
                <Sparkles className="size-4" />
             </div>
-            Zekai'ye Sor
+            Asistan (Yakında)
           </motion.button>
         )}
       </AnimatePresence>

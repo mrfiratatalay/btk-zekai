@@ -331,16 +331,34 @@ export function SavedAnalysesPage() {
       <PlatformNav />
 
       <main className="mx-auto max-w-3xl px-4 py-8 md:px-6">
-        {/* Header */}
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-foreground flex items-center gap-3">
-              <BookmarkCheck className="size-8 text-[#5a8a00] dark:text-[#adff41]" />
-              Karar Hafızası
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {analyses.length} analiz · {compareIds.length} karşılaştırma kuyruğunda
-            </p>
+        {/* Filter bar (Segmented Control) */}
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-2 p-1.5 bg-muted/50 rounded-2xl w-fit border border-border/50">
+            {FILTER_OPTIONS.map((opt) => {
+              const count =
+                opt.value === "all"
+                  ? analyses.length
+                  : analyses.filter((a) => a.status === opt.value).length;
+              if (count === 0 && opt.value !== "all") return null;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setFilter(opt.value)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all",
+                    filter === opt.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                  )}
+                >
+                  {opt.label}
+                  <span className={cn(
+                    "rounded-full px-1.5 text-[10px]",
+                    filter === opt.value ? "bg-muted text-foreground" : "bg-border text-muted-foreground"
+                  )}>{count}</span>
+                </button>
+              );
+            })}
           </div>
 
           {compareIds.length > 0 && (
@@ -354,35 +372,6 @@ export function SavedAnalysesPage() {
               </Button>
             </Link>
           )}
-        </div>
-
-        {/* Filter bar (Segmented Control) */}
-        <div className="mb-8 flex flex-wrap gap-2 p-1.5 bg-muted/50 rounded-2xl w-fit border border-border/50">
-          {FILTER_OPTIONS.map((opt) => {
-            const count =
-              opt.value === "all"
-                ? analyses.length
-                : analyses.filter((a) => a.status === opt.value).length;
-            if (count === 0 && opt.value !== "all") return null;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setFilter(opt.value)}
-                className={cn(
-                  "flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all",
-                  filter === opt.value
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                )}
-              >
-                {opt.label}
-                <span className={cn(
-                  "rounded-full px-1.5 text-[10px]",
-                  filter === opt.value ? "bg-muted text-foreground" : "bg-border text-muted-foreground"
-                )}>{count}</span>
-              </button>
-            );
-          })}
         </div>
 
         {/* Empty state */}

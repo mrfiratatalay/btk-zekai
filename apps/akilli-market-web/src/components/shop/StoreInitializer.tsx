@@ -12,8 +12,8 @@ export function StoreInitializer() {
   useEffect(() => {
     const user = getCurrentUser();
     if (user?.role === "Buyer") {
-      loadCart();
-      loadFavorites();
+      loadCart().catch(() => {});
+      loadFavorites().catch(() => {});
     }
   }, [loadCart, loadFavorites]);
 

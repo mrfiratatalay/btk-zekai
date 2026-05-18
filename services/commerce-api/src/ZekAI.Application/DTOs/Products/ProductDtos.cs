@@ -36,6 +36,30 @@ public record ProductDetailDto(
     DateTime UpdatedAt
 );
 
+public record PublicBundleProductDto(
+    string Id,
+    string Title,
+    string Brand,
+    string Category,
+    decimal Price,
+    int Stock,
+    string Image
+);
+
+public record PublicProductBundleDto(
+    Guid Id,
+    string Title,
+    string ShortDescription,
+    string CampaignText,
+    string CtaLabel,
+    decimal DiscountPercent,
+    PublicBundleProductDto PrimaryProduct,
+    PublicBundleProductDto ComplementaryProduct,
+    decimal OriginalTotal,
+    decimal DiscountAmount,
+    decimal BundleTotal
+);
+
 public record ProductReviewDto(
     int Id,
     string AuthorName,
@@ -57,5 +81,4 @@ public class CreateProductReviewRequest
 }
 
 public record PriceHistoryDto(string Day, decimal Price, decimal MarketMedian);
-
 public record CategoryDto(int Id, string Name, string Slug);

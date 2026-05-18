@@ -5,6 +5,8 @@ namespace ZekAI.Application.DTOs;
 
 public record EnsureAgentSessionRequest(string AppName, string UserId);
 
+public record BuyerAnalyzeRequest(string ProductId, string BuyerNeed);
+
 public record AgentRunRequest(
     [property: JsonPropertyName("app_name")]
     string App_Name,

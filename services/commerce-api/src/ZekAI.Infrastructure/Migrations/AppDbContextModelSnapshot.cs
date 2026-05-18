@@ -50,12 +50,24 @@ namespace ZekAI.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<Guid?>("BundleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BundleTitle")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("CartId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<string>("Image")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<decimal>("OriginalPrice")
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric(10,2)");
@@ -144,6 +156,9 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal>("DiscountTotal")
+                        .HasColumnType("numeric(10,2)");
+
                     b.Property<string>("OrderNumber")
                         .IsRequired()
                         .HasColumnType("text");
@@ -157,6 +172,9 @@ namespace ZekAI.Infrastructure.Migrations
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<decimal>("Total")
                         .HasColumnType("numeric(10,2)");
@@ -179,8 +197,20 @@ namespace ZekAI.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<Guid?>("BundleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BundleTitle")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("numeric(10,2)");
+
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("OriginalUnitPrice")
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric(10,2)");
@@ -275,6 +305,77 @@ namespace ZekAI.Infrastructure.Migrations
                     b.HasIndex("CategoryId");
 
                     b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.ProductBundle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CampaignText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ComplementaryProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CtaLabel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("DiscountPercent")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<string>("PrimaryProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RecommendationReason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SellerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComplementaryProductId");
+
+                    b.HasIndex("PrimaryProductId");
+
+                    b.HasIndex("SellerId", "PrimaryProductId", "ComplementaryProductId")
+                        .IsUnique()
+                        .HasFilter("\"Status\" <> 2");
+
+                    b.ToTable("ProductBundles");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.ProductImage", b =>
@@ -567,6 +668,10 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<string>("StoreApiKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("StoreName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -682,6 +787,33 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.ProductBundle", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.Product", "ComplementaryProduct")
+                        .WithMany()
+                        .HasForeignKey("ComplementaryProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZekAI.Domain.Entities.Product", "PrimaryProduct")
+                        .WithMany()
+                        .HasForeignKey("PrimaryProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZekAI.Domain.Entities.Seller", "Seller")
+                        .WithMany("ProductBundles")
+                        .HasForeignKey("SellerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ComplementaryProduct");
+
+                    b.Navigation("PrimaryProduct");
+
+                    b.Navigation("Seller");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.ProductImage", b =>
@@ -817,6 +949,8 @@ namespace ZekAI.Infrastructure.Migrations
 
             modelBuilder.Entity("ZekAI.Domain.Entities.Seller", b =>
                 {
+                    b.Navigation("ProductBundles");
+
                     b.Navigation("SellerProducts");
 
                     b.Navigation("StoreConnections");

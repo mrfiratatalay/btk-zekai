@@ -44,6 +44,11 @@ builder.Services.AddHttpClient("AiService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["AiService:BaseUrl"] ?? "http://localhost:8000");
 });
+builder.Services.AddHttpClient<AiServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["AiService:BaseUrl"] ?? "http://localhost:8000");
+    client.Timeout = TimeSpan.FromSeconds(120);
+});
 
 // Services
 builder.Services.AddScoped<JwtService>();

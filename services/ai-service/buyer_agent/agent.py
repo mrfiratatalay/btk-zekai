@@ -87,32 +87,6 @@ Sadece su JSON semasini dondur:
 )
 
 
-visual_forensics_agent = LlmAgent(
-    name="visual_forensics",
-    model=MODEL,
-    description="Urun fotograflarini analiz ederek gorsel guvenilirlik tespiti yapar.",
-    instruction=f"""
-{GLOBAL_RULES}
-
-ANALYSIS_INPUT.visual_data ve product.image/thumbnails alanlarini incele.
-Gorseller URL ise goruntu icerigini dogrudan gordugunu iddia etme; URL sayisi,
-cesitlilik ve urun aciklamasiyla beklenen gorsel kanit yeterliligini degerlendir.
-Sadece su JSON semasini dondur:
-{{
-  "stock_photo_suspicion": true,
-  "stock_photo_evidence": ["..."],
-  "watermark_traces": ["..."],
-  "customer_photo_consistency": "consistent|inconsistent|no_customer_photos",
-  "customer_photo_issues": ["..."],
-  "image_quality_assessment": "poor|fair|good|excellent",
-  "visual_red_flags": ["..."],
-  "visual_trust_score": 0.0
-}}
-""",
-    output_key="gorsel_analizi",
-)
-
-
 price_market_agent = LlmAgent(
     name="price_market",
     model=MODEL,
@@ -121,7 +95,8 @@ price_market_agent = LlmAgent(
 {GLOBAL_RULES}
 
 ANALYSIS_INPUT.price_data ve product.price/originalPrice/discountPercent alanlarini incele.
-Sahte indirim ihtimalini, adil fiyat araligini ve alternatif satici sinyallerini yorumla.
+Pazar medyani veya fiyat gecmisi verisi gonderilmemistir; genel kategori bilginle fiyat
+makullugunu degerlendir. Sahte indirim ihtimalini yorumla.
 Sadece su JSON semasini dondur:
 {{
   "current_price_tl": 0.0,
@@ -129,11 +104,8 @@ Sadece su JSON semasini dondur:
   "discount_percent": 0.0,
   "is_fake_discount": false,
   "fake_discount_evidence": "...",
-  "market_median_price_tl": 0.0,
-  "fair_price_range": {{"min": 0.0, "max": 0.0}},
-  "alternative_sellers": [{{"name": "...", "price_tl": 0.0}}],
-  "price_trend": "stable|increasing|decreasing|volatile",
-  "price_fairness_score": 0.0
+  "price_fairness_score": 0.0,
+  "price_comment": "..."
 }}
 """,
     output_key="fiyat_analizi",
@@ -167,7 +139,6 @@ parallel_forensics = ParallelAgent(
     sub_agents=[
         product_reality_agent,
         review_mining_agent,
-        visual_forensics_agent,
         price_market_agent,
         return_risk_agent,
     ],
@@ -185,7 +156,6 @@ Asagidaki state ciktilarini birlestir:
 Kullanici ihtiyac profili: {{ihtiyac_profili}}
 Urun gerceklik analizi: {{urun_gerceklik_analizi}}
 Yorum analizi: {{yorum_analizi}}
-Gorsel analizi: {{gorsel_analizi}}
 Fiyat analizi: {{fiyat_analizi}}
 Iade riski analizi: {{iade_riski_analizi}}
 
@@ -225,7 +195,6 @@ Su risk raporunu ve onceki analizleri kanit kalitesi acisindan denetle:
 Risk raporu: {{risk_raporu}}
 Urun analizi: {{urun_gerceklik_analizi}}
 Yorum analizi: {{yorum_analizi}}
-Gorsel analizi: {{gorsel_analizi}}
 Fiyat analizi: {{fiyat_analizi}}
 Iade riski: {{iade_riski_analizi}}
 
