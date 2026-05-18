@@ -58,7 +58,11 @@ builder.Services.AddScoped<SellerService>();
 
 // CORS
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(policy =>
-    policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
+    policy.WithOrigins(
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "https://akilli-markett.vercel.app",
+            "https://zekai-platformm.vercel.app")
           .AllowAnyHeader()
           .AllowAnyMethod()));
 

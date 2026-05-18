@@ -56,7 +56,11 @@ builder.Services.AddAuthorization();
 // ── CORS — Next.js frontend ──
 builder.Services.AddCors(opt => opt.AddPolicy("NextJs", policy =>
     policy
-        .WithOrigins("http://localhost:3000", "http://localhost:3001")
+        .WithOrigins(
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "https://akilli-markett.vercel.app",
+            "https://zekai-platformm.vercel.app")
         .AllowAnyHeader()
         .AllowAnyMethod()
         .AllowCredentials()));
