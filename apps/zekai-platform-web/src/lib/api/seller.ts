@@ -222,6 +222,9 @@ export interface SimulatedPersona {
   lookedAt: string[];
   recommendation: string;
   monologue: string;
+  focusArea?: string;
+  focusLabel?: string;
+  bubbleText?: string;
 }
 
 export interface SimulationResult {

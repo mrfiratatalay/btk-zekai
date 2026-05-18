@@ -32,6 +32,11 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Simülasyon ekranı tam ekran immersive bir deneyim olmalı:
+  // sidebar, header ve mobile bottom nav tamamen gizlenir.
+  // Sadece /seller/product/[id]/simulation route'unda devreye girer.
+  const isFullscreenRoute = pathname.endsWith("/simulation");
+
   useEffect(() => {
     const u = getCurrentUser();
     if (!u) { router.replace("/login"); return; }
@@ -65,6 +70,10 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
   function handleLogout() {
     logout();
     router.push("/login");
+  }
+
+  if (isFullscreenRoute) {
+    return <div className="min-h-screen bg-background">{children}</div>;
   }
 
   return (

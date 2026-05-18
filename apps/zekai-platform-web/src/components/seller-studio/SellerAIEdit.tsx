@@ -46,8 +46,17 @@ const CATEGORIES = [
 ];
 
 function loadSimulationInsight(productId: string): SimulationInsight | null {
+  // Önce sessionStorage (tab-içi en güncel), yoksa localStorage (önceki sekmeden kalan)
+  const sources = [
+    `zekai_sim_${productId}`,         // sessionStorage key — son simülasyon
+    `zekai_sim_last_${productId}`,    // localStorage key — kalıcı son simülasyon
+  ];
   try {
-    const raw = sessionStorage.getItem(`zekai_sim_${productId}`);
+    let raw: string | null = null;
+    for (const key of sources) {
+      raw = sessionStorage.getItem(key) ?? localStorage.getItem(key);
+      if (raw) break;
+    }
     if (!raw) return null;
     const { personas } = JSON.parse(raw) as { personas: SyntheticPersona[] };
     if (!personas?.length) return null;

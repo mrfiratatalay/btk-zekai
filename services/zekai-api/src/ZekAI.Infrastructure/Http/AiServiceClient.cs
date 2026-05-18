@@ -176,7 +176,10 @@ public record AiPersonaResult(
     string Reason,
     List<string> LookedAt,
     string Recommendation,
-    string Monologue
+    string Monologue,
+    string FocusArea = "features",
+    string FocusLabel = "Özellikleri inceliyor",
+    string BubbleText = "Bu özellikler bana yeter mi?"
 );
 
 public record AiSimulationResult(

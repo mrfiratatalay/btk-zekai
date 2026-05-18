@@ -16,6 +16,75 @@ router = APIRouter()
 MODEL = "gemini-2.5-flash"
 
 
+# ── Focus Area Constants ──────────────────────────────────────────────────────
+# Ürün kartında müşterinin gözünü diktiği görsel hedef alanlar.
+# Frontend bu sabitleri anchor olarak kullanır — eşleşme zorunlu.
+
+FocusArea = Literal[
+    "image", "title", "price", "rating", "reviews",
+    "features", "shipping", "warranty", "cta",
+]
+
+FOCUS_AREAS: list[str] = [
+    "image", "title", "price", "rating", "reviews",
+    "features", "shipping", "warranty", "cta",
+]
+
+FOCUS_LABELS: dict[str, str] = {
+    "image":    "Görsellere bakıyor",
+    "title":    "Başlığı okuyor",
+    "price":    "Fiyatı tartıyor",
+    "rating":   "Puanları inceliyor",
+    "reviews":  "Yorumlara bakıyor",
+    "features": "Özellikleri inceliyor",
+    "shipping": "Kargoya bakıyor",
+    "warranty": "Garantiye bakıyor",
+    "cta":      "Sepete eklemeyi düşünüyor",
+}
+
+
+def _caresabout_to_focus(cares_about: str) -> str:
+    """caresAbout serbest metnini en uygun focusArea slug'ına çevirir."""
+    c = (cares_about or "").lower()
+    if any(k in c for k in ("fiyat", "bütçe", "ucuz", "ekonomik", "indirim")):
+        return "price"
+    if any(k in c for k in ("yorum", "deneyim", "kullanıcı geri", "şikayet")):
+        return "reviews"
+    if any(k in c for k in ("puan", "rating", "yıldız")):
+        return "rating"
+    if any(k in c for k in ("kalite", "özellik", "teknik", "performans", "spec")):
+        return "features"
+    if any(k in c for k in ("marka", "itibar", "isim")):
+        return "title"
+    if any(k in c for k in ("görsel", "tasarım", "renk", "estetik", "görünüm")):
+        return "image"
+    if any(k in c for k in ("kargo", "teslimat", "hızlı", "ulaşım")):
+        return "shipping"
+    if any(k in c for k in ("garanti", "iade", "değişim", "servis")):
+        return "warranty"
+    if any(k in c for k in ("hızlı al", "satın", "kolay sipariş")):
+        return "cta"
+    return "features"
+
+
+def assign_focus_areas(personas: list["_DynamicPersona"]) -> list[str]:
+    """Her personaya farklı bir focusArea ata. caresAbout'a saygı duyar,
+    çakışmalarda kullanılmamış area'lara fallback yapar. En az 4 (çoğu zaman 5)
+    farklı area garantisi verir."""
+    used: set[str] = set()
+    result: list[str] = []
+    for p in personas:
+        preferred = _caresabout_to_focus(p.caresAbout)
+        if preferred not in used:
+            used.add(preferred)
+            result.append(preferred)
+            continue
+        chosen = next((a for a in FOCUS_AREAS if a not in used), preferred)
+        used.add(chosen)
+        result.append(chosen)
+    return result
+
+
 class SimulateRequest(BaseModel):
     product_title: str
     category: str
@@ -37,6 +106,9 @@ class PersonaResult(BaseModel):
     lookedAt: list[str]
     recommendation: str
     monologue: str
+    focusArea: str
+    focusLabel: str
+    bubbleText: str
 
 
 class SimulateResponse(BaseModel):
@@ -67,6 +139,7 @@ class _AIPersonaDecision(BaseModel):
     looked_at: list[str]
     recommendation: str
     monologue: str
+    bubble_text: str
 
 
 def _get_client() -> genai.Client:
@@ -113,6 +186,8 @@ def _build_persona_prompt(
     price: float,
     description: str | None,
     features: list[str],
+    focus_area: str,
+    focus_label: str,
 ) -> str:
     features_text = ", ".join(features) if features else "belirtilmemiş"
     desc_text = description or "belirtilmemiş"
@@ -131,21 +206,43 @@ Değerlendirilecek Ürün:
 - Açıklama: {desc_text}
 - Özellikler: {features_text}
 
-Bu müşteri olarak ürünü gerçekçi biçimde değerlendir. Karar, gerçekten bu ürünün bu müşteriye uygunluğuna göre olmalı.
+Bu müşteri ÖZELLİKLE ürün kartının şu bölümüne odaklanıyor: "{focus_label}" (alan kodu: {focus_area}).
+Bu, müşterinin önceliği ({persona.caresAbout}) ile uyumlu, asıl dikkat ettiği yer burası.
+
+Aşağıdaki alanları gerçekçi biçimde doldur. Karar, ürünün bu müşteriye uygunluğuna göre olmalı.
+
 - decision: "buy" (satın alır), "skip" (almaz), "undecided" (kararsız)
 - reason: Kararın kısa gerekçesi, bu müşterinin bakış açısından (1-2 cümle)
-- looked_at: Müşterinin baktığı bilgi alanları (ör: ["Fiyat", "Özellikler", "Açıklama"])
+- looked_at: Müşterinin baktığı bilgi alanları (ör: ["Fiyat", "Özellikler", "Açıklama"]); listenin İLK elemanı "{focus_label}" ile uyumlu olmalı
 - recommendation: Seller'a 1 cümlelik somut iyileştirme önerisi — bu müşteri segmentini daha iyi nasıl ikna edersin?
-- monologue: Bu müşterinin iç sesi, birinci şahıs, samimi (1 cümle)"""
+- monologue: Bu müşterinin iç sesi, birinci şahıs, samimi (1 cümle)
+- bubble_text: Müşterinin "{focus_label}" alanına bakarken aklından geçen ÇOK KISA düşünce ya da soru.
+  Kurallar:
+  * MAKS 8 kelime, soru veya gözlem
+  * Tek satır, tırnaksız, noktalama serbest
+  * "{focus_area}" alanına özgü — örnek:
+    - price   → "Fiyat bütçeme uyar mı?" / "Bu fiyata değer mi?"
+    - reviews → "Yorumlar güven veriyor mu?" / "Kaç kişi almış?"
+    - rating  → "Puan yüksek mi gerçekten?"
+    - features → "Bu özellikler bana yeter mi?"
+    - image   → "Görsel kaliteli görünüyor mu?"
+    - shipping → "Kargo ne zaman gelir?"
+    - warranty → "Garanti süresi yeterli mi?"
+    - title   → "Marka tanıdık geldi mi?"
+    - cta     → "Sepete eklesem mi?"
+  * Persona segmentine ({persona.segment}) ve önceliğine ({persona.caresAbout}) uygun ton kullan."""
 
 
 async def _evaluate_persona(
     client: genai.Client,
     persona: _DynamicPersona,
     req: SimulateRequest,
+    focus_area: str,
+    focus_label: str,
 ) -> PersonaResult:
     prompt = _build_persona_prompt(
-        persona, req.product_title, req.category, req.price, req.description, req.features
+        persona, req.product_title, req.category, req.price, req.description, req.features,
+        focus_area, focus_label,
     )
     fallback = PersonaResult(
         id=persona.id,
@@ -157,9 +254,12 @@ async def _evaluate_persona(
         caresAbout=persona.caresAbout,
         decision="undecided",
         reason="Değerlendirme tamamlanamadı.",
-        lookedAt=["Fiyat"],
+        lookedAt=[focus_label],
         recommendation="Ürün bilgilerini tamamla.",
         monologue="Yeterli bilgi bulamadım.",
+        focusArea=focus_area,
+        focusLabel=focus_label,
+        bubbleText=focus_label,
     )
     try:
         response = await asyncio.to_thread(
@@ -173,6 +273,7 @@ async def _evaluate_persona(
             ),
         )
         ai = _AIPersonaDecision.model_validate_json(response.text)
+        bubble = (ai.bubble_text or "").strip() or focus_label
         return PersonaResult(
             id=persona.id,
             name=persona.name,
@@ -186,6 +287,9 @@ async def _evaluate_persona(
             lookedAt=ai.looked_at,
             recommendation=ai.recommendation,
             monologue=ai.monologue,
+            focusArea=focus_area,
+            focusLabel=focus_label,
+            bubbleText=bubble,
         )
     except Exception:
         return fallback
@@ -231,14 +335,21 @@ async def simulate_stream(req: SimulateRequest) -> StreamingResponse:
 
         yield f'data: {json.dumps({"type": "step", "message": f"{len(personas)} profil hazır, değerlendirme başlıyor..."})}\n\n'
 
-        # Step 2: Evaluate all personas concurrently, stream results as they complete
+        # Step 2: Evaluate all personas concurrently, stream results as they complete.
+        # Her personaya farklı bir focusArea ata ki sahnede 5 ayrı görsel hedef olsun.
+        focus_areas = assign_focus_areas(personas)
+
         queue: asyncio.Queue = asyncio.Queue()
 
-        async def eval_and_enqueue(persona: _DynamicPersona) -> None:
-            result = await _evaluate_persona(client, persona, req)
+        async def eval_and_enqueue(persona: _DynamicPersona, focus_area: str) -> None:
+            focus_label = FOCUS_LABELS.get(focus_area, FOCUS_LABELS["features"])
+            result = await _evaluate_persona(client, persona, req, focus_area, focus_label)
             await queue.put(result)
 
-        tasks = [asyncio.create_task(eval_and_enqueue(p)) for p in personas]
+        tasks = [
+            asyncio.create_task(eval_and_enqueue(p, focus_areas[i]))
+            for i, p in enumerate(personas)
+        ]
 
         for _ in range(len(personas)):
             result: PersonaResult = await queue.get()
@@ -269,23 +380,37 @@ async def simulate(req: SimulateRequest):
     except Exception:
         raise HTTPException(status_code=503, detail="Persona üretimi başarısız.")
 
-    # Step 2: Evaluate all personas in parallel with high-thinking mode
-    tasks = [_evaluate_persona(client, persona, req) for persona in personas]
+    # Step 2: Evaluate all personas in parallel with high-thinking mode.
+    # Her personaya farklı focusArea ata — 5 ayrı görsel hedef garantisi.
+    focus_areas = assign_focus_areas(personas)
+    tasks = [
+        _evaluate_persona(
+            client, persona, req,
+            focus_areas[i],
+            FOCUS_LABELS.get(focus_areas[i], FOCUS_LABELS["features"]),
+        )
+        for i, persona in enumerate(personas)
+    ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     output: list[PersonaResult] = []
     for i, result in enumerate(results):
         if isinstance(result, Exception):
             p = personas[i]
+            fa = focus_areas[i]
+            fl = FOCUS_LABELS.get(fa, FOCUS_LABELS["features"])
             output.append(
                 PersonaResult(
                     id=p.id, name=p.name, age=p.age, city=p.city,
                     segment=p.segment, profile=p.profile, caresAbout=p.caresAbout,
                     decision="undecided",
                     reason="Değerlendirme sırasında hata oluştu.",
-                    lookedAt=["Fiyat"],
+                    lookedAt=[fl],
                     recommendation="Ürün bilgilerini tamamla.",
                     monologue="Yeterli bilgi bulamadım.",
+                    focusArea=fa,
+                    focusLabel=fl,
+                    bubbleText=fl,
                 )
             )
         else:

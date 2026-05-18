@@ -35,6 +35,17 @@ export type SellerProductPerformance = {
 
 export type SyntheticPersonaDecision = "buy" | "skip" | "undecided";
 
+export type SyntheticPersonaFocusArea =
+  | "image"
+  | "title"
+  | "price"
+  | "rating"
+  | "reviews"
+  | "features"
+  | "shipping"
+  | "warranty"
+  | "cta";
+
 export type SyntheticPersona = {
   id: string;
   name: string;
@@ -48,4 +59,7 @@ export type SyntheticPersona = {
   recommendation: string;
   monologue: string;
   city: string;
+  focusArea: SyntheticPersonaFocusArea;
+  focusLabel: string;
+  bubbleText: string;
 };
