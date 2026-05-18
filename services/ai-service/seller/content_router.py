@@ -3,9 +3,12 @@ import os
 import urllib.request
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel
+
+from mock.responses import is_rate_limit, get_mock_content
 
 router = APIRouter()
 
@@ -140,9 +143,11 @@ def _generate_content_sync(client: genai.Client, req: ContentGenerateRequest) ->
 
 
 @router.post("/ai-content", response_model=ContentGenerateResponse)
-async def generate_content(req: ContentGenerateRequest) -> ContentGenerateResponse:
+async def generate_content(req: ContentGenerateRequest):
     client = _get_client()
     try:
         return await asyncio.to_thread(_generate_content_sync, client, req)
     except genai_errors.APIError as exc:
+        if is_rate_limit(exc):
+            return JSONResponse(content=get_mock_content(req.product_title, req.category, req.price))
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc

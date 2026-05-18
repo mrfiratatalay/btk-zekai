@@ -2,6 +2,7 @@
 
 import type { BuyerAnalysis, RecommendationLevel } from "@/types/analysis";
 import type { Product } from "@/types/product";
+import { useMockStore } from "@/lib/store/mock-store";
 
 export type AdkAgentEvent = {
   author?: string;
@@ -184,7 +185,12 @@ async function streamSseEvents(
       if (!json) continue;
 
       try {
-        onEvent(JSON.parse(json) as AdkAgentEvent);
+        const parsed = JSON.parse(json);
+        if (parsed && typeof parsed === "object" && parsed.type === "mock_notice") {
+          useMockStore.getState().triggerMockMode();
+          continue;
+        }
+        onEvent(parsed as AdkAgentEvent);
       } catch {
         buffer = `${json}\n${buffer}`;
       }

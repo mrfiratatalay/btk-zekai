@@ -2,9 +2,12 @@ import asyncio
 import os
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import errors as genai_errors
 from pydantic import BaseModel
+
+from mock.responses import is_rate_limit, fetch_picsum_b64
 
 router = APIRouter()
 
@@ -98,13 +101,21 @@ def _build_lifestyle_prompt(title: str, category: str, desc: str | None) -> str:
 
 
 @router.post("/ai-image", response_model=ImageGenerateResponse)
-async def generate_product_image(req: ImageGenerateRequest) -> ImageGenerateResponse:
+async def generate_product_image(req: ImageGenerateRequest):
     """Single image generation (legacy endpoint — kept for backwards compatibility)."""
     client = _get_client()
     prompt = _build_studio_prompt(req.product_title, req.category, req.description)
     try:
         image_b64, mime_type = await asyncio.to_thread(_generate_image_sync, client, prompt)
     except genai_errors.APIError as exc:
+        if is_rate_limit(exc):
+            b64, mime = await asyncio.to_thread(fetch_picsum_b64, "studio")
+            return JSONResponse(content={
+                "image_base64": b64,
+                "mime_type": mime,
+                "description": f"{req.product_title} için demo görsel (Gemini limit aşıldı).",
+                "_mock": True,
+            })
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -116,18 +127,14 @@ async def generate_product_image(req: ImageGenerateRequest) -> ImageGenerateResp
 
 
 @router.post("/ai-images", response_model=MultiImageResponse)
-async def generate_product_images(req: MultiImageRequest) -> MultiImageResponse:
+async def generate_product_images(req: MultiImageRequest):
     """Generate 3 distinct product shots in parallel: Studio, Unboxing, Lifestyle."""
     client = _get_client()
 
-    studio_prompt = _build_studio_prompt(req.product_title, req.category, req.description)
-    unboxing_prompt = _build_unboxing_prompt(req.product_title, req.category, req.description)
-    lifestyle_prompt = _build_lifestyle_prompt(req.product_title, req.category, req.description)
-
     shot_specs = [
-        ("studio",    "Stüdyo",   studio_prompt),
-        ("unboxing",  "Kutu Açma", unboxing_prompt),
-        ("lifestyle", "Kullanım",  lifestyle_prompt),
+        ("studio",    "Stüdyo",    _build_studio_prompt(req.product_title, req.category, req.description)),
+        ("unboxing",  "Kutu Açma", _build_unboxing_prompt(req.product_title, req.category, req.description)),
+        ("lifestyle", "Kullanım",  _build_lifestyle_prompt(req.product_title, req.category, req.description)),
     ]
 
     try:
@@ -136,7 +143,34 @@ async def generate_product_images(req: MultiImageRequest) -> MultiImageResponse:
             return_exceptions=True,
         )
     except genai_errors.APIError as exc:
+        if is_rate_limit(exc):
+            mock_images = await asyncio.gather(
+                *[asyncio.to_thread(fetch_picsum_b64, shot_type) for shot_type, _, _ in shot_specs]
+            )
+            return JSONResponse(content={
+                "images": [
+                    {"type": t, "label": lbl, "image_base64": b64, "mime_type": mime}
+                    for (t, lbl, _), (b64, mime) in zip(shot_specs, mock_images)
+                ],
+                "_mock": True,
+            })
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
+
+    # Bireysel görev hataları — rate limit ise mock'a düş, değilse atla
+    rate_limited = any(
+        isinstance(r, genai_errors.APIError) and is_rate_limit(r) for r in results
+    )
+    if rate_limited:
+        mock_images = await asyncio.gather(
+            *[asyncio.to_thread(fetch_picsum_b64, shot_type) for shot_type, _, _ in shot_specs]
+        )
+        return JSONResponse(content={
+            "images": [
+                {"type": t, "label": lbl, "image_base64": b64, "mime_type": mime}
+                for (t, lbl, _), (b64, mime) in zip(shot_specs, mock_images)
+            ],
+            "_mock": True,
+        })
 
     images: list[ImageResult] = []
     for (shot_type, label, _), result in zip(shot_specs, results):

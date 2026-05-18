@@ -238,6 +238,8 @@ export type SimulationStreamEvent =
   | { type: "done" }
   | { type: "error"; message: string };
 
+import { useMockStore } from "@/lib/store/mock-store";
+
 function getAuthHeaders(): Record<string, string> {
   const token = typeof window === "undefined" ? null : localStorage.getItem("zekai_token");
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -286,7 +288,12 @@ export async function streamSimulateProduct(
       const json = line.replace(/^data:\s*/, "").trim();
       if (!json) continue;
       try {
-        onEvent(JSON.parse(json) as SimulationStreamEvent);
+        const parsed = JSON.parse(json);
+        if (parsed && typeof parsed === "object" && parsed.type === "mock_notice") {
+          useMockStore.getState().triggerMockMode();
+          continue;
+        }
+        onEvent(parsed as SimulationStreamEvent);
       } catch {
         // skip malformed
       }

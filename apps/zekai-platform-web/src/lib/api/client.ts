@@ -1,3 +1,5 @@
+import { useMockStore } from "@/lib/store/mock-store";
+
 export const API_BASE =
   process.env.NEXT_PUBLIC_ZEKAI_API_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
@@ -71,5 +73,9 @@ export async function apiFetch<T>(
 
   const text = await res.text();
   if (!text) return undefined as T;
-  return JSON.parse(text) as T;
+  const data = JSON.parse(text);
+  if (data && typeof data === "object" && data._mock === true) {
+    useMockStore.getState().triggerMockMode();
+  }
+  return data as T;
 }

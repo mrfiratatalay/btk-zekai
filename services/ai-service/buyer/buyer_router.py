@@ -23,6 +23,15 @@ from google.genai import types as genai_types
 from google.genai import errors as genai_errors
 from pydantic import BaseModel
 
+from mock.responses import (
+    is_rate_limit,
+    MOCK_BUYER_NEED_PROFILE,
+    MOCK_BUYER_PRICE_ANALYSIS,
+    MOCK_BUYER_REVIEW_ANALYSIS,
+    MOCK_BUYER_VISUAL_ANALYSIS,
+    MOCK_BUYER_FINAL_REPORT,
+)
+
 router = APIRouter()
 
 MODEL = "gemini-2.5-flash"
@@ -111,6 +120,8 @@ Sadece JSON döndür:
             config={"response_mime_type": "application/json"},
         )
         return _extract_json(resp.text) or {"summary": req.buyer_need, "key_concerns": []}
+    except genai_errors.APIError:
+        raise  # rate limit ve diğer API hatalarını yukarı ilet
     except Exception as exc:
         return {"summary": req.buyer_need, "key_concerns": [], "error": str(exc)[:100]}
 
@@ -315,7 +326,7 @@ Türkçe, kanıta dayalı bir final karar ver. Sadece JSON döndür:
         result = _extract_json(resp.text)
         if result:
             return result
-    except Exception as exc:
+    except Exception:
         pass
 
     return {
@@ -333,6 +344,39 @@ Türkçe, kanıta dayalı bir final karar ver. Sadece JSON döndür:
     }
 
 
+# ── Mock SSE Stream ────────────────────────────────────────────────────────────
+
+async def _mock_buyer_event_stream(req: BuyerAnalyzeRequest) -> AsyncGenerator[str, None]:
+    """Rate limit aşıldığında pre-built mock verilerle SSE stream üretir."""
+    yield f"data: {json.dumps({'type': 'mock_notice'}, ensure_ascii=False)}\n\n"
+    await asyncio.sleep(0.2)
+
+    yield _sse("need_understanding", "İhtiyaç profili analiz ediliyor... (demo mod)")
+    await asyncio.sleep(0.6)
+    need_profile = {**MOCK_BUYER_NEED_PROFILE, "summary": f"Demo mod: {req.buyer_need[:80]}"}
+    yield _sse("need_understanding", json.dumps(need_profile, ensure_ascii=False), "ihtiyac_profili", need_profile)
+
+    yield _sse("price_market", "Fiyat araştırması yapılıyor... (demo mod)")
+    yield _sse("review_mining", "Yorumlar analiz ediliyor... (demo mod)")
+    yield _sse("visual_forensics", "Görsel analiz yapılıyor... (demo mod)")
+    await asyncio.sleep(1.2)
+
+    price_analysis = {**MOCK_BUYER_PRICE_ANALYSIS}
+    review_analysis = {**MOCK_BUYER_REVIEW_ANALYSIS, "average_rating": req.product_rating}
+    visual_analysis = {**MOCK_BUYER_VISUAL_ANALYSIS}
+
+    yield _sse("price_market", json.dumps(price_analysis, ensure_ascii=False), "fiyat_analizi", price_analysis)
+    yield _sse("review_mining", json.dumps(review_analysis, ensure_ascii=False), "yorum_analizi", review_analysis)
+    yield _sse("visual_forensics", json.dumps(visual_analysis, ensure_ascii=False), "gorsel_analizi", visual_analysis)
+
+    await asyncio.sleep(0.8)
+    yield _sse("risk_synthesis", "Tüm veriler birleştiriliyor... (demo mod)")
+    await asyncio.sleep(0.6)
+
+    final_report = {**MOCK_BUYER_FINAL_REPORT}
+    yield _sse("verification", json.dumps(final_report, ensure_ascii=False), "final_rapor", final_report)
+
+
 # ── SSE Streaming Endpoint ────────────────────────────────────────────────────
 
 @router.post("/analyze")
@@ -344,9 +388,18 @@ async def analyze_for_buyer(req: BuyerAnalyzeRequest):
             yield _sse("error", str(exc))
             return
 
-        # ── Agent 1: Need Parser ──────────────────────────────────────────────
+        # ── Agent 1: Need Parser — rate limit burada ilk tetiklenir ──────────
         yield _sse("need_understanding", "İhtiyaç profili analiz ediliyor...")
-        need_profile = await asyncio.to_thread(_run_need_parser_sync, client, req)
+        try:
+            need_profile = await asyncio.to_thread(_run_need_parser_sync, client, req)
+        except genai_errors.APIError as exc:
+            if is_rate_limit(exc):
+                async for event in _mock_buyer_event_stream(req):
+                    yield event
+                return
+            yield _sse("error", f"API hatası: {str(exc)[:120]}")
+            return
+
         yield _sse(
             "need_understanding",
             json.dumps(need_profile, ensure_ascii=False),

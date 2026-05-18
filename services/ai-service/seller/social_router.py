@@ -2,9 +2,12 @@ import asyncio
 import os
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel
+
+from mock.responses import is_rate_limit, get_mock_social_content
 
 router = APIRouter()
 
@@ -151,7 +154,7 @@ def _generate_twitter_sync(client: genai.Client, req: SocialContentRequest) -> s
 
 
 @router.post("/social-content", response_model=SocialContentResponse)
-async def generate_social_content(req: SocialContentRequest) -> SocialContentResponse:
+async def generate_social_content(req: SocialContentRequest):
     client = _get_client()
 
     try:
@@ -161,6 +164,8 @@ async def generate_social_content(req: SocialContentRequest) -> SocialContentRes
             asyncio.to_thread(_generate_twitter_sync, client, req),
         )
     except genai_errors.APIError as exc:
+        if is_rate_limit(exc):
+            return JSONResponse(content=get_mock_social_content(req.product_title, req.category, req.price))
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
 
     return SocialContentResponse(

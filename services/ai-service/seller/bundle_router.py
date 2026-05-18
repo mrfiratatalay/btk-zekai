@@ -2,9 +2,12 @@ import asyncio
 import os
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel, Field
+
+from mock.responses import is_rate_limit, get_mock_bundle_recommendations
 
 router = APIRouter()
 
@@ -117,9 +120,12 @@ def _recommend_sync(client: genai.Client, req: BundleRecommendRequest) -> AiBund
 
 
 @router.post("/bundle-recommend", response_model=AiBundleRecommendResponse)
-async def recommend_bundles(req: BundleRecommendRequest) -> AiBundleRecommendResponse:
+async def recommend_bundles(req: BundleRecommendRequest):
     client = _get_client()
     try:
         return await asyncio.to_thread(_recommend_sync, client, req)
     except genai_errors.APIError as exc:
+        if is_rate_limit(exc):
+            candidate_ids = [c.id for c in req.candidates]
+            return JSONResponse(content=get_mock_bundle_recommendations(req.primary.id, candidate_ids))
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc

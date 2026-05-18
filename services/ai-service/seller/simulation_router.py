@@ -4,10 +4,12 @@ import os
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel
+
+from mock.responses import is_rate_limit, MOCK_PERSONAS
 
 router = APIRouter()
 
@@ -99,6 +101,7 @@ Kurallar:
             response_schema=_PersonaList,
         ),
     )
+    # APIError (rate limit dahil) burada yukarı iletilir
     result = _PersonaList.model_validate_json(response.text)
     return result.personas[:5]  # max 5
 
@@ -188,6 +191,22 @@ async def _evaluate_persona(
         return fallback
 
 
+# ── Mock SSE Stream ────────────────────────────────────────────────────────────
+
+async def _mock_simulate_stream() -> None:
+    """Rate limit aşıldığında mock persona stream'i üretir."""
+    yield f'data: {json.dumps({"type": "mock_notice"})}\n\n'
+    yield f'data: {json.dumps({"type": "step", "message": "Müşteri profilleri oluşturuluyor... (demo mod)"})}\n\n'
+    await asyncio.sleep(0.5)
+    yield f'data: {json.dumps({"type": "step", "message": "5 profil hazır, değerlendirme başlıyor... (demo mod)"})}\n\n'
+
+    for persona in MOCK_PERSONAS:
+        await asyncio.sleep(0.7)
+        yield f'data: {json.dumps({"type": "persona", "persona": persona})}\n\n'
+
+    yield f'data: {json.dumps({"type": "done"})}\n\n'
+
+
 @router.post("/simulate-stream")
 async def simulate_stream(req: SimulateRequest) -> StreamingResponse:
     """SSE endpoint — streams persona results one by one as they complete."""
@@ -195,10 +214,17 @@ async def simulate_stream(req: SimulateRequest) -> StreamingResponse:
     async def generate():
         client = _get_client()
 
-        # Step 1: Generate dynamic personas
+        # Step 1: Generate dynamic personas — rate limit buradan tespit edilir
         yield f'data: {json.dumps({"type": "step", "message": "Müşteri profilleri oluşturuluyor..."})}\n\n'
         try:
             personas = await asyncio.to_thread(_generate_personas_sync, client, req)
+        except genai_errors.APIError as exc:
+            if is_rate_limit(exc):
+                async for event in _mock_simulate_stream():
+                    yield event
+                return
+            yield f'data: {json.dumps({"type": "error", "message": str(exc)})}\n\n'
+            return
         except Exception as exc:
             yield f'data: {json.dumps({"type": "error", "message": str(exc)})}\n\n'
             return
@@ -229,12 +255,17 @@ async def simulate_stream(req: SimulateRequest) -> StreamingResponse:
 
 
 @router.post("/simulate", response_model=SimulateResponse)
-async def simulate(req: SimulateRequest) -> SimulateResponse:
+async def simulate(req: SimulateRequest):
     client = _get_client()
 
     # Step 1: Generate dynamic personas for this product
     try:
         personas = await asyncio.to_thread(_generate_personas_sync, client, req)
+    except genai_errors.APIError as exc:
+        if is_rate_limit(exc):
+            mock_result = {"personas": MOCK_PERSONAS, "_mock": True}
+            return JSONResponse(content=mock_result)
+        raise HTTPException(status_code=503, detail="Persona üretimi başarısız.")
     except Exception:
         raise HTTPException(status_code=503, detail="Persona üretimi başarısız.")
 
