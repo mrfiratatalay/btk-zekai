@@ -68,6 +68,11 @@ MOCK_BUYER_NEED_PROFILE = {
 MOCK_BUYER_PRICE_ANALYSIS = {
     "price_assessment": "makul",
     "market_context": "Ürün kategorisi için belirlenen fiyat piyasa ortalamasıyla uyumlu görünüyor.",
+    "market_price_candidates": [
+        {"title": "Demo Piyasa Adayı 1", "price": 950, "currency": "TRY", "source_url": ""},
+        {"title": "Demo Piyasa Adayı 2", "price": 1050, "currency": "TRY", "source_url": ""},
+        {"title": "Demo Piyasa Adayı 3", "price": 1100, "currency": "TRY", "source_url": ""},
+    ],
     "price_fairness_score": 65,
     "comment": "Demo mod: Gerçek fiyat araştırması yapılamadı. Bu değer tahmini bir göstergedir.",
 }
@@ -83,20 +88,23 @@ MOCK_BUYER_REVIEW_ANALYSIS = {
     "reliability_signal": "insufficient_data",
 }
 
-MOCK_BUYER_VISUAL_ANALYSIS = {
-    "image_quality": "good",
-    "matches_description": True,
-    "red_flags": [],
-    "visual_assessment": "Demo mod: Gerçek görsel analizi yapılamadı. Ürün görseli genel kalite standartlarını karşılıyor.",
-    "score": 68,
-}
+MOCK_BUYER_ALTERNATIVES = [
+    {
+        "title": "Demo Alternatif A",
+        "approx_price": 0,
+        "currency": "TRY",
+        "source_url": "",
+        "why_better_fit": "Demo mod: gerçek alternatif arama yapılamadı.",
+        "trade_offs": "—",
+        "confidence": "low",
+    }
+]
 
 MOCK_BUYER_FINAL_REPORT = {
     "verified_fit_score": 62,
     "verified_trust_score": 58,
     "verified_price_fairness_score": 65,
     "verified_return_risk_percent": 28,
-    "final_recommendation": "consider",
     "final_summary": "Demo mod aktif — Gemini API limiti aşıldı. Bu analiz gerçek AI verisi değildir. Satın almadan önce ürün yorumlarını ve iade koşullarını mutlaka inceleyin.",
     "verified_warnings": [
         {

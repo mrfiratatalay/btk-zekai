@@ -13,7 +13,7 @@ export function MockToast() {
     if (isMockMode && !toastShown) {
       toast.warning("AI Demo Modu Aktif", {
         description:
-          "Gemini API limiti aşıldı. Gösterilen yanıtlar gerçek AI analizi değil, demo verisidir.",
+          "Gemini API limiti/erişimi nedeniyle demo verilerle devam edildi. Gösterilen sonuçlar gerçek AI analizi değildir.",
         duration: 8000,
       });
       markToastShown();

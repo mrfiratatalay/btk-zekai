@@ -15,4 +15,5 @@ public class ZekaiUser
     public ICollection<SellerStoreConnection> StoreConnections { get; set; } = [];
     public ICollection<BuyerAnalysis> Analyses { get; set; } = [];
     public ICollection<ShoppingProject> ShoppingProjects { get; set; } = [];
+    public ICollection<SavedKombin> SavedKombins { get; set; } = [];
 }

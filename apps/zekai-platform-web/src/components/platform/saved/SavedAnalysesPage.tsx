@@ -5,13 +5,10 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  AlertTriangle,
   BookmarkCheck,
   ChevronDown,
   GitCompare,
-  ShieldCheck,
   Trash2,
-  XCircle,
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,26 +25,6 @@ import { PlatformNav } from "@/components/platform/PlatformNav";
 import { Button } from "@/components/ui/button";
 
 /* ─── Recommendation level config ───────────────────────────────────────── */
-const LEVEL = {
-  safe: {
-    chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
-    dot: "bg-emerald-500",
-    icon: ShieldCheck,
-    label: "Güvenli",
-  },
-  caution: {
-    chip: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
-    dot: "bg-amber-500",
-    icon: AlertTriangle,
-    label: "Dikkat",
-  },
-  risky: {
-    chip: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
-    dot: "bg-red-500",
-    icon: XCircle,
-    label: "Riskli",
-  },
-} as const;
 
 type FilterStatus = "all" | SavedAnalysisStatus;
 
@@ -135,8 +112,6 @@ function SavedAnalysisCard({
   onDelete: (id: string) => void;
   onAddToCompare: (id: string) => void;
 }) {
-  const lv = LEVEL[analysis.recommendationLevel];
-  const Icon = lv.icon;
   const [note, setNote] = useState(analysis.userNote ?? "");
   const [editingNote, setEditingNote] = useState(false);
 
@@ -155,11 +130,6 @@ function SavedAnalysisCard({
       transition={{ duration: 0.2 }}
       className="group relative flex flex-col overflow-hidden rounded-[24px] border border-border/50 bg-card shadow-sm hover:shadow-xl hover:shadow-[#adff41]/5 transition-all"
     >
-      {/* Top Badges */}
-      <div className="absolute top-4 right-4 z-20 flex size-8 items-center justify-center rounded-full bg-background/90 backdrop-blur-md shadow-sm border border-border/50">
-        <Icon className={cn("size-4", lv.chip.split(" ")[1])} />
-      </div>
-
       <div className="absolute top-4 left-4 z-20">
         <StatusDropdown
           id={analysis.id}
@@ -190,10 +160,6 @@ function SavedAnalysisCard({
 
         <div className="mb-5 flex items-center justify-between">
           <span className="text-xl font-black tracking-tight text-foreground">{analysis.productPrice}</span>
-          <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold", lv.chip)}>
-            <span className={cn("size-1.5 rounded-full", lv.dot)} />
-            {lv.label}
-          </span>
         </div>
 
         {/* Action Buttons */}
@@ -316,7 +282,7 @@ export function SavedAnalysesPage() {
   if (loading && analyses.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="h-14 border-b border-border" />
+        <PlatformNav />
         <div className="mx-auto max-w-3xl px-4 py-8 space-y-4">
           {[1, 2, 3].map((n) => (
             <div key={n} className="h-64 animate-pulse rounded-3xl bg-muted/40" />

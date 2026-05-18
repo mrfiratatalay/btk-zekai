@@ -1,19 +1,21 @@
 """
-Zekai Buyer Analysis — 4-Agent Native Gemini SDK + SSE Streaming
+Zekai Buyer Analysis — 5-Agent Native Gemini SDK + SSE Streaming
 
 Agent flow:
-  1. Need Parser  (LLM)           → ihtiyaç profili
-  2. Price Tracker (Search Grounding) → fiyat sinyali   ┐ parallel
-  3. Review Miner (LLM on reviews)    → yorum analizi   │
-  4. Visual Analyzer (Vision)         → görsel analizi  ┘
-  5. Synthesizer   (LLM)           → final verdict + VerifiedReport
+  1. Need Parser        (LLM)                       → ihtiyaç profili
+  2. Price Tracker      (LLM + GoogleSearch)        → fiyat sinyali        ┐
+  3. Review Miner       (LLM, need-aware)           → yorum analizi        │ parallel
+  4. Alternative Finder (LLM + GoogleSearch)        → daha iyi alternatif  ┘
+  5. Synthesizer        (LLM)                       → skor + kanıt (verdict YOK)
+
+Final verdict (Al / Düşün / Alternatife Bak) sentezleyici LLM'den GELMEZ;
+decision_engine.decide(...) saf Python fonksiyonu ile deterministik üretilir.
 """
 
 import asyncio
 import json
 import os
 import re
-import urllib.request
 from typing import AsyncGenerator
 
 from fastapi import APIRouter
@@ -28,9 +30,11 @@ from mock.responses import (
     MOCK_BUYER_NEED_PROFILE,
     MOCK_BUYER_PRICE_ANALYSIS,
     MOCK_BUYER_REVIEW_ANALYSIS,
-    MOCK_BUYER_VISUAL_ANALYSIS,
+    MOCK_BUYER_ALTERNATIVES,
     MOCK_BUYER_FINAL_REPORT,
 )
+from buyer.decision_engine import decide
+from buyer.scoring_engine import calculate_price_fairness, calculate_return_risk
 
 router = APIRouter()
 
@@ -102,6 +106,52 @@ def _extract_json(text: str) -> dict:
         return {}
 
 
+def _need_context(need_profile: dict) -> str:
+    """Compact need-profile context for downstream agents."""
+    use_cases = ", ".join(need_profile.get("primary_use_cases") or []) or "—"
+    must_have = ", ".join(need_profile.get("must_have_features") or []) or "—"
+    concerns = ", ".join(need_profile.get("key_concerns") or []) or "—"
+    summary = need_profile.get("summary") or "—"
+    return (
+        f"Kullanıcı İhtiyacı Özeti: {summary}\n"
+        f"Kullanım amaçları: {use_cases}\n"
+        f"Must-have özellikler: {must_have}\n"
+        f"Endişeler: {concerns}"
+    )
+
+
+def _apply_deterministic_price_score(req: BuyerAnalyzeRequest, price_analysis: dict) -> dict:
+    """Overwrite LLM price score with median-based deterministic score."""
+    fairness = calculate_price_fairness(req.product_price, price_analysis)
+    price_analysis["price_fairness_score"] = fairness["score"]
+    price_analysis["price_assessment"] = fairness["assessment"]
+    price_analysis["median_market_price"] = fairness["median_market_price"]
+    price_analysis["price_candidate_count"] = fairness["candidate_count"]
+    price_analysis["price_ratio_to_median"] = fairness["ratio"]
+    return price_analysis
+
+
+def _apply_deterministic_final_scores(
+    req: BuyerAnalyzeRequest,
+    final_report: dict,
+    price_analysis: dict,
+    review_analysis: dict,
+) -> dict:
+    """Overwrite volatile LLM scores with deterministic scoring engine outputs."""
+    final_report["verified_price_fairness_score"] = price_analysis.get("price_fairness_score", 50)
+
+    return_risk = calculate_return_risk(
+        category=req.product_category,
+        fit_score=final_report.get("verified_fit_score", 60),
+        trust_score=final_report.get("verified_trust_score", 60),
+        review_analysis=review_analysis,
+        warnings=final_report.get("verified_warnings", []),
+    )
+    final_report["verified_return_risk_percent"] = return_risk["risk"]
+    final_report["return_risk_factors"] = return_risk["factors"]
+    return final_report
+
+
 # ── Agent 1: Need Parser ──────────────────────────────────────────────────────
 
 def _run_need_parser_sync(client: genai.Client, req: BuyerAnalyzeRequest) -> dict:
@@ -126,23 +176,35 @@ Sadece JSON döndür:
         )
         return _extract_json(resp.text) or {"summary": req.buyer_need, "key_concerns": []}
     except genai_errors.APIError:
-        raise  # rate limit ve diğer API hatalarını yukarı ilet
+        raise
     except Exception as exc:
         return {"summary": req.buyer_need, "key_concerns": [], "error": str(exc)[:100]}
 
 
-# ── Agent 2: Price Tracker (Google Search Grounding) ─────────────────────────
+# ── Agent 2: Price Tracker (Google Search Grounding, need-aware) ─────────────
 
-def _run_price_tracker_sync(client: genai.Client, req: BuyerAnalyzeRequest) -> dict:
+def _run_price_tracker_sync(
+    client: genai.Client,
+    req: BuyerAnalyzeRequest,
+    need_profile: dict,
+) -> dict:
     prompt = f"""Türkiye e-ticaret piyasasında "{req.product_title}" ({req.product_category}) ürününün fiyat araştırmasını yap.
+
 Mevcut fiyat: ₺{req.product_price:.0f}
 
-Bu fiyatın makullüğünü değerlendirip sadece şu JSON'u döndür:
+{_need_context(need_profile)}
+
+Yukarıdaki ihtiyaç bağlamını göz önünde bulundurarak fiyat adaylarını topla.
+ÖNEMLİ: price_fairness_score için sadece tahmini bir fallback ver; nihai fiyat skoru kod tarafında median fiyatla hesaplanacak.
+Sadece JSON döndür:
 {{
   "price_assessment": "ucuz|makul|pahalı",
-  "market_context": "piyasa bağlamını açıkla",
+  "market_context": "piyasa bağlamı, benzer ürünlerin tipik fiyat aralığı",
+  "market_price_candidates": [
+    {{"title": "ürün/satıcı adı", "price": 0, "currency": "TRY", "source_url": "https://..."}}
+  ],
   "price_fairness_score": 0-100,
-  "comment": "kısa yorum"
+  "comment": "ihtiyaçla bağlantılı kısa yorum"
 }}"""
     try:
         resp = client.models.generate_content(
@@ -158,6 +220,15 @@ Bu fiyatın makullüğünü değerlendirip sadece şu JSON'u döndür:
             "comment": resp.text[:200] if resp.text else "Fiyat bilgisi alınamadı.",
             "market_context": "",
         }
+    except genai_errors.APIError as exc:
+        if _should_use_mock_fallback(exc):
+            raise
+        return {
+            "price_assessment": "bilinmiyor",
+            "price_fairness_score": 50,
+            "comment": f"Arama yapılamadı: {str(exc)[:100]}",
+            "market_context": "",
+        }
     except Exception as exc:
         return {
             "price_assessment": "bilinmiyor",
@@ -167,9 +238,13 @@ Bu fiyatın makullüğünü değerlendirip sadece şu JSON'u döndür:
         }
 
 
-# ── Agent 3: Review Miner ─────────────────────────────────────────────────────
+# ── Agent 3: Review Miner (need-aware) ────────────────────────────────────────
 
-def _run_review_miner_sync(client: genai.Client, req: BuyerAnalyzeRequest) -> dict:
+def _run_review_miner_sync(
+    client: genai.Client,
+    req: BuyerAnalyzeRequest,
+    need_profile: dict,
+) -> dict:
     if not req.reviews:
         return {
             "total_analyzed": 0,
@@ -187,13 +262,17 @@ def _run_review_miner_sync(client: genai.Client, req: BuyerAnalyzeRequest) -> di
     reviews_text = "\n".join(
         [f"- ({r.rating}/5) {r.comment}" for r in req.reviews[:25]]
     )
-    prompt = f"""Şu ürün yorumlarını analiz et ve pattern'leri bul:
+    prompt = f"""Şu ürün yorumlarını analiz et; kullanıcının ihtiyacıyla bağlantılı pattern'lere odaklan.
 
 Ürün: {req.product_title}
+
+{_need_context(need_profile)}
+
 Yorumlar:
 {reviews_text}
 
-Sadece JSON döndür:
+Sadece JSON döndür. top_complaints/top_praises listelerinde mümkünse must-have'larla
+örtüşen veya çelişen pattern'leri öne çıkar:
 {{
   "total_analyzed": {len(req.reviews)},
   "average_rating": 0.0,
@@ -201,6 +280,7 @@ Sadece JSON döndür:
   "top_complaints": ["..."],
   "top_praises": ["..."],
   "recurring_issues": ["..."],
+  "need_match_signals": ["must-have'lara değinen yorum tema(ları)"],
   "sentiment_summary": "...",
   "reliability_signal": "strong|moderate|weak|insufficient_data"
 }}"""
@@ -215,6 +295,14 @@ Sadece JSON döndür:
             "reliability_signal": "moderate",
             "total_analyzed": len(req.reviews),
         }
+    except genai_errors.APIError as exc:
+        if _should_use_mock_fallback(exc):
+            raise
+        return {
+            "sentiment_summary": f"Yorum analizi başarısız: {str(exc)[:100]}",
+            "reliability_signal": "insufficient_data",
+            "total_analyzed": 0,
+        }
     except Exception as exc:
         return {
             "sentiment_summary": f"Yorum analizi başarısız: {str(exc)[:100]}",
@@ -223,68 +311,84 @@ Sadece JSON döndür:
         }
 
 
-# ── Agent 4: Visual Analyzer ──────────────────────────────────────────────────
+# ── Agent 4: Alternative Finder (Google Search Grounding) ─────────────────────
 
-def _fetch_image_bytes(url: str) -> tuple[bytes, str]:
-    """Fetch image bytes from URL using stdlib (no extra deps)."""
-    req = urllib.request.Request(url, headers={"User-Agent": "ZekaiBot/1.0"})
-    with urllib.request.urlopen(req, timeout=8) as resp:
-        content_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[0]
-        return resp.read(), content_type
+def _run_alternative_finder_sync(
+    client: genai.Client,
+    req: BuyerAnalyzeRequest,
+    need_profile: dict,
+) -> list[dict]:
+    """Search Türkiye e-ticaret for products that better fit the buyer's need."""
+    price_low = max(0, int(req.product_price * 0.85))
+    price_high = int(req.product_price * 1.10)
+    prompt = f"""Türkiye e-ticaret piyasasında, aşağıdaki kullanıcı ihtiyacına bu üründen DAHA UYGUN
+alternatif ürünleri araştır.
 
+Mevcut ürün: {req.product_title} ({req.product_category}) — ₺{req.product_price:.0f}
 
-def _run_visual_analyzer_sync(client: genai.Client, req: BuyerAnalyzeRequest) -> dict:
-    if not req.product_image_url:
-        return {
-            "image_quality": "unknown",
-            "matches_description": True,
-            "red_flags": [],
-            "visual_assessment": "Görsel URL mevcut değil, görsel analiz atlandı.",
-            "score": 50,
-        }
+{_need_context(need_profile)}
 
+Kriterler:
+- Fiyat aralığı: ₺{price_low} – ₺{price_high} (mevcut ürüne yakın)
+- Kullanıcının must-have özelliklerini DAHA İYİ karşılamalı
+- Reklam/sponsor sonuçları yerine organik öneriler tercih et
+- En fazla 3 alternatif öner
+- Sadece yeterince güvenilir bulguları "high" confidence ile işaretle
+
+Sadece JSON array döndür (kod bloğu yok, sadece [...]):
+[
+  {{
+    "title": "ürün başlığı",
+    "approx_price": 0,
+    "currency": "TRY",
+    "source_url": "https://...",
+    "why_better_fit": "kullanıcının {need_profile.get('summary', 'ihtiyaç')} ihtiyacını neden daha iyi karşılıyor",
+    "trade_offs": "bu ürüne göre eksisi/artısı",
+    "confidence": "high|medium|low"
+  }}
+]"""
     try:
-        image_bytes, mime_type = _fetch_image_bytes(req.product_image_url)
         resp = client.models.generate_content(
             model=MODEL,
-            contents=[
-                genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                f"""Bu ürün görseli: "{req.product_title}" ({req.product_category})
-
-Görseli değerlendir:
-1. Görsel kalitesi ve profesyonelliği
-2. Ürün açıklamasıyla uyumu
-3. Sahte/yanlış temsil sinyalleri
-
-Sadece JSON döndür:
-{{
-  "image_quality": "poor|fair|good|excellent",
-  "matches_description": true/false,
-  "red_flags": ["..."],
-  "visual_assessment": "kısa değerlendirme",
-  "score": 0-100
-}}""",
-            ],
-            config={"response_mime_type": "application/json"},
+            contents=prompt,
+            config={
+                "tools": [genai_types.Tool(google_search=genai_types.GoogleSearch())],
+            },
         )
-        return _extract_json(resp.text) or {
-            "image_quality": "fair",
-            "matches_description": True,
-            "red_flags": [],
-            "visual_assessment": resp.text[:200] if resp.text else "Analiz tamamlandı.",
-            "score": 65,
-        }
-    except Exception as exc:
-        return {
-            "image_quality": "unknown",
-            "matches_description": True,
-            "red_flags": [],
-            "visual_assessment": f"Görsel analiz yapılamadı: {str(exc)[:100]}",
-            "score": 50,
-        }
+        text = (resp.text or "").strip()
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+        # Try direct JSON array
+        try:
+            data = json.loads(text)
+        except Exception:
+            m = re.search(r"\[.*\]", text, re.DOTALL)
+            data = json.loads(m.group()) if m else []
+        if not isinstance(data, list):
+            return []
+        cleaned: list[dict] = []
+        for item in data[:5]:
+            if not isinstance(item, dict):
+                continue
+            cleaned.append({
+                "title": str(item.get("title", ""))[:200],
+                "approx_price": float(item.get("approx_price") or 0),
+                "currency": str(item.get("currency", "TRY"))[:8],
+                "source_url": str(item.get("source_url", ""))[:500],
+                "why_better_fit": str(item.get("why_better_fit", ""))[:400],
+                "trade_offs": str(item.get("trade_offs", ""))[:300],
+                "confidence": str(item.get("confidence", "low")).lower(),
+            })
+        return cleaned
+    except genai_errors.APIError as exc:
+        if _should_use_mock_fallback(exc):
+            raise
+        return []
+    except Exception:
+        return []
 
 
-# ── Agent 5: Synthesizer ──────────────────────────────────────────────────────
+# ── Agent 5: Synthesizer — SADECE skor + kanıt, verdict YOK ──────────────────
 
 def _run_synthesizer_sync(
     client: genai.Client,
@@ -292,9 +396,11 @@ def _run_synthesizer_sync(
     need_profile: dict,
     price_analysis: dict,
     review_analysis: dict,
-    visual_analysis: dict,
+    alternatives: list[dict],
 ) -> dict:
-    prompt = f"""Sen bir e-ticaret alım danışmanısın. Aşağıdaki analizleri birleştirip net bir final karar ver.
+    prompt = f"""Sen bir e-ticaret alım danışmanısın. Aşağıdaki analizlerden kanıta dayalı skor + uyarı/güçlü sinyaller üret.
+ÖNEMLİ: Final karar (al/alma) VERME — sadece skorla ve kanıtla. Karar başka bir motor tarafından verilecek.
+ÖNEMLİ: verified_price_fairness_score ve verified_return_risk_percent kod tarafında deterministik hesaplanıp overwrite edilecek; sen bu iki alanda sadece fallback tahmin ver.
 
 ÜRÜN: {req.product_title} ({req.product_category}) — ₺{req.product_price:.0f}
 ALICI İHTİYACI: {req.buyer_need}
@@ -302,16 +408,15 @@ ALICI İHTİYACI: {req.buyer_need}
 İHTİYAÇ PROFİLİ: {json.dumps(need_profile, ensure_ascii=False)}
 FİYAT ANALİZİ: {json.dumps(price_analysis, ensure_ascii=False)}
 YORUM ANALİZİ: {json.dumps(review_analysis, ensure_ascii=False)}
-GÖRSEL ANALİZ: {json.dumps(visual_analysis, ensure_ascii=False)}
+ALTERNATİF SAYISI: {len(alternatives)}
 
-Türkçe, kanıta dayalı bir final karar ver. Sadece JSON döndür:
+Türkçe, kanıta dayalı. Sadece JSON döndür:
 {{
   "verified_fit_score": 0-100,
   "verified_trust_score": 0-100,
   "verified_price_fairness_score": 0-100,
   "verified_return_risk_percent": 0-100,
-  "final_recommendation": "buy|consider|avoid",
-  "final_summary": "2-3 cümle net gerekçe (Türkçe)",
+  "final_summary": "2-3 cümle özet — KARAR VERME, sadece durumu özetle (Türkçe)",
   "verified_warnings": [
     {{"warning": "...", "evidence": "...", "confidence": "high|medium|low"}}
   ],
@@ -330,13 +435,17 @@ Türkçe, kanıta dayalı bir final karar ver. Sadece JSON döndür:
         )
         result = _extract_json(resp.text)
         if result:
+            # Final recommendation alanı LLM'den gelse bile decision engine geçersiz kılar
+            result.pop("final_recommendation", None)
             return result
+    except genai_errors.APIError as exc:
+        if _should_use_mock_fallback(exc):
+            raise
     except Exception:
         pass
 
     return {
-        "final_recommendation": "consider",
-        "final_summary": "Analiz tamamlandı. Ürünü satın almadan önce müşteri yorumlarını dikkatlice inceleyin.",
+        "final_summary": "Analiz tamamlandı; mevcut verilerle yorumlama yetersiz kaldı.",
         "verified_fit_score": 60,
         "verified_trust_score": 60,
         "verified_price_fairness_score": 60,
@@ -363,23 +472,66 @@ async def _mock_buyer_event_stream(req: BuyerAnalyzeRequest) -> AsyncGenerator[s
 
     yield _sse("price_market", "Fiyat araştırması yapılıyor... (demo mod)")
     yield _sse("review_mining", "Yorumlar analiz ediliyor... (demo mod)")
-    yield _sse("visual_forensics", "Görsel analiz yapılıyor... (demo mod)")
-    await asyncio.sleep(1.2)
+    yield _sse("alternative_search", "Alternatifler aranıyor... (demo mod)")
+    await asyncio.sleep(1.0)
 
     price_analysis = {**MOCK_BUYER_PRICE_ANALYSIS}
     review_analysis = {**MOCK_BUYER_REVIEW_ANALYSIS, "average_rating": req.product_rating}
-    visual_analysis = {**MOCK_BUYER_VISUAL_ANALYSIS}
+    alternatives = list(MOCK_BUYER_ALTERNATIVES)
+    price_analysis["market_price_candidates"] = [
+        {"title": "Demo Piyasa Adayı 1", "price": round(req.product_price * 0.95, 2), "currency": "TRY", "source_url": ""},
+        {"title": "Demo Piyasa Adayı 2", "price": round(req.product_price, 2), "currency": "TRY", "source_url": ""},
+        {"title": "Demo Piyasa Adayı 3", "price": round(req.product_price * 1.08, 2), "currency": "TRY", "source_url": ""},
+    ]
+    price_analysis = _apply_deterministic_price_score(req, price_analysis)
 
     yield _sse("price_market", json.dumps(price_analysis, ensure_ascii=False), "fiyat_analizi", price_analysis)
     yield _sse("review_mining", json.dumps(review_analysis, ensure_ascii=False), "yorum_analizi", review_analysis)
-    yield _sse("visual_forensics", json.dumps(visual_analysis, ensure_ascii=False), "gorsel_analizi", visual_analysis)
+    yield _sse("alternative_search", json.dumps(alternatives, ensure_ascii=False), "alternatif_urunler", alternatives)
 
-    await asyncio.sleep(0.8)
-    yield _sse("risk_synthesis", "Tüm veriler birleştiriliyor... (demo mod)")
     await asyncio.sleep(0.6)
+    yield _sse("risk_synthesis", "Veriler birleştiriliyor... (demo mod)")
+    await asyncio.sleep(0.4)
 
     final_report = {**MOCK_BUYER_FINAL_REPORT}
+    final_report = _apply_deterministic_final_scores(req, final_report, price_analysis, review_analysis)
+    verdict = decide(
+        fit=final_report.get("verified_fit_score", 60),
+        trust=final_report.get("verified_trust_score", 60),
+        price_fairness=final_report.get("verified_price_fairness_score", 60),
+        return_risk=final_report.get("verified_return_risk_percent", 30),
+        warnings=final_report.get("verified_warnings", []),
+        strengths=final_report.get("verified_strengths", []),
+        alternatives=alternatives,
+    )
+    final_report["verdict"] = verdict
+    final_report["alternatives"] = alternatives
     yield _sse("verification", json.dumps(final_report, ensure_ascii=False), "final_rapor", final_report)
+
+
+def _should_use_mock_fallback(exc: BaseException) -> bool:
+    """Gemini quota/service failures should switch the whole stream to demo data."""
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
+        return True
+    if not isinstance(exc, genai_errors.APIError):
+        return False
+
+    code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    # 429 = rate limit, 400/401/403 = auth/config errors → all fall back to demo
+    if code in (400, 401, 403, 429):
+        return True
+
+    msg = str(exc).upper()
+    return (
+        is_mockable_gemini_error(exc)
+        or "API_KEY" in msg
+        or "UNAUTHENTICATED" in msg
+        or "PERMISSION_DENIED" in msg
+        or "INVALID_ARGUMENT" in msg
+        or "RESOURCE_EXHAUSTED" in msg
+        or "QUOTA" in msg
+        or "RATE_LIMIT" in msg
+    )
 
 
 # ── SSE Streaming Endpoint ────────────────────────────────────────────────────
@@ -389,25 +541,32 @@ async def analyze_for_buyer(req: BuyerAnalyzeRequest):
     async def event_stream() -> AsyncGenerator[str, None]:
         try:
             client = _get_client()
-        except ValueError as exc:
-            yield _sse("error", str(exc))
+        except ValueError:
+            async for event in _mock_buyer_event_stream(req):
+                yield event
             return
 
-        # ── Agent 1: Need Parser — rate limit burada ilk tetiklenir ──────────
+        # ── Agent 1: Need Parser (sequential, beslenir aşağıdakilere) ────────
         yield _sse("need_understanding", "İhtiyaç profili analiz ediliyor...")
         try:
             need_profile = await asyncio.wait_for(
                 asyncio.to_thread(_run_need_parser_sync, client, req),
-                timeout=45,
+                timeout=60,
             )
-        except asyncio.TimeoutError:
-            need_profile = {"summary": req.buyer_need, "key_concerns": [], "error": "timeout"}
+        except (asyncio.TimeoutError, TimeoutError):
+            async for event in _mock_buyer_event_stream(req):
+                yield event
+            return
         except genai_errors.APIError as exc:
-            if is_mockable_gemini_error(exc):
+            if _should_use_mock_fallback(exc):
                 async for event in _mock_buyer_event_stream(req):
                     yield event
                 return
             yield _sse("error", f"API hatası: {str(exc)[:120]}")
+            return
+        except Exception:
+            async for event in _mock_buyer_event_stream(req):
+                yield event
             return
 
         yield _sse(
@@ -417,26 +576,47 @@ async def analyze_for_buyer(req: BuyerAnalyzeRequest):
             need_profile,
         )
 
-        # ── Agent 2-4: Parallel ───────────────────────────────────────────────
+        # ── Agent 2-4: Parallel (need-aware) ──────────────────────────────────
         yield _sse("price_market", "Fiyat araştırması yapılıyor...")
         yield _sse("review_mining", "Yorumlar analiz ediliyor...")
-        yield _sse("visual_forensics", "Görsel analiz yapılıyor...")
+        yield _sse("alternative_search", "Daha iyi alternatifler aranıyor...")
 
-        price_task = asyncio.wait_for(asyncio.to_thread(_run_price_tracker_sync, client, req), timeout=45)
-        review_task = asyncio.wait_for(asyncio.to_thread(_run_review_miner_sync, client, req), timeout=45)
-        visual_task = asyncio.wait_for(asyncio.to_thread(_run_visual_analyzer_sync, client, req), timeout=45)
+        price_task = asyncio.wait_for(
+            asyncio.to_thread(_run_price_tracker_sync, client, req, need_profile),
+            timeout=60,
+        )
+        review_task = asyncio.wait_for(
+            asyncio.to_thread(_run_review_miner_sync, client, req, need_profile),
+            timeout=60,
+        )
+        alt_task = asyncio.wait_for(
+            asyncio.to_thread(_run_alternative_finder_sync, client, req, need_profile),
+            timeout=60,
+        )
 
-        results = await asyncio.gather(price_task, review_task, visual_task, return_exceptions=True)
+        results = await asyncio.gather(price_task, review_task, alt_task, return_exceptions=True)
+
+        if any(
+            isinstance(result, BaseException) and (
+                _should_use_mock_fallback(result)
+                or isinstance(result, (asyncio.TimeoutError, TimeoutError))
+            )
+            for result in results
+        ):
+            async for event in _mock_buyer_event_stream(req):
+                yield event
+            return
 
         price_analysis = results[0] if not isinstance(results[0], Exception) else {
-            "price_fairness_score": 50, "comment": str(results[0])[:100], "price_assessment": "bilinmiyor", "market_context": "",
+            "price_fairness_score": 50, "comment": str(results[0])[:100],
+            "price_assessment": "bilinmiyor", "market_context": "",
         }
         review_analysis = results[1] if not isinstance(results[1], Exception) else {
-            "sentiment_summary": str(results[1])[:100], "reliability_signal": "insufficient_data", "total_analyzed": 0,
+            "sentiment_summary": str(results[1])[:100],
+            "reliability_signal": "insufficient_data", "total_analyzed": 0,
         }
-        visual_analysis = results[2] if not isinstance(results[2], Exception) else {
-            "visual_assessment": str(results[2])[:100], "score": 50, "matches_description": True, "red_flags": [],
-        }
+        alternatives = results[2] if (not isinstance(results[2], Exception) and isinstance(results[2], list)) else []
+        price_analysis = _apply_deterministic_price_score(req, price_analysis)
 
         yield _sse(
             "price_market",
@@ -451,14 +631,14 @@ async def analyze_for_buyer(req: BuyerAnalyzeRequest):
             review_analysis,
         )
         yield _sse(
-            "visual_forensics",
-            json.dumps(visual_analysis, ensure_ascii=False),
-            "gorsel_analizi",
-            visual_analysis,
+            "alternative_search",
+            json.dumps(alternatives, ensure_ascii=False),
+            "alternatif_urunler",
+            alternatives,
         )
 
-        # ── Agent 5: Synthesizer ──────────────────────────────────────────────
-        yield _sse("risk_synthesis", "Tüm veriler birleştiriliyor ve nihai karar üretiliyor...")
+        # ── Agent 5: Synthesizer (skor + kanıt, verdict YOK) ──────────────────
+        yield _sse("risk_synthesis", "Tüm veriler birleştiriliyor...")
 
         try:
             final_report = await asyncio.wait_for(
@@ -469,22 +649,40 @@ async def analyze_for_buyer(req: BuyerAnalyzeRequest):
                     need_profile,
                     price_analysis,
                     review_analysis,
-                    visual_analysis,
+                    alternatives,
                 ),
                 timeout=60,
             )
-        except asyncio.TimeoutError:
-            final_report = {
-                "final_recommendation": "consider",
-                "final_summary": "Analiz süresi doldu. Mevcut verilerle değerlendirme yapılamadı.",
-                "verified_fit_score": 60, "verified_trust_score": 60,
-                "verified_price_fairness_score": 60, "verified_return_risk_percent": 30,
-                "verified_warnings": [], "verified_strengths": [],
-                "unverified_claims": [], "user_dependent_claims": [],
-                "verification_quality": "low",
-            }
+        except (asyncio.TimeoutError, TimeoutError):
+            async for event in _mock_buyer_event_stream(req):
+                yield event
+            return
+        except genai_errors.APIError as exc:
+            if _should_use_mock_fallback(exc):
+                async for event in _mock_buyer_event_stream(req):
+                    yield event
+                return
+            yield _sse("error", f"API hatası: {str(exc)[:120]}")
+            return
+        except Exception:
+            async for event in _mock_buyer_event_stream(req):
+                yield event
+            return
 
-        # Final event — frontend extracts from actions.state_delta.final_rapor
+        # ── Decision Engine: deterministic verdict ────────────────────────────
+        final_report = _apply_deterministic_final_scores(req, final_report, price_analysis, review_analysis)
+        verdict = decide(
+            fit=final_report.get("verified_fit_score", 60),
+            trust=final_report.get("verified_trust_score", 60),
+            price_fairness=final_report.get("verified_price_fairness_score", 60),
+            return_risk=final_report.get("verified_return_risk_percent", 30),
+            warnings=final_report.get("verified_warnings", []),
+            strengths=final_report.get("verified_strengths", []),
+            alternatives=alternatives,
+        )
+        final_report["verdict"] = verdict
+        final_report["alternatives"] = alternatives
+
         yield _sse(
             "verification",
             json.dumps(final_report, ensure_ascii=False),

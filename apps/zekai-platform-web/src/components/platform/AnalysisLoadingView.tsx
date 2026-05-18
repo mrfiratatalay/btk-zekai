@@ -33,7 +33,7 @@ const FEED = [
   { at:1, text:"İhtiyaç profili oluşturuldu" },
   { at:2, text:"Piyasa fiyatı Google Search ile araştırıldı" },
   { at:3, text:"Ürün yorumları analiz edildi" },
-  { at:4, text:"Ürün görseli Gemini Vision ile değerlendirildi" },
+  { at:4, text:"Daha uygun alternatifler tarandı" },
   { at:5, text:"Karar sentezi tamamlandı" },
   { at:6, text:"Final rapor doğrulandı" },
 ];
@@ -43,29 +43,29 @@ const ICON: Record<string, React.FC<{ className?: string }>> = {
   need:         UserRoundSearch,
   price:        Gauge,
   review:       MessageSquareText,
-  visual:       ScanLine,
+  alternatives: ScanLine,
   synthesis:    GitBranch,
   verification: ShieldCheck,
 };
 
-// Pipeline: need → (price | review | visual) → synthesis → verification
+// Pipeline: need → (price | review | alternatives) → synthesis → verification
 const POSITIONS: Record<string, { x: number; y: number }> = {
   "need-agent":         { x: 0,   y: 180 },
   "price-agent":        { x: 300, y: 20  },
   "review-agent":       { x: 300, y: 180 },
-  "visual-agent":       { x: 300, y: 340 },
+  "alternative-agent":  { x: 300, y: 340 },
   "synthesis-agent":    { x: 600, y: 180 },
   "verification-agent": { x: 900, y: 180 },
 };
 
 const EDGE_PAIRS = [
-  ["need-agent",      "price-agent"],
-  ["need-agent",      "review-agent"],
-  ["need-agent",      "visual-agent"],
-  ["price-agent",     "synthesis-agent"],
-  ["review-agent",    "synthesis-agent"],
-  ["visual-agent",    "synthesis-agent"],
-  ["synthesis-agent", "verification-agent"],
+  ["need-agent",         "price-agent"],
+  ["need-agent",         "review-agent"],
+  ["need-agent",         "alternative-agent"],
+  ["price-agent",        "synthesis-agent"],
+  ["review-agent",       "synthesis-agent"],
+  ["alternative-agent",  "synthesis-agent"],
+  ["synthesis-agent",    "verification-agent"],
 ];
 
 type AgentState = "pending" | "active" | "completed";

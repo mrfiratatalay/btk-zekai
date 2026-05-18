@@ -16,6 +16,7 @@ import {
   Share2,
   Smile,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMockStore } from "@/lib/store/mock-store";
@@ -25,7 +26,7 @@ import { generateSocialContent, type SocialMediaContent } from "@/lib/api/seller
 
 type Tone = "profesyonel" | "samimi" | "mizahi";
 
-const TONES: { key: Tone; label: string; Icon: React.ElementType }[] = [
+const TONES: { key: Tone; label: string; Icon: LucideIcon }[] = [
   { key: "profesyonel", label: "Profesyonel", Icon: Briefcase },
   { key: "samimi", label: "Samimi", Icon: Heart },
   { key: "mizahi", label: "Mizahi", Icon: Smile },

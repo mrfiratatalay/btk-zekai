@@ -15,13 +15,10 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  ExternalLink,
   Link2,
   Loader2,
-  Package,
   Star,
   Zap,
   User,
@@ -151,56 +148,28 @@ export function QuickAnalyzeBar() {
             className="flex flex-col items-center"
           >
             <form onSubmit={handleLinkSubmit} className="relative w-full max-w-2xl mx-auto group">
-              <div className="absolute left-2.5 top-2.5 flex size-11 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-colors group-focus-within:bg-[#adff41]/20 group-focus-within:text-[#5a8a00] dark:group-focus-within:text-[#adff41]">
-                <Link2 className="size-5" />
+              <div className="absolute left-2 top-2 flex size-10 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-colors group-focus-within:bg-[#adff41]/20 group-focus-within:text-[#5a8a00] dark:group-focus-within:text-[#adff41] sm:left-2.5 sm:top-2.5 sm:size-11">
+                <Link2 className="size-4 sm:size-5" />
               </div>
               <input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="Örn: Trendyol, Hepsiburada veya Akıllı Market ürün linkini yapıştır..."
-                className="h-16 w-full rounded-[32px] border border-border/50 bg-background/80 backdrop-blur-2xl pl-16 pr-36 text-base text-foreground shadow-2xl outline-none placeholder:text-muted-foreground/50 focus:border-[#adff41]/50 focus:bg-background transition-all"
+                placeholder="Ürün linkini yapıştır..."
+                className="h-14 w-full rounded-[32px] border border-border/50 bg-background/80 backdrop-blur-2xl pl-14 pr-32 text-sm text-foreground shadow-2xl outline-none placeholder:text-muted-foreground/50 focus:border-[#adff41]/50 focus:bg-background transition-all sm:h-16 sm:pl-16 sm:pr-36 sm:text-base"
               />
               <Button
                 type="submit"
                 disabled={loadingProduct}
-                className="absolute right-2 top-2 h-12 rounded-[24px] bg-[#adff41] px-6 font-bold text-[#0a0a0f] transition-all hover:bg-[#9aef30] hover:scale-105 shadow-lg shadow-[#adff41]/20"
+                className="absolute right-2 top-2 h-10 rounded-[24px] bg-[#adff41] px-4 font-bold text-[#0a0a0f] transition-all hover:bg-[#9aef30] hover:scale-105 shadow-lg shadow-[#adff41]/20 sm:h-12 sm:px-6"
               >
-                {loadingProduct ? "Getiriliyor" : "Analiz Et"}
-                {loadingProduct ? <Loader2 className="ml-1.5 size-4 animate-spin" /> : <ArrowRight className="ml-1.5 size-4" />}
+                <span className="hidden sm:inline">{loadingProduct ? "Getiriliyor" : "Analiz Et"}</span>
+                {loadingProduct ? <Loader2 className="size-4 animate-spin sm:ml-1.5" /> : <ArrowRight className="size-4 sm:ml-1.5" />}
               </Button>
             </form>
 
             {linkError && (
               <p className="mt-3 text-center text-sm font-medium text-red-500 dark:text-red-400">{linkError}</p>
             )}
-
-            {/* Hızlı başla */}
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground/60 mr-2">Örnek Ürünler:</span>
-              {QUICK_PRODUCTS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setUrl(`${LINK_PREFIX}${item.id}`);
-                    setLinkError("");
-                  }}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-border/50 bg-background/50 px-4 py-1.5 text-xs font-medium text-muted-foreground hover:border-[#adff41]/30 hover:bg-[#adff41]/5 hover:text-foreground transition-all"
-                >
-                  <Package className="size-3.5" />
-                  {item.label}
-                </button>
-              ))}
-              <a
-                href={COMMERCE_WEB_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold text-[#5a8a00] dark:text-[#adff41] hover:underline"
-              >
-                <ExternalLink className="size-3.5" />
-                Demo Mağaza
-              </a>
-            </div>
           </motion.div>
         )}
 

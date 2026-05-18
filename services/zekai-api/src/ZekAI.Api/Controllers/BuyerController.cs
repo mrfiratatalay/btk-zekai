@@ -30,6 +30,21 @@ public class BuyerController(BuyerService buyer, CommerceApiClient commerce) : C
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
+    [HttpGet("kombins")]
+    public async Task<IActionResult> GetKombins()
+        => Ok(await buyer.GetKombinsAsync(UserId));
+
+    [HttpPost("kombins")]
+    public async Task<IActionResult> SaveKombin([FromBody] SaveKombinRequest req)
+        => Ok(await buyer.SaveKombinAsync(UserId, req));
+
+    [HttpDelete("kombins/{id}")]
+    public async Task<IActionResult> DeleteKombin(string id)
+    {
+        try { await buyer.DeleteKombinAsync(UserId, id); return NoContent(); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
     [HttpPost("product-preview")]
     public async Task<IActionResult> ProductPreview([FromBody] ProductPreviewRequest req)
     {

@@ -17,13 +17,25 @@ export interface SavedAnalysisApi {
   savedAt: string;
 }
 
-export interface ShoppingProjectApi {
+export interface SavedKombinApi {
   id: string;
+  externalId: string;
+  title: string;
+  goalText: string;
+  budget: number | null;
+  productsJson: string;
+  resultJson: string;
+  createdAt: string;
+}
+
+export interface ShoppingProjectApi {
+  id: string;        // DB Guid (internal)
+  externalId: string; // project-{ts}-{rand} string — API route'larında kullanılır
   title: string;
   goal: string;
   budget: number | null;
   createdAt: string;
-  savedAnalysisIds: string[];
+  analysisIds: string[]; // backend "analysisIds" olarak gönderir
 }
 
 // ── Saved Analyses ───────────────────────────────────────────────────────────
@@ -87,16 +99,37 @@ export const deleteProjectFromApi = (id: string) =>
   apiFetch<void>(`/api/buyer/projects/${id}`, { method: "DELETE" });
 
 export const addAnalysisToProjectInApi = (projectId: string, analysisId: string) =>
-  apiFetch<ShoppingProjectApi>(`/api/buyer/projects/${projectId}/analyses/${analysisId}`, {
-    method: "POST",
-  });
+  apiFetch<ShoppingProjectApi>(
+    `/api/buyer/projects/${projectId}/analyses/${encodeURIComponent(analysisId)}`,
+    { method: "POST" },
+  );
 
 export const removeAnalysisFromProjectInApi = (projectId: string, analysisExternalId: string) =>
-  apiFetch<ShoppingProjectApi>(`/api/buyer/projects/${projectId}/analyses/${analysisExternalId}`, {
-    method: "DELETE",
-  });
+  apiFetch<ShoppingProjectApi>(
+    `/api/buyer/projects/${projectId}/analyses/${encodeURIComponent(analysisExternalId)}`,
+    { method: "DELETE" },
+  );
 
 // ── Buyer Profile ─────────────────────────────────────────────────────────────
+
+export const getKombinsFromApi = () =>
+  apiFetch<SavedKombinApi[]>("/api/buyer/kombins");
+
+export const saveKombinToApi = (data: {
+  externalId?: string;
+  title: string;
+  goalText: string;
+  budget?: number;
+  productsJson: string;
+  resultJson: string;
+}) =>
+  apiFetch<SavedKombinApi>("/api/buyer/kombins", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const deleteKombinFromApi = (id: string) =>
+  apiFetch<void>(`/api/buyer/kombins/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export interface BuyerProfileApi {
   profileName: string | null;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
@@ -12,16 +12,12 @@ import {
   Star,
   Trash2,
   XCircle,
-  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  getSavedAnalyses,
-  getCompareQueue,
-  removeFromCompareQueue,
-  clearCompareQueue,
+  useAnalysesStore,
+  useCompareStore,
 } from "@/lib/buyer-store";
-import { notifyStoreUpdate } from "@/components/platform/PlatformNav";
 import { compareAnalyses } from "@/lib/compare-engine";
 import type { SavedAnalysis } from "@/types/analysis";
 import type { CompareResult } from "@/lib/compare-engine";
@@ -70,22 +66,14 @@ const VERDICT_CONFIG = {
 } as const;
 
 /* ─── Score bar ──────────────────────────────────────────────────────────── */
-function ScoreBar({
-  value,
-  max = 100,
-  color,
-}: {
-  value: number;
-  max?: number;
-  color: string;
-}) {
+function ScoreBar({ value, color }: { value: number; color: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
         <motion.div
           className={cn("h-full rounded-full", color)}
           initial={{ width: 0 }}
-          animate={{ width: `${(value / max) * 100}%` }}
+          animate={{ width: `${value}%` }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         />
       </div>
@@ -205,67 +193,30 @@ function ProductColumn({
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export function CompareView() {
-  const [queue, setQueue] = useState<string[]>([]);
-  const [analyses, setAnalyses] = useState<SavedAnalysis[]>([]);
-  const [result, setResult] = useState<CompareResult | null>(null);
-  const [needText, setNeedText] = useState("");
-  const [mounted, setMounted] = useState(false);
+  // Reaktif Zustand hook'ları — store'daki her değişiklikte otomatik yenilenir
+  const compareIds = useCompareStore((s) => s.ids);
+  const removeFromCompare = useCompareStore((s) => s.remove);
+  const clearCompare = useCompareStore((s) => s.clear);
+  const allAnalyses = useAnalysesStore((s) => s.analyses);
 
-  useEffect(() => {
-    const q = getCompareQueue();
-    const all = getSavedAnalyses();
-    setQueue(q);
-    const items = q.map((id) => all.find((a) => a.id === id)).filter(Boolean) as SavedAnalysis[];
-    setAnalyses(items);
-    if (items.length >= 2) {
-      setResult(compareAnalyses(items, ""));
-    }
-    setMounted(true);
+  const needTextRef = useRef("");
 
-    function refresh() {
-      const q2 = getCompareQueue();
-      const all2 = getSavedAnalyses();
-      setQueue(q2);
-      const items2 = q2.map((id) => all2.find((a) => a.id === id)).filter(Boolean) as SavedAnalysis[];
-      setAnalyses(items2);
-      if (items2.length >= 2) setResult(compareAnalyses(items2, needText));
-    }
-    window.addEventListener("zekai-store-update", refresh);
-    return () => window.removeEventListener("zekai-store-update", refresh);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Karşılaştırılacak analizler — store değiştiğinde otomatik güncellenir
+  const analyses = compareIds
+    .map((id) => allAnalyses.find((a) => a.id === id))
+    .filter(Boolean) as SavedAnalysis[];
+
+  // Karşılaştırma sonucu — her render'da yeniden hesaplanır
+  const result = analyses.length >= 2
+    ? compareAnalyses(analyses, needTextRef.current)
+    : null;
 
   function handleRemove(id: string) {
-    removeFromCompareQueue(id);
-    const q = getCompareQueue();
-    const all = getSavedAnalyses();
-    setQueue(q);
-    const items = q.map((i) => all.find((a) => a.id === i)).filter(Boolean) as SavedAnalysis[];
-    setAnalyses(items);
-    if (items.length >= 2) setResult(compareAnalyses(items, needText));
-    else setResult(null);
-    notifyStoreUpdate();
-  }
-
-  function handleCompare() {
-    if (analyses.length < 2) return;
-    setResult(compareAnalyses(analyses, needText));
+    removeFromCompare(id);
   }
 
   function handleClear() {
-    clearCompareQueue();
-    setQueue([]);
-    setAnalyses([]);
-    setResult(null);
-    notifyStoreUpdate();
-  }
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="h-14 border-b border-border" />
-      </div>
-    );
+    clearCompare();
   }
 
   return (
@@ -273,7 +224,7 @@ export function CompareView() {
       <PlatformNav />
 
       <main className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-        {queue.length > 0 && (
+        {compareIds.length > 0 && (
           <div className="mb-6 flex justify-end">
             <button
               onClick={handleClear}
@@ -285,7 +236,7 @@ export function CompareView() {
         )}
 
         {/* Empty state */}
-        {queue.length === 0 && (
+        {compareIds.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-12 text-center">
             <GitCompare className="mx-auto mb-3 size-10 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground">Karşılaştırma kuyruğu boş.</p>
@@ -331,37 +282,28 @@ export function CompareView() {
             </AnimatePresence>
 
             {/* Product columns */}
-            <div className="overflow-x-auto pb-4">
+            <div className="overflow-x-auto pb-4 snap-x snap-mandatory md:snap-none">
               <div
                 className={cn(
-                  "grid gap-4 min-w-[600px] md:min-w-0",
+                  "grid gap-4 md:min-w-0",
                   analyses.length === 1
                     ? "grid-cols-1 max-w-xs"
                     : analyses.length === 2
-                    ? "grid-cols-2"
-                    : "grid-cols-3"
+                    ? "grid-cols-2 min-w-[640px] md:min-w-0"
+                    : "grid-cols-3 min-w-[860px] md:min-w-0"
                 )}
               >
                 {analyses.map((analysis) => {
                   const row = result?.table.find((r) => r.id === analysis.id);
-                  if (!row) {
-                    return (
-                      <ProductColumn
-                        key={analysis.id}
-                        analysis={analysis}
-                        row={null}
-                        onRemove={handleRemove}
-                        isPending={true}
-                      />
-                    );
-                  }
                   return (
-                    <ProductColumn
-                      key={analysis.id}
-                      analysis={analysis}
-                      row={row}
-                      onRemove={handleRemove}
-                    />
+                    <div key={analysis.id} className="snap-start">
+                      <ProductColumn
+                        analysis={analysis}
+                        row={row ?? null}
+                        onRemove={handleRemove}
+                        isPending={!row}
+                      />
+                    </div>
                   );
                 })}
               </div>

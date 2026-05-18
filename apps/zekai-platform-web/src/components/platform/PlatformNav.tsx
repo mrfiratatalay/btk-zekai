@@ -11,9 +11,10 @@ import {
   LogOut,
   Menu,
   X,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAnalysesStore, useCompareStore } from "@/lib/buyer-store";
+import { useAnalysesStore, useCompareStore, useKombinsStore } from "@/lib/buyer-store";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
 
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/platform/saved", label: "Kaydedilenler", icon: BookmarkCheck, exact: false },
   { href: "/platform/compare", label: "Karşılaştır", icon: GitCompare, exact: false },
   { href: "/platform/projects", label: "Karar Odaları", icon: FolderOpen, exact: false },
+  { href: "/platform/kombins", label: "Kombinler", icon: Layers, exact: false },
 ] as const;
 
 export function PlatformNav() {
@@ -29,6 +31,7 @@ export function PlatformNav() {
   const router = useRouter();
   const savedCount = useAnalysesStore((s) => s.analyses.length);
   const compareCount = useCompareStore((s) => s.ids.length);
+  const kombinCount = useKombinsStore((s) => s.kombins.length);
 
   const [user, setUser] = useState<AuthUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -104,6 +107,11 @@ export function PlatformNav() {
                   {href === "/platform/compare" && compareCount > 0 && (
                     <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-black text-amber-900">
                       {compareCount}
+                    </span>
+                  )}
+                  {href === "/platform/kombins" && kombinCount > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#adff41] px-1.5 text-[11px] font-black text-[#1a2e00]">
+                      {kombinCount}
                     </span>
                   )}
                 </Link>
@@ -191,6 +199,11 @@ export function PlatformNav() {
                   {href === "/platform/compare" && compareCount > 0 && (
                     <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-black text-amber-900">
                       {compareCount}
+                    </span>
+                  )}
+                  {href === "/platform/kombins" && kombinCount > 0 && (
+                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#adff41] px-1.5 text-[11px] font-black text-[#1a2e00]">
+                      {kombinCount}
                     </span>
                   )}
                 </Link>

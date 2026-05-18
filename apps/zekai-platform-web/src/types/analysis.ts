@@ -8,11 +8,37 @@ export type AgentStepType =
   | "product"
   | "review"
   | "price"
-  | "visual"
+  | "alternatives"
   | "return"
   | "synthesis"
   | "verification"
   | "report";
+
+// ── Decision Engine output ──────────────────────────────────────────────────
+export type VerdictLevel = "buy" | "consider" | "avoid";
+
+export type VerdictReason = {
+  icon: "ok" | "warn" | "bad";
+  rule: string;
+  text: string;
+};
+
+export type Verdict = {
+  level: VerdictLevel;
+  label: string;
+  composite_score: number;
+  reasons: VerdictReason[];
+};
+
+export type AlternativeProduct = {
+  title: string;
+  approx_price: number;
+  currency: string;
+  source_url: string;
+  why_better_fit: string;
+  trade_offs: string;
+  confidence: "high" | "medium" | "low";
+};
 
 export type BuyerAnalysisSummary = {
   id: AnalysisId;
@@ -128,4 +154,6 @@ export type BuyerAnalysis = {
     marketComparison: MarketComparison[];
   };
   finalAdvice: string;
+  verdict?: Verdict;
+  alternatives?: AlternativeProduct[];
 };

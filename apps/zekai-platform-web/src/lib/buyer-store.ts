@@ -13,6 +13,7 @@ import type {
   ShoppingProject,
   BuyerProfile,
 } from "@/types/analysis";
+import type { SavedKombin } from "@/types/kombin";
 import {
   getSavedAnalysesFromApi,
   saveAnalysisToApi,
@@ -24,10 +25,14 @@ import {
   deleteProjectFromApi,
   addAnalysisToProjectInApi,
   removeAnalysisFromProjectInApi,
+  getKombinsFromApi,
+  saveKombinToApi,
+  deleteKombinFromApi,
   getBuyerProfileFromApi,
   updateBuyerProfileInApi,
   type SavedAnalysisApi,
   type ShoppingProjectApi,
+  type SavedKombinApi,
 } from "@/lib/api/buyer";
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -57,12 +62,24 @@ function mapAnalysis(a: SavedAnalysisApi): SavedAnalysis {
 
 function mapProject(p: ShoppingProjectApi): ShoppingProject {
   return {
-    id: p.id,
+    id: p.externalId, // externalId kullan — API route'lar bunu bekler, Guid değil
     title: p.title,
     goal: p.goal ?? "",
     budget: p.budget ?? undefined,
     createdAt: p.createdAt,
-    savedAnalysisIds: p.savedAnalysisIds ?? [],
+    savedAnalysisIds: p.analysisIds ?? [],
+  };
+}
+
+function mapKombin(k: SavedKombinApi): SavedKombin {
+  return {
+    id: k.externalId,
+    title: k.title,
+    goalText: k.goalText,
+    budget: k.budget ?? undefined,
+    products: JSON.parse(k.productsJson || "[]"),
+    result: JSON.parse(k.resultJson || "{}"),
+    createdAt: k.createdAt,
   };
 }
 
@@ -73,6 +90,8 @@ interface AnalysesState {
   analyses: SavedAnalysis[];
   loaded: boolean;
   loading: boolean;
+  /** externalId → DB Guid (update/delete endpoint'leri için) */
+  _dbIdMap: Map<string, string>;
   load: () => Promise<void>;
   saveAnalysis: (data: Parameters<typeof saveAnalysisToApi>[0]) => Promise<SavedAnalysis>;
   updateStatus: (externalId: string, status: SavedAnalysisStatus) => Promise<void>;
@@ -86,13 +105,15 @@ export const useAnalysesStore = create<AnalysesState>()((set, get) => ({
   analyses: [],
   loaded: false,
   loading: false,
+  _dbIdMap: new Map(),
 
   load: async () => {
     if (get().loading) return;
     set({ loading: true });
     try {
       const data = await getSavedAnalysesFromApi();
-      set({ analyses: data.map(mapAnalysis), loaded: true });
+      const dbIdMap = new Map(data.map((a) => [a.externalId, a.id]));
+      set({ analyses: data.map(mapAnalysis), loaded: true, _dbIdMap: dbIdMap });
     } finally {
       set({ loading: false });
     }
@@ -102,13 +123,15 @@ export const useAnalysesStore = create<AnalysesState>()((set, get) => ({
     const saved = await saveAnalysisToApi(data);
     const mapped = mapAnalysis(saved);
     set((s) => {
+      const dbIdMap = new Map(s._dbIdMap);
+      dbIdMap.set(saved.externalId, saved.id);
       const exists = s.analyses.findIndex((a) => a.id === mapped.id);
       if (exists >= 0) {
         const next = [...s.analyses];
         next[exists] = mapped;
-        return { analyses: next };
+        return { analyses: next, _dbIdMap: dbIdMap };
       }
-      return { analyses: [mapped, ...s.analyses] };
+      return { analyses: [mapped, ...s.analyses], _dbIdMap: dbIdMap };
     });
     return mapped;
   },
@@ -119,9 +142,8 @@ export const useAnalysesStore = create<AnalysesState>()((set, get) => ({
         a.id === externalId ? { ...a, status } : a
       ),
     }));
-    const api = await getSavedAnalysesFromApi();
-    const found = api.find((a) => a.externalId === externalId);
-    if (found) await updateAnalysisInApi(found.id, { status });
+    const dbId = get()._dbIdMap.get(externalId);
+    if (dbId) await updateAnalysisInApi(dbId, { status });
   },
 
   updateNote: async (externalId, userNote) => {
@@ -130,17 +152,19 @@ export const useAnalysesStore = create<AnalysesState>()((set, get) => ({
         a.id === externalId ? { ...a, userNote } : a
       ),
     }));
-    const api = await getSavedAnalysesFromApi();
-    const found = api.find((a) => a.externalId === externalId);
-    if (found) await updateAnalysisInApi(found.id, { userNote });
+    const dbId = get()._dbIdMap.get(externalId);
+    if (dbId) await updateAnalysisInApi(dbId, { userNote });
   },
 
   deleteAnalysis: async (externalId) => {
-    const api = await getSavedAnalysesFromApi();
-    const found = api.find((a) => a.externalId === externalId);
-    set((s) => ({ analyses: s.analyses.filter((a) => a.id !== externalId) }));
+    const dbId = get()._dbIdMap.get(externalId);
+    set((s) => {
+      const dbIdMap = new Map(s._dbIdMap);
+      dbIdMap.delete(externalId);
+      return { analyses: s.analyses.filter((a) => a.id !== externalId), _dbIdMap: dbIdMap };
+    });
     useCompareStore.getState().remove(externalId);
-    if (found) await deleteAnalysisFromApi(found.id);
+    if (dbId) await deleteAnalysisFromApi(dbId);
   },
 
   isSaved: (externalId) => get().analyses.some((a) => a.id === externalId),
@@ -232,6 +256,50 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => ({
 /* ─────────────────────────────────────────────────────────────────────────────
    Buyer Profile Store
 ──────────────────────────────────────────────────────────────────────────────*/
+interface KombinsState {
+  kombins: SavedKombin[];
+  loaded: boolean;
+  loading: boolean;
+  load: () => Promise<void>;
+  saveKombin: (data: Omit<SavedKombin, "id" | "createdAt">) => Promise<SavedKombin>;
+  deleteKombin: (id: string) => Promise<void>;
+}
+
+export const useKombinsStore = create<KombinsState>()((set, get) => ({
+  kombins: [],
+  loaded: false,
+  loading: false,
+
+  load: async () => {
+    if (get().loading) return;
+    set({ loading: true });
+    try {
+      const data = await getKombinsFromApi();
+      set({ kombins: data.map(mapKombin), loaded: true });
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  saveKombin: async (data) => {
+    const saved = await saveKombinToApi({
+      title: data.title,
+      goalText: data.goalText,
+      budget: data.budget,
+      productsJson: JSON.stringify(data.products),
+      resultJson: JSON.stringify(data.result),
+    });
+    const mapped = mapKombin(saved);
+    set((s) => ({ kombins: [mapped, ...s.kombins.filter((k) => k.id !== mapped.id)] }));
+    return mapped;
+  },
+
+  deleteKombin: async (id) => {
+    set((s) => ({ kombins: s.kombins.filter((k) => k.id !== id) }));
+    await deleteKombinFromApi(id);
+  },
+}));
+
 interface ProfileState {
   profile: BuyerProfile;
   loaded: boolean;

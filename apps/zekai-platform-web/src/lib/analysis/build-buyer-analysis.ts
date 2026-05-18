@@ -113,14 +113,14 @@ export function buildBuyerAnalysisFromProduct({
         summary: `${product.reviewCount} yorum, ${product.rating.toFixed(1)}/5 puan değerlendirildi.`,
       },
       {
-        id: "visual-agent", label: "Görsel Analiz", type: "visual", status: "pending", durationMs: 800,
-        description: "Ürün görseli kalitesi ve açıklamayla uyumu Gemini Vision ile değerlendiriliyor.",
-        summary: "Görsel kalitesi ve ürün açıklamasıyla uyumu kontrol edildi.",
+        id: "alternative-agent", label: "Alternatif Tarama", type: "alternatives", status: "pending", durationMs: 1000,
+        description: "Google'da kullanıcının ihtiyacına daha uygun, fiyat aralığındaki alternatifler aranıyor.",
+        summary: "Bütçe içinde daha iyi seçenekler tarandı.",
       },
       {
         id: "synthesis-agent", label: "Karar Sentezi", type: "synthesis", status: "pending", durationMs: 700,
         description: "Tüm analizler birleştirilip kanıta dayalı nihai karar üretiliyor.",
-        summary: "Uyum, güven, fiyat ve görsel skorları sentezlendi.",
+        summary: "Uyum, güven, fiyat ve iade riski skorları sentezlendi.",
       },
       {
         id: "verification-agent", label: "Doğrulama & Rapor", type: "verification", status: "pending", durationMs: 600,

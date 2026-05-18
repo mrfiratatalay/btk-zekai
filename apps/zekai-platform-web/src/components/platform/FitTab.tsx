@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import type { BuyerAnalysis } from "@/types/analysis";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
@@ -6,8 +6,6 @@ import { cn } from "@/lib/utils";
 const bar = (n: number) => n >= 65 ? "bg-emerald-500" : n >= 40 ? "bg-amber-500" : "bg-red-500";
 
 export function FitTab({ analysis }: { analysis: BuyerAnalysis }) {
-  const { fitScore } = analysis.scores;
-
   return (
     <div className="max-w-2xl space-y-6">
       <p className="text-sm leading-7 text-foreground/80">{analysis.fitAnalysis.summary}</p>
@@ -38,21 +36,6 @@ export function FitTab({ analysis }: { analysis: BuyerAnalysis }) {
         ))}
       </Accordion>
 
-      {/* Basit kontrol listesi */}
-      <div className="flex flex-col gap-2 pt-2">
-        {[
-          { ok: fitScore >= 65,                          t: "Genel kullanım için makul" },
-          { ok: analysis.scores.returnRiskPercent < 25,  t: "İade riski kabul edilebilir" },
-          { ok: analysis.scores.priceScore >= 55,        t: "Fiyat beklentiyle uyumlu" },
-        ].map((item) => (
-          <div key={item.t} className="flex items-center gap-2.5 text-sm text-muted-foreground">
-            {item.ok
-              ? <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
-              : <AlertTriangle className="size-4 shrink-0 text-amber-500" />}
-            <span>{item.t}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ from seller.simulation_router import router as simulation_router
 from seller.image_router import router as image_router
 from seller.bundle_router import router as bundle_router
 from buyer.buyer_router import router as buyer_router
+from buyer.kombin_router import router as kombin_router
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +34,7 @@ app.include_router(simulation_router, prefix="/seller", tags=["seller-ai"])
 app.include_router(image_router, prefix="/seller", tags=["seller-ai"])
 app.include_router(bundle_router, prefix="/seller", tags=["seller-ai"])
 app.include_router(buyer_router, prefix="/buyer", tags=["buyer-ai"])
+app.include_router(kombin_router, prefix="/buyer", tags=["buyer-ai"])
 
 
 def _has_google_api_key() -> bool:

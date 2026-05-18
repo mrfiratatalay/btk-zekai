@@ -162,6 +162,49 @@ namespace ZekAI.Infrastructure.Migrations
                     b.ToTable("ShoppingProjects");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.SavedKombin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("GoalText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("Budget")
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<string>("ProductsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "ExternalId")
+                        .IsUnique();
+
+                    b.ToTable("SavedKombins");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.ShoppingProjectAnalysis", b =>
                 {
                     b.Property<Guid>("ProjectId")
@@ -303,6 +346,17 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.SavedKombin", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
+                        .WithMany("SavedKombins")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.ZekaiRefreshToken", b =>
                 {
                     b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
@@ -329,6 +383,8 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Navigation("Analyses");
 
                     b.Navigation("RefreshTokens");
+
+                    b.Navigation("SavedKombins");
 
                     b.Navigation("ShoppingProjects");
 

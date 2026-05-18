@@ -85,3 +85,24 @@ public class UpdateBuyerProfileRequest
     public string? ProfileName { get; set; }
     public bool? Onboarded { get; set; }
 }
+
+public class SaveKombinRequest
+{
+    public string ExternalId { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string GoalText { get; set; } = "";
+    public decimal? Budget { get; set; }
+    public string ProductsJson { get; set; } = "[]";
+    public string ResultJson { get; set; } = "{}";
+}
+
+public record SavedKombinDto(
+    Guid Id,
+    string ExternalId,
+    string Title,
+    string GoalText,
+    decimal? Budget,
+    string ProductsJson,
+    string ResultJson,
+    DateTime CreatedAt
+);

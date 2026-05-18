@@ -263,7 +263,7 @@ export function ProjectsListPage() {
   if (loading && projects.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="h-14 border-b border-border" />
+        <PlatformNav />
         <div className="mx-auto max-w-3xl px-4 py-12 grid gap-4 sm:grid-cols-2">
           {[1, 2].map((n) => (
             <div key={n} className="h-64 animate-pulse rounded-3xl bg-muted/40" />

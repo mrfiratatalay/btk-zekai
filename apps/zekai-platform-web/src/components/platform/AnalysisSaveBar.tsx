@@ -21,14 +21,11 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  getSavedAnalyses,
   saveAnalysis,
   isAnalysisSaved,
   addToCompareQueue,
   getCompareQueue,
-  getProjects,
-  createProject,
-  addAnalysisToProject,
+  useProjectsStore,
 } from "@/lib/buyer-store";
 import { notifyStoreUpdate } from "@/components/platform/PlatformNav";
 import { formatPrice } from "@/lib/format";
@@ -185,10 +182,13 @@ function ProjectSelectModal({
   analysisId: string;
   onClose: () => void;
 }) {
-  const projects = getProjects();
+  const projects = useProjectsStore((s) => s.projects);
+  const createProjectFn = useProjectsStore((s) => s.createProject);
+  const addAnalysisFn = useProjectsStore((s) => s.addAnalysis);
   const [newTitle, setNewTitle] = useState("");
   const [newGoal, setNewGoal] = useState("");
   const [creating, setCreating] = useState(projects.length === 0);
+  const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -196,19 +196,25 @@ function ProjectSelectModal({
   }, []);
 
   function handleAdd(projectId: string) {
-    addAnalysisToProject(projectId, analysisId);
+    addAnalysisFn(projectId, analysisId);
     notifyStoreUpdate();
     toast.success("Karar Odasına eklendi!");
     onClose();
   }
 
-  function handleCreate() {
-    if (!newTitle.trim()) return;
-    const p = createProject({ title: newTitle.trim(), goal: newGoal.trim() });
-    addAnalysisToProject(p.id, analysisId);
-    notifyStoreUpdate();
-    toast.success("Karar Odası oluşturuldu ve ürün eklendi!");
-    onClose();
+  async function handleCreate() {
+    if (!newTitle.trim() || saving) return;
+    setSaving(true);
+    try {
+      const created = await createProjectFn({ title: newTitle.trim(), goal: newGoal.trim() });
+      await addAnalysisFn(created.id, analysisId);
+      notifyStoreUpdate();
+      toast.success("Karar Odası oluşturuldu ve ürün eklendi!");
+      onClose();
+    } catch {
+      toast.error("İşlem başarısız, tekrar dene.");
+      setSaving(false);
+    }
   }
 
   const modalContent = (
@@ -296,10 +302,10 @@ function ProjectSelectModal({
               <Button
                 size="sm"
                 onClick={handleCreate}
-                disabled={!newTitle.trim()}
+                disabled={!newTitle.trim() || saving}
                 className="flex-1 bg-[#adff41] text-[#0a0a0f] font-bold hover:bg-[#9aef30] rounded-xl disabled:opacity-50"
               >
-                Oluştur ve Ekle
+                {saving ? "Kaydediliyor..." : "Oluştur ve Ekle"}
               </Button>
             </div>
           </div>

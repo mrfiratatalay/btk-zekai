@@ -35,18 +35,18 @@ export function BuyerDashboard() {
 
       <PlatformNav />
 
-      <main className="flex flex-1 flex-col items-center justify-center px-4 md:px-6">
+      <main className="flex flex-1 flex-col items-center px-4 pt-[12vh] md:px-6 md:pt-[18vh]">
         <div className="w-full max-w-2xl">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="mb-10 text-center"
+            className="mb-8 text-center"
           >
-            <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">
+            <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl md:text-4xl">
               {greeting}
             </h1>
-            <p className="mt-2 text-base text-muted-foreground">
+            <p className="mt-2 text-sm text-muted-foreground sm:text-base">
               Alışveriş karar merkezine hoş geldin.
             </p>
           </motion.div>

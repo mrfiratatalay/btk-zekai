@@ -1,6 +1,11 @@
 "use client";
 
-import type { BuyerAnalysis, RecommendationLevel } from "@/types/analysis";
+import type {
+  AlternativeProduct,
+  BuyerAnalysis,
+  RecommendationLevel,
+  Verdict,
+} from "@/types/analysis";
 import type { Product } from "@/types/product";
 import { useMockStore } from "@/lib/store/mock-store";
 
@@ -15,13 +20,16 @@ export type VerifiedReport = {
   verified_trust_score?: number;
   verified_price_fairness_score?: number;
   verified_return_risk_percent?: number;
-  final_recommendation?: "buy" | "consider" | "avoid";
   final_summary?: string;
   verified_warnings?: Array<{ warning?: string; evidence?: string; confidence?: string }>;
   verified_strengths?: Array<{ strength?: string; evidence?: string; confidence?: string }>;
   unverified_claims?: string[];
   user_dependent_claims?: string[];
   verification_quality?: string;
+  /** Backend decision engine output — kararı her zaman bu belirler */
+  verdict?: Verdict;
+  /** Alternative Finder ajanının bulguları */
+  alternatives?: AlternativeProduct[];
 };
 
 const ZEKAI_API_URL =
@@ -43,7 +51,7 @@ const authorToStepId: Record<string, string> = {
   need_understanding: "need-agent",
   price_market:       "price-agent",
   review_mining:      "review-agent",
-  visual_forensics:   "visual-agent",
+  alternative_search: "alternative-agent",
   risk_synthesis:     "synthesis-agent",
   verification:       "verification-agent",
 };
@@ -72,9 +80,11 @@ function clampScore(value: unknown, fallback: number) {
   return Math.min(100, Math.max(0, Math.round(n)));
 }
 
-function recommendationLevel(value: VerifiedReport["final_recommendation"], risk: number): RecommendationLevel {
-  if (value === "buy") return "safe";
-  if (value === "avoid") return "risky";
+function recommendationLevelFromVerdict(verdict: Verdict | undefined, risk: number): RecommendationLevel {
+  if (verdict?.level === "buy") return "safe";
+  if (verdict?.level === "avoid") return "risky";
+  if (verdict?.level === "consider") return "caution";
+  // verdict yoksa risk skorundan türet (yasaklı durumlar için fallback)
   if (risk >= 66) return "risky";
   if (risk >= 45) return "caution";
   return "safe";
@@ -97,15 +107,31 @@ function fallbackReasons(report: VerifiedReport) {
   return [];
 }
 
+/**
+ * Bir objenin GERÇEKTEN final doğrulama raporu olup olmadığını doğrular.
+ * Ara agent çıktıları (need_profile, price_analysis vb.) bu alanları içermez.
+ */
+function looksLikeVerifiedReport(o: unknown): o is VerifiedReport {
+  if (!o || typeof o !== "object") return false;
+  const r = o as Record<string, unknown>;
+  return (
+    "verdict" in r ||
+    "verified_fit_score" in r ||
+    "verified_trust_score" in r ||
+    "verified_warnings" in r ||
+    "final_summary" in r
+  );
+}
+
+/**
+ * SADECE backend'in final_rapor state_delta'sından raporu çıkarır.
+ * Önceki sürüm herhangi bir event'in text'ini JSON parse ediyordu —
+ * bu, ilk agent'ın (need_profile) çıktısını "final rapor" sanıp
+ * ekranı erkenden rapora geçiriyor, kalan agent API çağrılarını boşa harcatıyordu.
+ */
 export function extractVerifiedReport(event: AdkAgentEvent): VerifiedReport | undefined {
   const fromState = parseMaybeJson(event.actions?.state_delta?.final_rapor);
-  if (fromState && typeof fromState === "object") return fromState as VerifiedReport;
-
-  const text = event.content?.parts?.find((part) => part.text)?.text;
-  const fromText = parseMaybeJson(text);
-  if (fromText && typeof fromText === "object") return fromText as VerifiedReport;
-
-  return undefined;
+  return looksLikeVerifiedReport(fromState) ? fromState : undefined;
 }
 
 export function buildAgentMessage(product: Product, buyerNeed: string) {
@@ -154,7 +180,9 @@ export function buildAgentMessage(product: Product, buyerNeed: string) {
   ].join("\n");
 }
 
-const ANALYZE_TIMEOUT_MS = 120_000;
+// Backend: need(25s) → parallel price/review/alt(25s) → synthesis(25s) ≈ 75s worst case.
+// Frontend bunu erken kesmemeli — yoksa ücretli analiz çöpe gider.
+const ANALYZE_TIMEOUT_MS = 180_000;
 
 function getAuthHeaders(): Record<string, string> {
   const token = typeof window === "undefined" ? null : localStorage.getItem("zekai_token");
@@ -198,7 +226,7 @@ async function streamSseEvents(
   }
 }
 
-/** New native-Gemini 4-agent buyer analysis via zekai-api */
+/** Native Gemini buyer analysis via zekai-api */
 export async function runBuyerAgentStream({
   product,
   buyerNeed,
@@ -246,7 +274,7 @@ export function applyVerifiedReport(
     Math.round(100 - (fitScore + trustScore + priceScore) / 3 + returnRiskPercent * 0.35),
     base.overallRiskPercent,
   );
-  const level = recommendationLevel(report.final_recommendation, overallRiskPercent);
+  const level = recommendationLevelFromVerdict(report.verdict, overallRiskPercent);
   const warnings = report.verified_warnings?.filter((item) => item.warning) ?? [];
   const strengths = report.verified_strengths?.filter((item) => item.strength) ?? [];
   return {
@@ -325,5 +353,7 @@ export function applyVerifiedReport(
       (level === "safe"
         ? "ADK analizine gore kontrollu sekilde degerlendirilebilir."
         : "ADK analizine gore kanitlari inceleyip alternatiflerle karsilastirmak daha mantikli."),
+    verdict: report.verdict,
+    alternatives: report.alternatives ?? [],
   };
 }

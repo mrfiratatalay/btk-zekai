@@ -11,6 +11,7 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
     public DbSet<BuyerAnalysis> Analyses => Set<BuyerAnalysis>();
     public DbSet<ShoppingProject> ShoppingProjects => Set<ShoppingProject>();
     public DbSet<ShoppingProjectAnalysis> ShoppingProjectAnalyses => Set<ShoppingProjectAnalysis>();
+    public DbSet<SavedKombin> SavedKombins => Set<SavedKombin>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -53,5 +54,14 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
             .HasOne(pa => pa.Analysis)
             .WithMany(a => a.ProjectLinks)
             .HasForeignKey(pa => pa.AnalysisId);
+
+        mb.Entity<SavedKombin>()
+            .HasOne(k => k.User)
+            .WithMany(u => u.SavedKombins)
+            .HasForeignKey(k => k.UserId);
+        mb.Entity<SavedKombin>()
+            .HasIndex(k => new { k.UserId, k.ExternalId }).IsUnique();
+        mb.Entity<SavedKombin>()
+            .Property(k => k.Budget).HasColumnType("numeric(10,2)");
     }
 }

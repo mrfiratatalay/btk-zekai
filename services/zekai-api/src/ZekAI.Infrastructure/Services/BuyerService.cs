@@ -202,6 +202,60 @@ public class BuyerService(ZekaiDbContext db, CommerceApiClient commerce)
         return new BuyerProfileDto(user.ProfileName, user.Onboarded);
     }
 
+    public async Task<List<SavedKombinDto>> GetKombinsAsync(Guid userId)
+    {
+        return await db.SavedKombins
+            .Where(k => k.UserId == userId)
+            .OrderByDescending(k => k.CreatedAt)
+            .Select(k => MapKombin(k))
+            .ToListAsync();
+    }
+
+    public async Task<SavedKombinDto> SaveKombinAsync(Guid userId, SaveKombinRequest req)
+    {
+        var externalId = string.IsNullOrWhiteSpace(req.ExternalId)
+            ? $"kombin-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}-{Guid.NewGuid().ToString("N")[..7]}"
+            : req.ExternalId;
+
+        var existing = await db.SavedKombins
+            .FirstOrDefaultAsync(k => k.UserId == userId && k.ExternalId == externalId);
+
+        if (existing is not null)
+        {
+            existing.Title = req.Title;
+            existing.GoalText = req.GoalText;
+            existing.Budget = req.Budget;
+            existing.ProductsJson = req.ProductsJson;
+            existing.ResultJson = req.ResultJson;
+            await db.SaveChangesAsync();
+            return MapKombin(existing);
+        }
+
+        var saved = new SavedKombin
+        {
+            UserId = userId,
+            ExternalId = externalId,
+            Title = req.Title,
+            GoalText = req.GoalText,
+            Budget = req.Budget,
+            ProductsJson = req.ProductsJson,
+            ResultJson = req.ResultJson,
+        };
+
+        db.SavedKombins.Add(saved);
+        await db.SaveChangesAsync();
+        return MapKombin(saved);
+    }
+
+    public async Task DeleteKombinAsync(Guid userId, string externalId)
+    {
+        var saved = await db.SavedKombins
+            .FirstOrDefaultAsync(k => k.UserId == userId && k.ExternalId == externalId)
+            ?? throw new KeyNotFoundException("Kombin bulunamadı.");
+        db.SavedKombins.Remove(saved);
+        await db.SaveChangesAsync();
+    }
+
     private static AnalysisDto Map(BuyerAnalysis a) => new(
         a.Id, a.ExternalId, a.ProductId, a.ProductTitle, a.ProductImage,
         a.ProductPrice, a.SellerName, a.UserNeedText,
@@ -212,5 +266,9 @@ public class BuyerService(ZekaiDbContext db, CommerceApiClient commerce)
     private static ProjectDto MapProject(ShoppingProject p) => new(
         p.Id, p.ExternalId, p.Title, p.Goal, p.Budget, p.CreatedAt,
         p.ProjectAnalyses.Select(pa => pa.Analysis?.ExternalId ?? "").Where(id => id != "").ToList()
+    );
+
+    private static SavedKombinDto MapKombin(SavedKombin k) => new(
+        k.Id, k.ExternalId, k.Title, k.GoalText, k.Budget, k.ProductsJson, k.ResultJson, k.CreatedAt
     );
 }
