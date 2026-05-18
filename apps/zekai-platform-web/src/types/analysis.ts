@@ -8,6 +8,7 @@ export type AgentStepType =
   | "product"
   | "review"
   | "price"
+  | "visual"
   | "return"
   | "synthesis"
   | "verification"

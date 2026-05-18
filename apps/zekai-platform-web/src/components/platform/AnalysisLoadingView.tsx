@@ -9,7 +9,7 @@ import "@xyflow/react/dist/style.css";
 import {
   CheckCircle2, Circle, FileCheck2, FileSearch,
   Gauge, GitBranch, Loader2, MessageSquareText,
-  ScanLine, ShieldCheck, UserRoundSearch,
+  PackageSearch, ScanLine, ShieldCheck, UserRoundSearch,
 } from "lucide-react";
 import { useMemo } from "react";
 import type { AgentStep } from "@/types/analysis";
