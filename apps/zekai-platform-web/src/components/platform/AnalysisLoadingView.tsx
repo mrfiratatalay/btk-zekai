@@ -9,8 +9,7 @@ import "@xyflow/react/dist/style.css";
 import {
   CheckCircle2, Circle, FileCheck2, FileSearch,
   Gauge, GitBranch, Loader2, MessageSquareText,
-  PackageSearch, ReceiptText, RefreshCw, ScanLine,
-  ShieldCheck, UserRoundSearch,
+  ScanLine, ShieldCheck, UserRoundSearch,
 } from "lucide-react";
 import { useMemo } from "react";
 import type { AgentStep } from "@/types/analysis";
@@ -22,46 +21,51 @@ import {
 import { cn } from "@/lib/utils";
 import { useAnalysisProgress } from "@/components/platform/useAnalysisProgress";
 
-/* ── Stages (user-facing) ────────────────────────────────────────────────── */
+/* ── Stages (user-facing) — 6 adım: 0-1 / 1-4 / 4-6 ─────────────────────── */
 const stages = [
-  { from:0, to:1, label:"İhtiyaç analiz ediliyor",             done:"İhtiyaç analiz edildi",            icon:UserRoundSearch },
-  { from:1, to:6, label:"Ürün ve güven sinyalleri toplanıyor", done:"Ürün ve güven sinyalleri toplandı", icon:FileSearch },
-  { from:6, to:9, label:"Karar raporu doğrulanıyor",           done:"Karar raporu doğrulandı",           icon:FileCheck2 },
+  { from:0, to:1, label:"İhtiyaç analiz ediliyor",              done:"İhtiyaç analiz edildi",              icon:UserRoundSearch },
+  { from:1, to:4, label:"Veri sinyalleri toplanıyor",            done:"Veri sinyalleri toplandı",            icon:FileSearch },
+  { from:4, to:6, label:"Karar raporu hazırlanıyor",             done:"Karar raporu hazırlandı",             icon:FileCheck2 },
 ] as const;
 
+// FEED: `at` değerleri 0-6 aralığında, gerçek ajan tamamlama sırasına göre
 const FEED = [
-  { at:1, text:"Yorumlar değerlendirildi" },
-  { at:3, text:"Görseller kontrol edildi" },
-  { at:4, text:"Satıcı bilgileri değerlendirildi" },
-  { at:5, text:"Fiyat analizi yapıldı" },
-  { at:7, text:"Risk değerlendirmesi tamamlandı" },
-  { at:8, text:"Rapor hazırlandı" },
+  { at:1, text:"İhtiyaç profili oluşturuldu" },
+  { at:2, text:"Piyasa fiyatı Google Search ile araştırıldı" },
+  { at:3, text:"Ürün yorumları analiz edildi" },
+  { at:4, text:"Ürün görseli Gemini Vision ile değerlendirildi" },
+  { at:5, text:"Karar sentezi tamamlandı" },
+  { at:6, text:"Final rapor doğrulandı" },
 ];
 
-/* ── React Flow setup ────────────────────────────────────────────────────── */
+/* ── React Flow setup — 6 gerçek ajan ──────────────────────────────────── */
 const ICON: Record<string, React.FC<{ className?: string }>> = {
-  need: UserRoundSearch, product: PackageSearch, review: MessageSquareText,
-  price: Gauge, return: RefreshCw,
-  synthesis: GitBranch, verification: ShieldCheck, report: ReceiptText,
+  need:         UserRoundSearch,
+  price:        Gauge,
+  review:       MessageSquareText,
+  visual:       ScanLine,
+  synthesis:    GitBranch,
+  verification: ShieldCheck,
 };
 
+// Pipeline: need → (price | review | visual) → synthesis → verification
 const POSITIONS: Record<string, { x: number; y: number }> = {
-  "need-agent":         { x: 0,   y: 160 },
-  "product-agent":      { x: 260, y: 20  },
-  "review-agent":       { x: 260, y: 300 },
-  "price-agent":        { x: 520, y: 20  },
-  "return-agent":       { x: 520, y: 300 },
-  "synthesis-agent":    { x: 780, y: 160 },
-  "verification-agent": { x: 1040,y: 160 },
-  "report-agent":       { x: 1300,y: 160 },
+  "need-agent":         { x: 0,   y: 180 },
+  "price-agent":        { x: 300, y: 20  },
+  "review-agent":       { x: 300, y: 180 },
+  "visual-agent":       { x: 300, y: 340 },
+  "synthesis-agent":    { x: 600, y: 180 },
+  "verification-agent": { x: 900, y: 180 },
 };
 
 const EDGE_PAIRS = [
-  ["need-agent","product-agent"], ["need-agent","review-agent"],
-  ["product-agent","price-agent"], ["review-agent","return-agent"],
-  ["price-agent","synthesis-agent"], ["return-agent","synthesis-agent"],
-  ["synthesis-agent","verification-agent"],
-  ["verification-agent","report-agent"],
+  ["need-agent",      "price-agent"],
+  ["need-agent",      "review-agent"],
+  ["need-agent",      "visual-agent"],
+  ["price-agent",     "synthesis-agent"],
+  ["review-agent",    "synthesis-agent"],
+  ["visual-agent",    "synthesis-agent"],
+  ["synthesis-agent", "verification-agent"],
 ];
 
 type AgentState = "pending" | "active" | "completed";

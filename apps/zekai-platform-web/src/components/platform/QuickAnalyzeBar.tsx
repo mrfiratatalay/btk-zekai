@@ -48,7 +48,9 @@ function resolveProductId(url: string): string | null {
 }
 
 function encodeAnalysisId(productId: string, need: string) {
-  return `${productId}--${encodeURIComponent(need).slice(0, 80)}`;
+  // Türkçe karakterler percent-encoded olduğunda 3 byte alır (ğ→%C4%9F, ı→%C4%B1).
+  // 80 char = sadece ~26 gerçek Türkçe harf. 500 ile tam ihtiyaç metni Gemini'ye ulaşır.
+  return `${productId}--${encodeURIComponent(need).slice(0, 500)}`;
 }
 
 const QUICK_PRODUCTS = [

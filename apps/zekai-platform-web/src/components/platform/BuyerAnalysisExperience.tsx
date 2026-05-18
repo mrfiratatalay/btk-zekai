@@ -37,6 +37,8 @@ export function BuyerAnalysisExperience({
   const [liveAnalysis, setLiveAnalysis] = useState(analysis);
   const [completedStepIds, setCompletedStepIds] = useState<Set<string>>(() => new Set());
   const [useLiveAgent, setUseLiveAgent] = useState(Boolean(product) && LIVE_AGENT_ENABLED);
+  // SSE stream'den gelen gerçek zamanlı bulgu metinleri (JSON değil, insan-okunabilir)
+  const [streamFindings, setStreamFindings] = useState<string[]>([]);
   const startedRef = useRef(false);
   const handleComplete = useCallback(() => setStatus("completed"), []);
 
@@ -61,11 +63,13 @@ export function BuyerAnalysisExperience({
       }
     }
 
+    // 90s: 5 Gemini ajanı + Google Search grounding 30-60s alabilir;
+    // 10s çok kısa — gerçek analiz bitmeden demo moda düşüyordu
     const fallbackTimer = window.setTimeout(() => {
       if (!cancelled) {
         setUseLiveAgent(false);
       }
-    }, 10_000);
+    }, 90_000);
 
     runBuyerAgentStream({
       product,
@@ -79,9 +83,17 @@ export function BuyerAnalysisExperience({
           setCompletedStepIds((current) => new Set([...current, stepId]));
         }
 
+        // Ajan başlangıç mesajlarını (plain text) canlı feed'e ekle
+        const rawText = event.content?.parts?.find((p) => p.text)?.text;
+        if (rawText && !rawText.trimStart().startsWith("{") && rawText.trim().length > 8) {
+          setStreamFindings((prev) =>
+            prev.includes(rawText) ? prev : [...prev, rawText]
+          );
+        }
+
         const report = extractVerifiedReport(event);
         if (report) {
-          setCompletedStepIds((current) => new Set([...current, "verification-agent", "report-agent"]));
+          setCompletedStepIds((current) => new Set([...current, "verification-agent"]));
           const nextAnalysis = applyVerifiedReport(analysis, product, report);
           setLiveAnalysis(nextAnalysis);
           if (cacheKey) {
@@ -124,14 +136,14 @@ export function BuyerAnalysisExperience({
     return count;
   }, [analysis.agentSteps, completedStepIds, useLiveAgent]);
 
-  const liveFindings = [
-    liveAnalysis.trustAnalysis.signals[0]?.value
-      ? `${liveAnalysis.trustAnalysis.signals[0].value} tarandi`
-      : null,
-    liveAnalysis.trustAnalysis.signals[1]?.description ?? null,
-    liveAnalysis.priceAnalysis.warning || null,
-    `Iade riski %${liveAnalysis.scores.returnRiskPercent} olarak hesaplandi`,
-  ].filter(Boolean) as string[];
+  // Canlı feed: SSE'den gelen gerçek metinleri öncelikli göster;
+  // stream henüz başlamadıysa temel analiz verilerini fallback olarak kullan
+  const liveFindings: string[] = streamFindings.length > 0
+    ? streamFindings
+    : [
+        liveAnalysis.trustAnalysis.signals[1]?.description ?? null,
+        liveAnalysis.priceAnalysis.warning || null,
+      ].filter(Boolean) as string[];
 
   if (status === "running") {
     return (

@@ -37,15 +37,15 @@ function formatPrice(value: number) {
   }).format(value);
 }
 
+// Eşleşme: backend SSE author → frontend step ID
+// Backend gerçekte 6 event gönderir — hayalet mapping yok
 const authorToStepId: Record<string, string> = {
   need_understanding: "need-agent",
-  product_reality: "product-agent",
-  review_mining: "review-agent",
-  visual_forensics: "visual-agent",
-  price_market: "price-agent",
-  return_risk: "return-agent",
-  risk_synthesis: "synthesis-agent",
-  verification: "verification-agent",
+  price_market:       "price-agent",
+  review_mining:      "review-agent",
+  visual_forensics:   "visual-agent",
+  risk_synthesis:     "synthesis-agent",
+  verification:       "verification-agent",
 };
 
 export function stepIdFromAuthor(author?: string) {

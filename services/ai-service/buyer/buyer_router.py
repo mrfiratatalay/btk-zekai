@@ -21,7 +21,7 @@ from fastapi.responses import StreamingResponse
 from google import genai
 from google.genai import types as genai_types
 from google.genai import errors as genai_errors
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from mock.responses import (
     is_rate_limit,
@@ -41,23 +41,28 @@ MODEL = "gemini-2.5-flash"
 
 class ReviewItem(BaseModel):
     id: str
-    rating: int
-    comment: str
-    userName: str | None = None
+    rating: int = Field(ge=1, le=5)
+    comment: str = Field(max_length=2000)
+    userName: str | None = Field(default=None, max_length=100)
 
 
 class BuyerAnalyzeRequest(BaseModel):
-    product_id: str
-    product_title: str
-    product_category: str
-    product_price: float
-    product_description: str | None = None
-    product_features: list[str] = []
-    product_image_url: str | None = None
-    product_rating: float = 0.0
-    product_review_count: int = 0
-    buyer_need: str
-    reviews: list[ReviewItem] = []
+    product_id: str = Field(min_length=1, max_length=200)
+    product_title: str = Field(min_length=1, max_length=500)
+    product_category: str = Field(min_length=1, max_length=100)
+    product_price: float = Field(ge=0)
+    product_description: str | None = Field(default=None, max_length=5000)
+    product_features: list[str] = Field(default=[], max_length=50)
+    product_image_url: str | None = Field(default=None, max_length=1000)
+    product_rating: float = Field(default=0.0, ge=0, le=5)
+    product_review_count: int = Field(default=0, ge=0)
+    buyer_need: str = Field(min_length=1, max_length=1000)
+    reviews: list[ReviewItem] = Field(default=[], max_length=25)
+
+    @field_validator("product_features", mode="before")
+    @classmethod
+    def limit_features(cls, v: list) -> list:
+        return v[:50] if isinstance(v, list) else v
 
 
 # ── Gemini client ──────────────────────────────────────────────────────────────
@@ -391,7 +396,12 @@ async def analyze_for_buyer(req: BuyerAnalyzeRequest):
         # ── Agent 1: Need Parser — rate limit burada ilk tetiklenir ──────────
         yield _sse("need_understanding", "İhtiyaç profili analiz ediliyor...")
         try:
-            need_profile = await asyncio.to_thread(_run_need_parser_sync, client, req)
+            need_profile = await asyncio.wait_for(
+                asyncio.to_thread(_run_need_parser_sync, client, req),
+                timeout=45,
+            )
+        except asyncio.TimeoutError:
+            need_profile = {"summary": req.buyer_need, "key_concerns": [], "error": "timeout"}
         except genai_errors.APIError as exc:
             if is_rate_limit(exc):
                 async for event in _mock_buyer_event_stream(req):
@@ -412,9 +422,9 @@ async def analyze_for_buyer(req: BuyerAnalyzeRequest):
         yield _sse("review_mining", "Yorumlar analiz ediliyor...")
         yield _sse("visual_forensics", "Görsel analiz yapılıyor...")
 
-        price_task = asyncio.to_thread(_run_price_tracker_sync, client, req)
-        review_task = asyncio.to_thread(_run_review_miner_sync, client, req)
-        visual_task = asyncio.to_thread(_run_visual_analyzer_sync, client, req)
+        price_task = asyncio.wait_for(asyncio.to_thread(_run_price_tracker_sync, client, req), timeout=45)
+        review_task = asyncio.wait_for(asyncio.to_thread(_run_review_miner_sync, client, req), timeout=45)
+        visual_task = asyncio.wait_for(asyncio.to_thread(_run_visual_analyzer_sync, client, req), timeout=45)
 
         results = await asyncio.gather(price_task, review_task, visual_task, return_exceptions=True)
 
@@ -450,15 +460,29 @@ async def analyze_for_buyer(req: BuyerAnalyzeRequest):
         # ── Agent 5: Synthesizer ──────────────────────────────────────────────
         yield _sse("risk_synthesis", "Tüm veriler birleştiriliyor ve nihai karar üretiliyor...")
 
-        final_report = await asyncio.to_thread(
-            _run_synthesizer_sync,
-            client,
-            req,
-            need_profile,
-            price_analysis,
-            review_analysis,
-            visual_analysis,
-        )
+        try:
+            final_report = await asyncio.wait_for(
+                asyncio.to_thread(
+                    _run_synthesizer_sync,
+                    client,
+                    req,
+                    need_profile,
+                    price_analysis,
+                    review_analysis,
+                    visual_analysis,
+                ),
+                timeout=60,
+            )
+        except asyncio.TimeoutError:
+            final_report = {
+                "final_recommendation": "consider",
+                "final_summary": "Analiz süresi doldu. Mevcut verilerle değerlendirme yapılamadı.",
+                "verified_fit_score": 60, "verified_trust_score": 60,
+                "verified_price_fairness_score": 60, "verified_return_risk_percent": 30,
+                "verified_warnings": [], "verified_strengths": [],
+                "unverified_claims": [], "user_dependent_claims": [],
+                "verification_quality": "low",
+            }
 
         # Final event — frontend extracts from actions.state_delta.final_rapor
         yield _sse(

@@ -41,7 +41,8 @@ export const getStoreConnections = () =>
 export const connectStore = (storeApiKey: string, storeName: string, platform = "DemoStore") =>
   apiFetch<StoreConnection>("/api/seller/connections", {
     method: "POST",
-    body: JSON.stringify({ storeApiKey, storeName, platform }),
+    // Backend DTO: StoreConnectRequest(Platform, ApiKey, StoreName) — apiKey olmalı, storeApiKey değil
+    body: JSON.stringify({ apiKey: storeApiKey, storeName, platform }),
   });
 
 export const disconnectStore = (connectionId: string) =>

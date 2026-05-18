@@ -148,9 +148,18 @@ public class BuyerService(ZekaiDbContext db, CommerceApiClient commerce)
 
         if (!project.ProjectAnalyses.Any(pa => pa.AnalysisId == analysis.Id))
         {
-            db.ShoppingProjectAnalyses.Add(new ShoppingProjectAnalysis { ProjectId = project.Id, AnalysisId = analysis.Id });
-            await db.SaveChangesAsync();
-            project.ProjectAnalyses.Add(new ShoppingProjectAnalysis { ProjectId = project.Id, AnalysisId = analysis.Id, Analysis = analysis });
+            try
+            {
+                db.ShoppingProjectAnalyses.Add(new ShoppingProjectAnalysis { ProjectId = project.Id, AnalysisId = analysis.Id });
+                await db.SaveChangesAsync();
+                project.ProjectAnalyses.Add(new ShoppingProjectAnalysis { ProjectId = project.Id, AnalysisId = analysis.Id, Analysis = analysis });
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+            {
+                // Composite key unique constraint ihlali — eşzamanlı çift ekleme girişimi, veri tutarlı
+                await db.Entry(project).ReloadAsync();
+                await db.Entry(project).Collection(p => p.ProjectAnalyses).LoadAsync();
+            }
         }
 
         return MapProject(project);

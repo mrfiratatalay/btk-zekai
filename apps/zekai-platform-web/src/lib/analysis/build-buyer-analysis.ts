@@ -95,15 +95,38 @@ export function buildBuyerAnalysisFromProduct({
           ? "Satın almadan önce yorumları ve iade koşullarını dikkatle kontrol et."
           : "Risk sinyalleri yüksek; alternatifleri karşılaştırmadan satın alma.",
     scores: { fitScore, trustScore, priceScore, returnRiskPercent },
+    // 6 adım — backend'deki 5 gerçek Gemini ajanıyla 1-1 eşleşir
     agentSteps: [
-      { id: "need-agent",         label: "İhtiyaç Analizi",  description: "Kullanıcı ihtiyacı ürün verisiyle eşleştiriliyor.", status: "pending", summary: "İhtiyaç metni ürün başlığı ve açıklamasıyla karşılaştırıldı.", durationMs: 900,  type: "need"         },
-      { id: "product-agent",      label: "Ürün Verisi",      description: "Başlık, açıklama ve teknik özellikler inceleniyor.", status: "pending", summary: `${Object.keys(product.features).length} teknik özellik değerlendirildi.`,            durationMs: 1100, type: "product"      },
-      { id: "review-agent",       label: "Yorum Sinyalleri", description: "Puan ve yorum hacmi analiz ediliyor.",               status: "pending", summary: `${product.reviewCount} yorum, ${product.rating.toFixed(1)} puan değerlendirildi.`,  durationMs: 1000, type: "review"       },
-      { id: "price-agent",        label: "Fiyat",            description: "Fiyat makullüğü değerlendiriliyor.",                 status: "pending", summary: `${formatPrice(product.price)} fiyatı kategoriye göre değerlendirildi.`,             durationMs: 900,  type: "price"        },
-      { id: "return-agent",       label: "İade Riski",       description: "Kategori ve stok sinyalleriyle iade riski hesaplanıyor.", status: "pending", summary: `Risk %${returnRiskPercent} tahmin edildi.`,                                   durationMs: 800,  type: "return"       },
-      { id: "synthesis-agent",    label: "Karar Sentezi",    description: "Tüm kanıtlar tek raporda birleştiriliyor.",          status: "pending", summary: "Uyum, güven ve fiyat skorları birleştirildi.",                                        durationMs: 700,  type: "synthesis"    },
-      { id: "verification-agent", label: "Doğrulama",        description: "Doğrulanamayan iddialar işaretleniyor.",             status: "pending", summary: "AI doğrulama için ADK bekleniyor.",                                                 durationMs: 600,  type: "verification" },
-      { id: "report-agent",       label: "Rapor",            description: "Satın alma kararı hazırlanıyor.",                    status: "pending", summary: "Ön rapor hazır.",                                                                     durationMs: 500,  type: "report"       },
+      {
+        id: "need-agent", label: "İhtiyaç Analizi", type: "need", status: "pending", durationMs: 900,
+        description: "Alıcı ihtiyacı ürün profiliyle eşleştiriliyor.",
+        summary: `İhtiyaç metni, "${product.title}" ürün verisiyle karşılaştırıldı.`,
+      },
+      {
+        id: "price-agent", label: "Fiyat Araştırması", type: "price", status: "pending", durationMs: 1100,
+        description: "Google Search ile piyasa fiyatı ve rakipler araştırılıyor.",
+        summary: `${formatPrice(product.price)} fiyatı piyasa verileriyle karşılaştırıldı.`,
+      },
+      {
+        id: "review-agent", label: "Yorum Analizi", type: "review", status: "pending", durationMs: 1000,
+        description: "Ürün yorumları ve güven sinyalleri analiz ediliyor.",
+        summary: `${product.reviewCount} yorum, ${product.rating.toFixed(1)}/5 puan değerlendirildi.`,
+      },
+      {
+        id: "visual-agent", label: "Görsel Analiz", type: "visual", status: "pending", durationMs: 800,
+        description: "Ürün görseli kalitesi ve açıklamayla uyumu Gemini Vision ile değerlendiriliyor.",
+        summary: "Görsel kalitesi ve ürün açıklamasıyla uyumu kontrol edildi.",
+      },
+      {
+        id: "synthesis-agent", label: "Karar Sentezi", type: "synthesis", status: "pending", durationMs: 700,
+        description: "Tüm analizler birleştirilip kanıta dayalı nihai karar üretiliyor.",
+        summary: "Uyum, güven, fiyat ve görsel skorları sentezlendi.",
+      },
+      {
+        id: "verification-agent", label: "Doğrulama & Rapor", type: "verification", status: "pending", durationMs: 600,
+        description: "Kanıtlar doğrulanıyor, ispatlanamayan iddialar işaretleniyor, final rapor hazırlanıyor.",
+        summary: "Final karar raporu hazır.",
+      },
     ],
     fitAnalysis: {
       title: "İhtiyaç Uyumu",
