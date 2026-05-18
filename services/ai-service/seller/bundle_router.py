@@ -7,7 +7,7 @@ from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel, Field
 
-from mock.responses import is_rate_limit, get_mock_bundle_recommendations
+from mock.responses import is_mockable_gemini_error, get_mock_bundle_recommendations
 
 router = APIRouter()
 
@@ -125,7 +125,7 @@ async def recommend_bundles(req: BundleRecommendRequest):
     try:
         return await asyncio.to_thread(_recommend_sync, client, req)
     except genai_errors.APIError as exc:
-        if is_rate_limit(exc):
+        if is_mockable_gemini_error(exc):
             candidate_ids = [c.id for c in req.candidates]
             return JSONResponse(content=get_mock_bundle_recommendations(req.primary.id, candidate_ids))
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc

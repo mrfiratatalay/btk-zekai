@@ -8,7 +8,7 @@ from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel
 
-from mock.responses import is_rate_limit, get_mock_content
+from mock.responses import is_mockable_gemini_error, get_mock_content
 
 router = APIRouter()
 
@@ -148,6 +148,6 @@ async def generate_content(req: ContentGenerateRequest):
     try:
         return await asyncio.to_thread(_generate_content_sync, client, req)
     except genai_errors.APIError as exc:
-        if is_rate_limit(exc):
+        if is_mockable_gemini_error(exc):
             return JSONResponse(content=get_mock_content(req.product_title, req.category, req.price))
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc

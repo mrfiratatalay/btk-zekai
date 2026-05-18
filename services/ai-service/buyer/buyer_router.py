@@ -24,7 +24,7 @@ from google.genai import errors as genai_errors
 from pydantic import BaseModel, Field, field_validator
 
 from mock.responses import (
-    is_rate_limit,
+    is_mockable_gemini_error,
     MOCK_BUYER_NEED_PROFILE,
     MOCK_BUYER_PRICE_ANALYSIS,
     MOCK_BUYER_REVIEW_ANALYSIS,
@@ -403,7 +403,7 @@ async def analyze_for_buyer(req: BuyerAnalyzeRequest):
         except asyncio.TimeoutError:
             need_profile = {"summary": req.buyer_need, "key_concerns": [], "error": "timeout"}
         except genai_errors.APIError as exc:
-            if is_rate_limit(exc):
+            if is_mockable_gemini_error(exc):
                 async for event in _mock_buyer_event_stream(req):
                     yield event
                 return

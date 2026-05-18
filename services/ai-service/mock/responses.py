@@ -23,6 +23,38 @@ def is_rate_limit(exc: Exception) -> bool:
     return "RESOURCE_EXHAUSTED" in msg or "QUOTA_EXCEEDED" in msg or "RATE_LIMIT" in msg
 
 
+def is_transient_gemini_error(exc: Exception) -> bool:
+    """Gemini 503 / temporary model availability errors that should use demo fallback."""
+    try:
+        from google.genai import errors as genai_errors
+        if not isinstance(exc, genai_errors.APIError):
+            return False
+    except ImportError:
+        return False
+
+    code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    if code in (500, 502, 503, 504):
+        return True
+
+    msg = str(exc).upper()
+    return any(
+        marker in msg
+        for marker in (
+            "UNAVAILABLE",
+            "OVERLOADED",
+            "TEMPORARILY",
+            "TRY AGAIN",
+            "INTERNAL",
+            "DEADLINE_EXCEEDED",
+        )
+    )
+
+
+def is_mockable_gemini_error(exc: Exception) -> bool:
+    """Errors where UX should continue with demo data instead of failing hard."""
+    return is_rate_limit(exc) or is_transient_gemini_error(exc)
+
+
 # ── Buyer Analysis Mock ────────────────────────────────────────────────────────
 
 MOCK_BUYER_NEED_PROFILE = {

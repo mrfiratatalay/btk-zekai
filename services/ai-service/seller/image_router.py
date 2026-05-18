@@ -1,13 +1,14 @@
 import asyncio
+import base64
 import os
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from google import genai
-from google.genai import errors as genai_errors
+from google.genai import errors as genai_errors, types
 from pydantic import BaseModel
 
-from mock.responses import is_rate_limit, fetch_picsum_b64
+from mock.responses import is_mockable_gemini_error, fetch_picsum_b64
 
 router = APIRouter()
 
@@ -54,16 +55,27 @@ def _get_client() -> genai.Client:
 
 def _generate_image_sync(client: genai.Client, prompt: str) -> tuple[str, str]:
     """Returns (base64_data, mime_type). Runs synchronously — wrap in asyncio.to_thread."""
-    interaction = client.interactions.create(
+    response = client.models.generate_content(
         model=IMAGE_MODEL,
-        input=prompt,
+        contents=[prompt],
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE"],
+            thinking_config=types.ThinkingConfig(thinking_level="minimal"),
+        ),
     )
-    for step in interaction.steps:
-        if step.type == "model_output":
-            for content_block in step.content:
-                if content_block.type == "image" and content_block.data:
-                    mime = getattr(content_block, "mime_type", "image/png") or "image/png"
-                    return content_block.data, mime
+
+    parts = getattr(response, "parts", None)
+    if parts is None and response.candidates:
+        parts = response.candidates[0].content.parts
+
+    for part in parts or []:
+        inline_data = getattr(part, "inline_data", None)
+        if inline_data and inline_data.data:
+            mime = inline_data.mime_type or "image/png"
+            data = inline_data.data
+            if isinstance(data, bytes):
+                return base64.b64encode(data).decode("utf-8"), mime
+            return data, mime
     raise ValueError("AI'dan görsel alınamadı.")
 
 
@@ -108,7 +120,7 @@ async def generate_product_image(req: ImageGenerateRequest):
     try:
         image_b64, mime_type = await asyncio.to_thread(_generate_image_sync, client, prompt)
     except genai_errors.APIError as exc:
-        if is_rate_limit(exc):
+        if is_mockable_gemini_error(exc):
             b64, mime = await asyncio.to_thread(fetch_picsum_b64, "studio")
             return JSONResponse(content={
                 "image_base64": b64,
@@ -143,7 +155,7 @@ async def generate_product_images(req: MultiImageRequest):
             return_exceptions=True,
         )
     except genai_errors.APIError as exc:
-        if is_rate_limit(exc):
+        if is_mockable_gemini_error(exc):
             mock_images = await asyncio.gather(
                 *[asyncio.to_thread(fetch_picsum_b64, shot_type) for shot_type, _, _ in shot_specs]
             )
@@ -157,10 +169,10 @@ async def generate_product_images(req: MultiImageRequest):
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
 
     # Bireysel görev hataları — rate limit ise mock'a düş, değilse atla
-    rate_limited = any(
-        isinstance(r, genai_errors.APIError) and is_rate_limit(r) for r in results
+    mockable_error = any(
+        isinstance(r, genai_errors.APIError) and is_mockable_gemini_error(r) for r in results
     )
-    if rate_limited:
+    if mockable_error:
         mock_images = await asyncio.gather(
             *[asyncio.to_thread(fetch_picsum_b64, shot_type) for shot_type, _, _ in shot_specs]
         )
@@ -173,13 +185,16 @@ async def generate_product_images(req: MultiImageRequest):
         })
 
     images: list[ImageResult] = []
+    first_error: Exception | None = None
     for (shot_type, label, _), result in zip(shot_specs, results):
         if isinstance(result, Exception):
+            first_error = first_error or result
             continue
         b64, mime = result
         images.append(ImageResult(type=shot_type, label=label, image_base64=b64, mime_type=mime))
 
     if not images:
-        raise HTTPException(status_code=500, detail="Hiçbir görsel üretilemedi. Lütfen tekrar deneyin.")
+        detail = f"Görsel üretilemedi: {first_error}" if first_error else "Hiçbir görsel üretilemedi. Lütfen tekrar deneyin."
+        raise HTTPException(status_code=500, detail=detail)
 
     return MultiImageResponse(images=images)

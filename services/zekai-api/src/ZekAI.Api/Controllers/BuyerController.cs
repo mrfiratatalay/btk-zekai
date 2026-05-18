@@ -156,7 +156,8 @@ public class BuyerController(BuyerService buyer, CommerceApiClient commerce) : C
         if (!response.IsSuccessStatusCode)
         {
             Response.StatusCode = (int)response.StatusCode;
-            await Response.WriteAsJsonAsync(new { message = "AI servisinden analiz alınamadı." });
+            var body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            await Response.WriteAsJsonAsync(new { message = body, aiServiceStatus = (int)response.StatusCode });
             return;
         }
 
@@ -220,7 +221,8 @@ public class BuyerController(BuyerService buyer, CommerceApiClient commerce) : C
         if (!response.IsSuccessStatusCode)
         {
             Response.StatusCode = (int)response.StatusCode;
-            await Response.WriteAsJsonAsync(new { message = "AI servisinden stream alinamadi." });
+            var body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            await Response.WriteAsJsonAsync(new { message = body, aiServiceStatus = (int)response.StatusCode });
             return;
         }
 

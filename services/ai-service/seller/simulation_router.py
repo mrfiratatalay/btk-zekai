@@ -9,7 +9,7 @@ from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel
 
-from mock.responses import is_rate_limit, MOCK_PERSONAS
+from mock.responses import is_mockable_gemini_error, MOCK_PERSONAS
 
 router = APIRouter()
 
@@ -219,7 +219,7 @@ async def simulate_stream(req: SimulateRequest) -> StreamingResponse:
         try:
             personas = await asyncio.to_thread(_generate_personas_sync, client, req)
         except genai_errors.APIError as exc:
-            if is_rate_limit(exc):
+            if is_mockable_gemini_error(exc):
                 async for event in _mock_simulate_stream():
                     yield event
                 return
@@ -262,7 +262,7 @@ async def simulate(req: SimulateRequest):
     try:
         personas = await asyncio.to_thread(_generate_personas_sync, client, req)
     except genai_errors.APIError as exc:
-        if is_rate_limit(exc):
+        if is_mockable_gemini_error(exc):
             mock_result = {"personas": MOCK_PERSONAS, "_mock": True}
             return JSONResponse(content=mock_result)
         raise HTTPException(status_code=503, detail="Persona üretimi başarısız.")

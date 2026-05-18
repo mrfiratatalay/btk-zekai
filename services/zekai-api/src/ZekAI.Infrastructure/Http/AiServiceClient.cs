@@ -13,6 +13,17 @@ public class AiServiceClient(HttpClient http)
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    private static async Task<T?> ReadAiResponseAsync<T>(HttpResponseMessage response)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new AiServiceException((int)response.StatusCode, body);
+        }
+
+        return await response.Content.ReadFromJsonAsync<T>(JsonOpts);
+    }
+
     // ── Social Content ────────────────────────────────────────────────────────
 
     public async Task<AiSocialContentResult?> GenerateSocialContentAsync(
@@ -30,8 +41,7 @@ public class AiServiceClient(HttpClient http)
         };
 
         var response = await http.PostAsJsonAsync("/seller/social-content", payload, JsonOpts);
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<AiSocialContentResult>(JsonOpts);
+        return await ReadAiResponseAsync<AiSocialContentResult>(response);
     }
 
     // ── Content Generation (Vision + Thinking) ────────────────────────────────
@@ -62,8 +72,7 @@ public class AiServiceClient(HttpClient http)
         };
 
         var response = await http.PostAsJsonAsync("/seller/ai-content", payload, JsonOpts);
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<AiContentResult>(JsonOpts);
+        return await ReadAiResponseAsync<AiContentResult>(response);
     }
 
     // ── Simulation (Dynamic Personas + Thinking) ──────────────────────────────
@@ -82,8 +91,7 @@ public class AiServiceClient(HttpClient http)
         };
 
         var response = await http.PostAsJsonAsync("/seller/simulate", payload, JsonOpts);
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<AiSimulationResult>(JsonOpts);
+        return await ReadAiResponseAsync<AiSimulationResult>(response);
     }
 
     // ── Single Image (legacy) ─────────────────────────────────────────────────
@@ -100,8 +108,7 @@ public class AiServiceClient(HttpClient http)
         };
 
         var response = await http.PostAsJsonAsync("/seller/ai-image", payload, JsonOpts);
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<AiImageResult>(JsonOpts);
+        return await ReadAiResponseAsync<AiImageResult>(response);
     }
 
     // ── 3-Shot Images (studio / unboxing / lifestyle) ─────────────────────────
@@ -117,8 +124,7 @@ public class AiServiceClient(HttpClient http)
         };
 
         var response = await http.PostAsJsonAsync("/seller/ai-images", payload, JsonOpts);
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<AiImagesResult>(JsonOpts);
+        return await ReadAiResponseAsync<AiImagesResult>(response);
     }
 
     // ── Bundle Recommendations (AI) ───────────────────────────────────────────
@@ -128,9 +134,14 @@ public class AiServiceClient(HttpClient http)
     {
         var payload = new { primary, candidates };
         var response = await http.PostAsJsonAsync("/seller/bundle-recommend", payload, JsonOpts);
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<AiBundleRecommendResponse>(JsonOpts);
+        return await ReadAiResponseAsync<AiBundleRecommendResponse>(response);
     }
+}
+
+public class AiServiceException(int statusCode, string responseBody) : Exception(responseBody)
+{
+    public int StatusCode { get; } = statusCode;
+    public string ResponseBody { get; } = responseBody;
 }
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
@@ -140,7 +151,8 @@ public record AiTiktokScene(string Time, string Text);
 public record AiSocialContentResult(
     string Instagram,
     List<AiTiktokScene> Tiktok,
-    string Twitter
+    string Twitter,
+    [property: JsonPropertyName("_mock")] bool Mock = false
 );
 
 public record AiContentResult(
@@ -148,7 +160,8 @@ public record AiContentResult(
     string ShortDescription,
     string Description,
     List<string> Features,
-    string WhatIImproved
+    string WhatIImproved,
+    [property: JsonPropertyName("_mock")] bool Mock = false
 );
 
 public record AiPersonaResult(
@@ -166,12 +179,16 @@ public record AiPersonaResult(
     string Monologue
 );
 
-public record AiSimulationResult(List<AiPersonaResult> Personas);
+public record AiSimulationResult(
+    List<AiPersonaResult> Personas,
+    [property: JsonPropertyName("_mock")] bool Mock = false
+);
 
 public record AiImageResult(
     string ImageBase64,
     string MimeType,
-    string Description
+    string Description,
+    [property: JsonPropertyName("_mock")] bool Mock = false
 );
 
 public record AiImageItem(
@@ -181,7 +198,10 @@ public record AiImageItem(
     string MimeType
 );
 
-public record AiImagesResult(List<AiImageItem> Images);
+public record AiImagesResult(
+    List<AiImageItem> Images,
+    [property: JsonPropertyName("_mock")] bool Mock = false
+);
 
 public record AiBundleCandidate(
     string Id,
@@ -205,5 +225,6 @@ public record AiBundleRec(
 
 public record AiBundleRecommendResponse(
     List<AiBundleRec> Recommendations,
-    string? MissingOpportunityNote
+    string? MissingOpportunityNote,
+    [property: JsonPropertyName("_mock")] bool Mock = false
 );

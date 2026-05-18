@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ZekAI.Application.DTOs;
+using ZekAI.Infrastructure.Http;
 using ZekAI.Infrastructure.Services;
 
 namespace ZekAI.Api.Controllers;
@@ -14,6 +15,25 @@ namespace ZekAI.Api.Controllers;
 public class SellerController(SellerService seller) : ControllerBase
 {
     private Guid UserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    private IActionResult AiServiceError(AiServiceException ex)
+    {
+        var message = ex.ResponseBody;
+        try
+        {
+            using var doc = JsonDocument.Parse(ex.ResponseBody);
+            if (doc.RootElement.TryGetProperty("detail", out var detail))
+                message = detail.GetString() ?? message;
+            else if (doc.RootElement.TryGetProperty("message", out var msg))
+                message = msg.GetString() ?? message;
+        }
+        catch
+        {
+            // Keep raw body when AI service returns plain text.
+        }
+
+        return StatusCode(ex.StatusCode, new { message, aiServiceStatus = ex.StatusCode });
+    }
 
     // ── Store Connections ──────────────────────────────────────────────────
 
@@ -117,6 +137,7 @@ public class SellerController(SellerService seller) : ControllerBase
             var result = await seller.GenerateSocialContentAsync(UserId, productId, body);
             return result is null ? BadRequest(new { message = "İçerik üretilemedi." }) : Ok(result);
         }
+        catch (AiServiceException ex) { return AiServiceError(ex); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
@@ -132,6 +153,7 @@ public class SellerController(SellerService seller) : ControllerBase
             var result = await seller.GenerateAiContentAsync(UserId, productId, req?.SimulationInsight);
             return result is null ? StatusCode(503, new { message = "AI servisi yanıt vermedi." }) : Ok(result);
         }
+        catch (AiServiceException ex) { return AiServiceError(ex); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
@@ -144,6 +166,7 @@ public class SellerController(SellerService seller) : ControllerBase
             var result = await seller.SimulateProductAsync(UserId, productId);
             return result is null ? StatusCode(503, new { message = "AI servisi yanıt vermedi." }) : Ok(result);
         }
+        catch (AiServiceException ex) { return AiServiceError(ex); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
@@ -191,7 +214,8 @@ public class SellerController(SellerService seller) : ControllerBase
         if (!response.IsSuccessStatusCode)
         {
             Response.StatusCode = (int)response.StatusCode;
-            await Response.WriteAsJsonAsync(new { message = "AI servisi simülasyon başlatamadı." });
+            var body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            await Response.WriteAsJsonAsync(new { message = body, aiServiceStatus = (int)response.StatusCode });
             return;
         }
 
@@ -210,6 +234,7 @@ public class SellerController(SellerService seller) : ControllerBase
             var result = await seller.GenerateProductImageAsync(UserId, productId);
             return result is null ? StatusCode(503, new { message = "AI servisi yanıt vermedi." }) : Ok(result);
         }
+        catch (AiServiceException ex) { return AiServiceError(ex); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
@@ -222,6 +247,7 @@ public class SellerController(SellerService seller) : ControllerBase
             var result = await seller.GenerateProductImagesAsync(UserId, productId);
             return result is null ? StatusCode(503, new { message = "AI servisi yanıt vermedi." }) : Ok(result);
         }
+        catch (AiServiceException ex) { return AiServiceError(ex); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
@@ -250,6 +276,7 @@ public class SellerController(SellerService seller) : ControllerBase
     public async Task<IActionResult> GenerateBundleRecommendations(string productId)
     {
         try { return Ok(await seller.GenerateBundleRecommendationsAsync(UserId, productId)); }
+        catch (AiServiceException ex) { return AiServiceError(ex); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 

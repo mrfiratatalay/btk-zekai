@@ -181,6 +181,19 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             twitter = aiResult.Twitter,
         };
         var saved = await commerce.ProxyPostAsync(conn.CommerceAccessToken, $"/api/seller/products/{productId}/save-social-content", savePayload);
+        if (aiResult.Mock)
+        {
+            return new
+            {
+                tone,
+                instagram = aiResult.Instagram,
+                tiktok = aiResult.Tiktok,
+                twitter = aiResult.Twitter,
+                generatedAt = DateTime.UtcNow,
+                _mock = true,
+            };
+        }
+
         return saved?.RootElement;
     }
 
@@ -322,7 +335,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             }
             : null;
 
-        return new { recommendations, missingOpportunity };
+        return new { recommendations, missingOpportunity, _mock = aiResult.Mock };
     }
 
     public async Task<object?> CreateProductBundleAsync(Guid userId, string productId, object body)
