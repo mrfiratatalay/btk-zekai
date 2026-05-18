@@ -1,33 +1,48 @@
+# ── Secrets & env ─────────────────────────────────────────────────────────────
 .env
 .env.*
 !.env.example
 
+# ── .NET build artifacts ───────────────────────────────────────────────────────
+**/bin/
+**/obj/
+
+# ── Uploaded/generated product images (dynamic content) ───────────────────────
+**/wwwroot/images/
+
+# ── Python ─────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 .venv/
 venv/
 
+# ── Node / Next.js ─────────────────────────────────────────────────────────────
 node_modules/
 .next/
 out/
 dist/
 build/
 
+# ── Databases ─────────────────────────────────────────────────────────────────
 sessions.db
 *.sqlite
 *.sqlite3
 
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Private / not for repo
+# ── Private / not for repo ────────────────────────────────────────────────────
 docs/
 yarisma/
-
 DEST/
+DEST.zip
 
-# Script logs
+# ── Script logs ───────────────────────────────────────────────────────────────
 scripts/logs/
 
-# IDE
+# ── IDE ───────────────────────────────────────────────────────────────────────
 .claude/
+.idea/
+.vs/
+*.user
