@@ -7,7 +7,7 @@ from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel, Field
 
-from mock.responses import is_mockable_gemini_error, get_mock_bundle_recommendations
+from mock.responses import get_mock_bundle_recommendations
 
 router = APIRouter()
 
@@ -75,7 +75,7 @@ ADAY TAMAMLAYICI ÜRÜNLER:
 {candidates_text}
 
 GÖREV:
-1. Aday ürünlerden en uyumlu 1-3 ürünü seç. Seçim kriterleri (önem sırasıyla):
+1. Aday ürünlerden en uyumlu tam olarak 3 ürünü seç (aday sayısı 3'ten azsa mevcut adaylarla devam et). Seçim kriterleri (önem sırasıyla):
    a) Kullanım senaryosu örtüşmesi — birlikte kullanılır mı?
    b) Semantik uyum — aynı müşteri segmenti alır mı?
    c) Fiyat dengesi — çok pahalı ya da çok ucuz olmamalı
@@ -121,11 +121,14 @@ def _recommend_sync(client: genai.Client, req: BundleRecommendRequest) -> AiBund
 
 @router.post("/bundle-recommend", response_model=AiBundleRecommendResponse)
 async def recommend_bundles(req: BundleRecommendRequest):
-    client = _get_client()
+    api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+    if not api_key or api_key == "your_google_api_key_here":
+        candidate_ids = [c.id for c in req.candidates]
+        return JSONResponse(content=get_mock_bundle_recommendations(req.primary.id, candidate_ids))
+
+    client = genai.Client(api_key=api_key)
     try:
         return await asyncio.to_thread(_recommend_sync, client, req)
     except genai_errors.APIError as exc:
-        if is_mockable_gemini_error(exc):
-            candidate_ids = [c.id for c in req.candidates]
-            return JSONResponse(content=get_mock_bundle_recommendations(req.primary.id, candidate_ids))
-        raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
+        candidate_ids = [c.id for c in req.candidates]
+        return JSONResponse(content=get_mock_bundle_recommendations(req.primary.id, candidate_ids))

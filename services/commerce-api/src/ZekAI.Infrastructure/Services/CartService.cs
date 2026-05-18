@@ -180,10 +180,7 @@ public class CartService(AppDbContext db)
 
     private static void EnsureBundleStock(ProductBundle bundle, int quantity)
     {
-        if (bundle.PrimaryProduct?.SellerProduct?.IsPublished != true ||
-            bundle.ComplementaryProduct?.SellerProduct?.IsPublished != true)
-            throw new InvalidOperationException("Paket yayinda degil.");
-        if (bundle.PrimaryProduct.Stock < quantity || bundle.ComplementaryProduct.Stock < quantity)
+        if (bundle.PrimaryProduct?.Stock < quantity || bundle.ComplementaryProduct?.Stock < quantity)
             throw new InvalidOperationException("Paket icin yeterli stok yok.");
     }
 

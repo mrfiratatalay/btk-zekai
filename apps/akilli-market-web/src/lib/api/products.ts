@@ -118,7 +118,7 @@ export async function postProductReview(
 }
 
 export const getProductBundles = (id: string) =>
-  apiFetch<PublicProductBundle[]>(`/api/products/${id}/bundles`, []);
+  apiFetch<PublicProductBundle[]>(`/api/products/${id}/bundles`, [], { cache: "no-store" });
 
 export interface Category {
   id: number;

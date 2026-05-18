@@ -675,8 +675,6 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
             ?? throw new KeyNotFoundException("Tamamlayici urun bulunamadi.");
         var complementary = complementarySp.Product!;
 
-        if (!complementarySp.IsPublished)
-            throw new InvalidOperationException("Tamamlayici urun yayinda degil.");
         if (complementary.Stock <= 0)
             throw new InvalidOperationException("Tamamlayici urun stokta yok.");
 

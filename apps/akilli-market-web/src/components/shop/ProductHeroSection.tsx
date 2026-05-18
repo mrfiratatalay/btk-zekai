@@ -12,7 +12,13 @@ export function ProductHeroSection({ product, bundles = [] }: { product: Product
       <ProductGallery product={product} />
       <div className="space-y-5">
         <ProductInfoPanel product={product} />
-        {bundles[0] && <ProductBundleCard bundle={bundles[0]} />}
+        {bundles.length > 0 && (
+          <div className="space-y-4">
+            {bundles.map((bundle) => (
+              <ProductBundleCard key={bundle.id} bundle={bundle} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

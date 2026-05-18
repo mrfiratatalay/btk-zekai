@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Package, PackagePlus, Sparkles } from "lucide-react";
+import { AlertTriangle, ChevronRight, Package, PackagePlus, Sparkles } from "lucide-react";
 import type { ProductDetail } from "@/lib/api/products";
 import {
   archiveProductBundle,
@@ -44,6 +44,7 @@ export function SellerBundles({
   const publishMutation = useMutation({
     mutationFn: (bundleId: string) => publishProductBundle(product.id, bundleId, true),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seller-bundles", product.id] }),
+    onError: (err: Error) => alert(`Yayınlama başarısız: ${err.message}`),
   });
   const archiveMutation = useMutation({
     mutationFn: (bundleId: string) => archiveProductBundle(product.id, bundleId),
@@ -52,6 +53,17 @@ export function SellerBundles({
 
   const recs = recommendations?.recommendations ?? [];
   const suggestedProductIdeas = recommendations?.missingOpportunity?.suggestedProductIdeas ?? [];
+
+  const STATUS_LABELS: Record<string, string> = {
+    Draft: "Taslak",
+    Published: "Yayında",
+    Archived: "Arşivlendi",
+  };
+  const STATUS_STYLES: Record<string, string> = {
+    Draft: "bg-muted text-muted-foreground",
+    Published: "bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-300",
+    Archived: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+  };
 
   return (
     <div className="mx-auto max-w-6xl space-y-7">
@@ -124,7 +136,7 @@ export function SellerBundles({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">{bundle.status}</span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_STYLES[bundle.status] ?? "bg-muted text-muted-foreground"}`}>{STATUS_LABELS[bundle.status] ?? bundle.status}</span>
                   {bundle.status === "Draft" && (
                     <button onClick={() => publishMutation.mutate(bundle.id)} className="rounded-xl bg-lime-400 px-4 py-2 text-xs font-black text-gray-950">Yayınla</button>
                   )}
@@ -136,10 +148,19 @@ export function SellerBundles({
         )}
       </section>
 
+      {recommendations?._mock && (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+          <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            AI limiti aşıldı — öneriler demo modda üretildi. Gerçek analiz için API key'ini yenile.
+          </p>
+        </div>
+      )}
+
       <section className="space-y-3">
         <h2 className="text-lg font-black text-foreground">Önerilen Paketler</h2>
         {recs.length > 0 ? (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-3">
             {recs.map((rec) => (
               <div key={rec.complementaryProduct.id} className="rounded-2xl border border-border bg-card p-5">
                 <div className="flex items-center gap-4">

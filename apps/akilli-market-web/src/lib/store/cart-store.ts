@@ -45,17 +45,30 @@ export const useCartStore = create<CartState>()((set, get) => ({
   },
 
   addItem: async (productId, stock) => {
-    set((s) => {
-      const existing = s.items.find((i) => i.productId === productId && !i.bundleId);
-      if (!existing) return s;
-      return {
+    const currentItems = useCartStore.getState().items;
+    const bundleItem = currentItems.find((i) => i.productId === productId && i.bundleId);
+    const standaloneItem = currentItems.find((i) => i.productId === productId && !i.bundleId);
+
+    if (standaloneItem) {
+      set((s) => ({
         items: s.items.map((i) =>
           i.productId === productId && !i.bundleId
             ? { ...i, quantity: Math.min(i.quantity + 1, stock) }
             : i
         ),
-      };
-    });
+      }));
+      const item = await addToCart(productId, 1);
+      set((s) => ({ items: mergeItems(s.items, [item]) }));
+      return;
+    }
+
+    if (bundleItem) {
+      const newQty = Math.min(bundleItem.quantity + 1, stock);
+      const updated = await updateCartBundle(bundleItem.bundleId!, newQty);
+      set((s) => ({ items: mergeItems(s.items, updated) }));
+      return;
+    }
+
     const item = await addToCart(productId, 1);
     set((s) => ({ items: mergeItems(s.items, [item]) }));
   },

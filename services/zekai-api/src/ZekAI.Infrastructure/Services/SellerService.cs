@@ -280,7 +280,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             pd.Features?.Values.ToList() ?? []);
 
         var candidates = allProducts
-            .Where(p => p.Id != productId && p.IsPublished && p.Stock > 0)
+            .Where(p => p.Id != productId && p.Stock > 0)
             .Select(p => new AiBundleCandidate(
                 p.Id, p.Title, p.Category, (double)p.Price,
                 null, []))
