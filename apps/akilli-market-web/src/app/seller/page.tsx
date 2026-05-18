@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check, Copy, Eye, EyeOff, ExternalLink, Key, Loader2, Package, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { getSellerProducts, deleteProduct, getApiKey, regenerateApiKey, type SellerProduct } from "@/lib/api/seller";
+import { resolveCommerceImage } from "@/lib/utils";
 import { getCurrentUser, type AuthUser } from "@/lib/api/auth";
 import { Button } from "@/components/ui/button";
 import { ShopHeader } from "@/components/shop/ShopHeader";
@@ -148,7 +149,7 @@ export default function SellerDashboardPage() {
                         <div className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-[#E5E7EB] bg-[#F9FAFB]">
                           {p.primaryImage ? (
                             <Image
-                              src={p.primaryImage}
+                              src={resolveCommerceImage(p.primaryImage)}
                               alt={p.title}
                               fill
                               sizes="48px"

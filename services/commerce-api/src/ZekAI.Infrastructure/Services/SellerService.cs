@@ -296,6 +296,22 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
                 ?? throw new KeyNotFoundException("Kategori bulunamadı.");
             product.CategoryId = req.CategoryId.Value;
         }
+        if (!string.IsNullOrWhiteSpace(req.PrimaryImageUrl))
+        {
+            var existing = await db.ProductImages
+                .FirstOrDefaultAsync(i => i.ProductId == productId && i.IsPrimary);
+            if (existing is not null)
+                existing.Url = req.PrimaryImageUrl;
+            else
+                db.ProductImages.Add(new ProductImage
+                {
+                    ProductId = productId,
+                    Url = req.PrimaryImageUrl,
+                    IsPrimary = true,
+                    SortOrder = 0,
+                });
+        }
+
         product.UpdatedAt = DateTime.UtcNow;
         sp.UpdatedAt = DateTime.UtcNow;
 

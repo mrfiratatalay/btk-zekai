@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\ZekAI.Domain.csproj": {}
+    "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\ZekAI.Domain.csproj": {}
   },
   "projects": {
-    "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\ZekAI.Domain.csproj": {
+    "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\ZekAI.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\ZekAI.Domain.csproj",
+        "projectUniqueName": "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\ZekAI.Domain.csproj",
         "projectName": "ZekAI.Domain",
-        "projectPath": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\ZekAI.Domain.csproj",
+        "projectPath": "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\ZekAI.Domain.csproj",
         "packagesPath": "C:\\Users\\FIRAT\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\obj\\",
+        "outputPath": "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\zekai-api\\src\\ZekAI.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

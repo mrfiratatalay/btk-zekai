@@ -3042,11 +3042,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Api\\ZekAI.Api.csproj",
+      "projectUniqueName": "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Api\\ZekAI.Api.csproj",
       "projectName": "ZekAI.Api",
-      "projectPath": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Api\\ZekAI.Api.csproj",
+      "projectPath": "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Api\\ZekAI.Api.csproj",
       "packagesPath": "C:\\Users\\FIRAT\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Api\\obj\\",
+      "outputPath": "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Api\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -3067,11 +3067,11 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "projectReferences": {
-            "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Application\\ZekAI.Application.csproj": {
-              "projectPath": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Application\\ZekAI.Application.csproj"
+            "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Application\\ZekAI.Application.csproj": {
+              "projectPath": "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Application\\ZekAI.Application.csproj"
             },
-            "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Infrastructure\\ZekAI.Infrastructure.csproj": {
-              "projectPath": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Infrastructure\\ZekAI.Infrastructure.csproj"
+            "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Infrastructure\\ZekAI.Infrastructure.csproj": {
+              "projectPath": "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Infrastructure\\ZekAI.Infrastructure.csproj"
             }
           }
         }

@@ -35,6 +35,7 @@ public class UpdateProductContentRequest
     public bool ClearOriginalPrice { get; set; }
     public string? CargoText { get; set; }
     public int? CategoryId { get; set; }
+    public string? PrimaryImageUrl { get; set; }
 }
 
 public class CreateProductRequest

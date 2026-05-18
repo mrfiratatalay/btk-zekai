@@ -62,10 +62,32 @@ export async function createProduct(data: CreateProductPayload): Promise<SellerP
   });
 }
 
-export async function updateProduct(id: string, data: Partial<{ title: string; description: string; price: number; stock: number }>): Promise<void> {
+export interface UpdateProductPayload {
+  title?: string;
+  shortDescription?: string;
+  description?: string;
+  features?: Record<string, string>;
+  price?: number;
+  originalPrice?: number | null;
+  clearOriginalPrice?: boolean;
+  stock?: number;
+  brand?: string;
+  cargoText?: string;
+  categoryId?: number;
+  primaryImageUrl?: string;
+}
+
+export async function updateProduct(id: string, data: UpdateProductPayload): Promise<void> {
   await apiFetch(`/api/seller/products/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
+  });
+}
+
+export async function updateProductImage(id: string, imageBase64: string, mimeType: string): Promise<{ imageUrl: string }> {
+  return apiFetch(`/api/seller/products/${id}/image`, {
+    method: "PUT",
+    body: JSON.stringify({ imageBase64, mimeType }),
   });
 }
 

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ZekAI.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1c85a9d0cb5a2cf92c28d37b0be5775d24fab3b2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+796957dfc90935326c6f9082af424149b6975fe6")]
 [assembly: System.Reflection.AssemblyProductAttribute("ZekAI.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ZekAI.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

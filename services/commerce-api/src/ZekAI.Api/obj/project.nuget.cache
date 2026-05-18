@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "7Qr5vhD3wYU=",
+  "dgSpecHash": "zU1cLsvMsQE=",
   "success": true,
-  "projectFilePath": "C:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Api\\ZekAI.Api.csproj",
+  "projectFilePath": "c:\\Users\\FIRAT\\Desktop\\CyberSecurity\\btk-zekai\\services\\commerce-api\\src\\ZekAI.Api\\ZekAI.Api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\FIRAT\\.nuget\\packages\\bcrypt.net-next\\4.2.0\\bcrypt.net-next.4.2.0.nupkg.sha512",
     "C:\\Users\\FIRAT\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",

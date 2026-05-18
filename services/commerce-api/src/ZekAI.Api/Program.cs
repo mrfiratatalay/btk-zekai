@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using ZekAI.Api.Auth;
 using ZekAI.Infrastructure.Data;
@@ -16,7 +17,8 @@ builder.Services.AddSwaggerGen();
 
 // ── PostgreSQL + EF Core ──
 builder.Services.AddDbContext<AppDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+    opt.UseNpgsql(builder.Configuration.GetConnectionString("Default"))
+       .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
 // ── Authentication: JWT + API Key ──
 var jwtSecret = builder.Configuration["Jwt:Secret"]!;
@@ -60,6 +62,7 @@ builder.Services.AddCors(opt => opt.AddPolicy("NextJs", policy =>
         .AllowCredentials()));
 
 // ── Services DI ──
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ProductService>();
@@ -88,6 +91,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("NextJs");
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
