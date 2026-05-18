@@ -34,10 +34,6 @@ export function ProductInfoPanel({ product }: { product: Product }) {
   const [addedToCart, setAddedToCart] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
 
-  const savings =
-    product.originalPrice && product.originalPrice > product.price
-      ? product.originalPrice - product.price
-      : 0;
   const specs = Object.entries(product.features).slice(0, 4);
 
   function handleAddToCart() {
@@ -91,17 +87,7 @@ export function ProductInfoPanel({ product }: { product: Product }) {
               {formatPrice(product.originalPrice)}
             </span>
           )}
-          {product.discountPercent && (
-            <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-sm font-bold text-red-600">
-              %{product.discountPercent} indirim
-            </span>
-          )}
         </div>
-        {savings > 0 && (
-          <p className="text-sm font-medium text-emerald-600">
-            {formatPrice(savings)} tasarruf ediyorsun
-          </p>
-        )}
       </div>
 
       {/* Key specs */}

@@ -130,8 +130,8 @@ export default function SellerDashboardPage() {
 
         {/* Ürün tablosu */}
         {!loading && products.length > 0 && (
-          <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-2xl border border-[#E5E7EB] bg-white">
+            <table className="w-full min-w-[600px] text-sm">
               <thead>
                 <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
                   <th className="px-5 py-3 text-left text-xs font-semibold text-[#6B7280]">Ürün</th>

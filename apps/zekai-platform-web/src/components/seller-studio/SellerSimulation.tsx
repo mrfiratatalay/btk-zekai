@@ -82,7 +82,7 @@ function ProductCard({ product, activeSection }: {
   );
 
   return (
-    <div className="w-[300px] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+    <div className="w-[240px] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl sm:w-[300px]">
       <div className={cn("p-3.5", hl("image"))}>
         <div className="relative h-32 w-full overflow-hidden rounded-xl bg-muted">
           <Image src={product.image} alt={product.title} fill className="object-contain p-2" />
@@ -246,9 +246,9 @@ function SimulationRunning({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Müşteri Simülasyonu</h1>
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">Müşteri Simülasyonu</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {streamStep ?? "Müşteriler ürün sayfanızı inceliyor..."}
           </p>
@@ -258,7 +258,7 @@ function SimulationRunning({
           <div className="flex gap-1">
             {Array.from({ length: totalPersonas }, (_, i) => (
               <div key={i} className={cn(
-                "h-1.5 w-8 rounded-full transition-all duration-500",
+                "h-1.5 w-6 rounded-full transition-all duration-500 sm:w-8",
                 i < completedCount      ? "bg-green-500"             :
                 i === activeStep        ? "animate-pulse bg-green-300" :
                 i < personas.length     ? "bg-muted-foreground/30" :
@@ -270,7 +270,7 @@ function SimulationRunning({
       </div>
 
       {/* Stage */}
-      <div className="relative h-[540px] w-full">
+      <div className="relative h-[420px] w-full sm:h-[540px]">
         {/* Background */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl border border-border bg-linear-to-br from-[#f6f8fa] to-white border-border dark:from-[#0c0c0c] dark:to-[#0f0f0f]">
           <svg width="100%" height="100%" className="absolute inset-0 opacity-[0.04] dark:opacity-[0.06]">
@@ -400,29 +400,29 @@ function SimulationCompleted({ product, personas }: { product: SellerProductPerf
         <span className="text-gray-600 dark:text-gray-300">Simülasyon Sonucu</span>
       </nav>
 
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Simülasyon Tamamlandı</h1>
+          <h1 className="text-xl font-bold text-foreground sm:text-2xl">Simülasyon Tamamlandı</h1>
           <p className="mt-1 text-sm text-muted-foreground">{personas.length} farklı müşteri profili ürününüzü inceledi.</p>
         </div>
         <Link
           href={`/seller/product/${product.id}/ai-edit?from=simulation`}
           onClick={() => saveSimulationContext(product.id, personas)}
-          className="flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-600">
+          className="flex items-center justify-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-600 sm:justify-start">
           <Bot className="size-4" />AI ile Düzenle
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
         {[
           { count: buy,       label: "Satın Aldı",    note: "İkna oldu",        bg: "bg-green-50 dark:bg-green-500/8",  border: "border-green-100 dark:border-green-500/20",  text: "text-green-600 dark:text-green-400",  sub: "text-green-600/60 dark:text-green-400/60" },
           { count: undecided, label: "Kararsız Kaldı", note: "İkna edilebilir",  bg: "bg-amber-50 dark:bg-amber-500/8",  border: "border-amber-100 dark:border-amber-500/20",  text: "text-amber-600 dark:text-amber-400",  sub: "text-amber-600/60 dark:text-amber-400/60" },
           { count: skip,      label: "Vazgeçti",       note: "Geri döndü",       bg: "bg-red-50 dark:bg-red-500/8",      border: "border-red-100 dark:border-red-500/20",      text: "text-red-600 dark:text-red-400",      sub: "text-red-600/60 dark:text-red-400/60" },
         ].map((c) => (
-          <div key={c.label} className={cn("rounded-2xl border p-5 text-center", c.bg, c.border)}>
-            <p className={cn("text-4xl font-black", c.text)}>{c.count}</p>
-            <p className={cn("mt-1 text-sm font-bold", c.text)}>{c.label}</p>
-            <p className={cn("mt-0.5 text-[11px]", c.sub)}>{c.note}</p>
+          <div key={c.label} className={cn("rounded-2xl border p-3 text-center sm:p-5", c.bg, c.border)}>
+            <p className={cn("text-3xl font-black sm:text-4xl", c.text)}>{c.count}</p>
+            <p className={cn("mt-1 text-xs font-bold sm:text-sm", c.text)}>{c.label}</p>
+            <p className={cn("mt-0.5 hidden text-[11px] sm:block", c.sub)}>{c.note}</p>
           </div>
         ))}
       </div>
@@ -461,7 +461,7 @@ function SimulationCompleted({ product, personas }: { product: SellerProductPerf
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Link
           href={`/seller/product/${product.id}/ai-edit?from=simulation`}
           onClick={() => saveSimulationContext(product.id, personas)}

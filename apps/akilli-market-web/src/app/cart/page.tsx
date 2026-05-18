@@ -70,7 +70,7 @@ export default function CartPage() {
                     )}
                     <button
                       onClick={() => removeItem(item.id)}
-                      className="shrink-0 text-[#9CA3AF] transition hover:text-[#DC2626]"
+                      className="shrink-0 cursor-pointer text-[#9CA3AF] transition hover:text-[#DC2626]"
                       aria-label="Ürünü kaldır"
                     >
                       <Trash2 className="size-4" />
@@ -90,7 +90,7 @@ export default function CartPage() {
                     <div className="flex items-center gap-1 rounded-lg border border-[#E5E7EB] px-1">
                       <button
                         onClick={() => updateQty(item.id, item.quantity - 1)}
-                        className="p-1.5 text-[#6B7280] transition hover:text-[#111827]"
+                        className="cursor-pointer p-1.5 text-[#6B7280] transition hover:text-[#111827]"
                         aria-label="Azalt"
                       >
                         <Minus className="size-3.5" />
@@ -101,7 +101,7 @@ export default function CartPage() {
                       <button
                         onClick={() => updateQty(item.id, Math.min(item.quantity + 1, item.stock))}
                         disabled={item.quantity >= item.stock}
-                        className="p-1.5 text-[#6B7280] transition hover:text-[#111827] disabled:opacity-40"
+                        className="cursor-pointer p-1.5 text-[#6B7280] transition hover:text-[#111827] disabled:opacity-40"
                         aria-label="Artır"
                       >
                         <Plus className="size-3.5" />

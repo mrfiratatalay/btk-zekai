@@ -316,7 +316,7 @@ export default function EditProductPage() {
               <input className={inputClass} value={form.title} onChange={(e) => setField("title", e.target.value)} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>Marka</label>
                 <input className={inputClass} value={form.brand} onChange={(e) => setField("brand", e.target.value)} placeholder="Marka adı" />
@@ -348,7 +348,7 @@ export default function EditProductPage() {
             <hr className="border-[#F3F4F6]" />
 
             {/* ── Fiyat & Stok ── */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>Satış Fiyatı (₺)</label>
                 <input type="number" min="0" step="0.01" className={inputClass} value={form.price} onChange={(e) => setField("price", e.target.value)} />
@@ -359,13 +359,7 @@ export default function EditProductPage() {
               </div>
             </div>
 
-            {form.originalPrice && Number(form.originalPrice) > Number(form.price) && (
-              <p className="text-xs font-semibold text-green-600">
-                %{Math.round(((Number(form.originalPrice) - Number(form.price)) / Number(form.originalPrice)) * 100)} indirim uygulanacak
-              </p>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className={labelClass}>Stok</label>
                 <input type="number" min="0" className={inputClass} value={form.stock} onChange={(e) => setField("stock", e.target.value)} />

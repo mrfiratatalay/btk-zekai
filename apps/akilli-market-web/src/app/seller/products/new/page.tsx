@@ -221,7 +221,7 @@ export default function NewProductPage() {
           </div>
 
           {/* Marka & Kategori */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Marka</label>
               <input className={inputClass} value={form.brand} onChange={(e) => update("brand", e.target.value)} placeholder="TechSound" />
@@ -235,7 +235,7 @@ export default function NewProductPage() {
           </div>
 
           {/* Fiyat */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Satış Fiyatı (₺) *</label>
               <input type="number" min="0" step="0.01" className={inputClass} value={form.price} onChange={(e) => update("price", e.target.value)} placeholder="599.99" required />
@@ -246,14 +246,8 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {form.originalPrice && Number(form.originalPrice) > Number(form.price) && (
-            <p className="text-xs font-semibold text-green-600">
-              %{Math.round(((Number(form.originalPrice) - Number(form.price)) / Number(form.originalPrice)) * 100)} indirim uygulanacak
-            </p>
-          )}
-
           {/* Stok & Kargo */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Stok</label>
               <input type="number" min="0" className={inputClass} value={form.stock} onChange={(e) => update("stock", e.target.value)} />

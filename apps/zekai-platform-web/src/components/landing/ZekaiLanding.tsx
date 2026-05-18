@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
   BarChart3,
   Bot,
   CheckCircle2,
+  Menu,
   ShieldCheck,
   Sparkles,
   Star,
   Store,
   TrendingUp,
   Users,
+  X,
   Zap,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -122,30 +124,38 @@ const SELLER_BENEFITS = [
   "Sosyal medya içerik üreteci (Instagram, Twitter)",
 ];
 
+const NAV_LINKS = [
+  { label: "Kim İçin?", href: "#kim-icin" },
+  { label: "Özellikler", href: "#ozellikler" },
+  { label: "Nasıl Çalışır?", href: "#nasil-calisir" },
+  { label: "Market", href: COMMERCE_WEB_URL },
+];
+
 /* ── Component ───────────────────────────────────────────────────────────── */
 export function ZekaiLanding() {
   const [activeFlow, setActiveFlow] = useState<"buyer" | "seller">("buyer");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen overflow-hidden bg-background text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
 
       {/* ── Navbar ───────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-[#C1F25D]">
-              <Sparkles className="size-5 text-black" />
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2.5" onClick={closeMobileMenu}>
+            <div className="flex size-9 sm:size-10 items-center justify-center rounded-xl bg-[#C1F25D]">
+              <Sparkles className="size-4 sm:size-5 text-black" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-foreground">ZekAI</span>
+            <span className="text-lg sm:text-xl font-bold tracking-tight text-foreground">ZekAI</span>
           </Link>
 
+          {/* Desktop nav links */}
           <div className="hidden items-center gap-1 md:flex">
-            {[
-              { label: "Kim İçin?", href: "#kim-icin" },
-              { label: "Özellikler", href: "#ozellikler" },
-              { label: "Nasıl Çalışır?", href: "#nasil-calisir" },
-              { label: "Market", href: COMMERCE_WEB_URL },
-            ].map((item) => (
+            {NAV_LINKS.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
@@ -156,35 +166,96 @@ export function ZekaiLanding() {
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Right side */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle className="text-muted-foreground hover:text-foreground" />
-            <Link href="/login" className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+
+            {/* Desktop auth buttons */}
+            <Link
+              href="/login"
+              className="hidden md:block rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
               Giriş Yap
             </Link>
-            <Link href="/register" className="rounded-full bg-[#C1F25D] px-5 py-2 text-sm font-bold text-black transition-colors hover:bg-[#aadc2d]">
+            <Link
+              href="/register"
+              className="hidden md:block rounded-full bg-[#C1F25D] px-5 py-2 text-sm font-bold text-black transition-colors hover:bg-[#aadc2d]"
+            >
               Ücretsiz Başla
             </Link>
+
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen((o) => !o)}
+              className="md:hidden flex size-9 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Menüyü aç/kapat"
+            >
+              {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile dropdown menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.22, ease: "easeInOut" }}
+              className="overflow-hidden border-t border-border bg-background md:hidden"
+            >
+              <div className="flex flex-col px-4 py-4 gap-1">
+                {NAV_LINKS.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    onClick={closeMobileMenu}
+                    className="rounded-xl px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+                <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
+                  <Link
+                    href="/login"
+                    onClick={closeMobileMenu}
+                    className="rounded-full border border-border px-5 py-2.5 text-center text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                  >
+                    Giriş Yap
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={closeMobileMenu}
+                    className="rounded-full bg-[#C1F25D] px-5 py-2.5 text-center text-sm font-bold text-black transition-colors hover:bg-[#aadc2d]"
+                  >
+                    Ücretsiz Başla
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="pb-16 pt-32 md:pb-24 md:pt-40">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid items-center gap-12 md:grid-cols-2">
+      <section className="pb-16 pt-28 sm:pt-32 md:pb-24 md:pt-40">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="grid items-center gap-10 md:gap-12 md:grid-cols-2">
+
             {/* Left text */}
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
                 <Zap className="size-3.5" />
                 AI Commerce Platform · Alıcı & Satıcı
               </p>
-              <h1 className="text-5xl font-bold leading-tight tracking-tight text-foreground md:text-6xl">
+              <h1 className="text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl md:text-6xl">
                 Alıcıya güven.{" "}
                 <span className="bg-gradient-to-r from-[#C1F25D] to-[#10B981] bg-clip-text text-transparent">
                   Satıcıya içgörü.
                 </span>
               </h1>
-              <p className="mb-8 mt-5 max-w-lg text-lg leading-relaxed text-muted-foreground">
+              <p className="mb-8 mt-5 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
                 Zekai, e-ticarette her iki tarafın da doğru kararı vermesini sağlayan bağımsız bir AI platformudur.
                 Alıcılar için risk analizi, satıcılar için büyüme araçları — tek çatı altında.
               </p>
@@ -231,10 +302,10 @@ export function ZekaiLanding() {
               initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.15 }}
-              className="relative"
+              className="relative mx-auto w-full max-w-sm sm:max-w-md md:max-w-none"
             >
               <div className="relative overflow-hidden rounded-[32px] bg-card shadow-2xl border border-border">
-                <div className="p-6">
+                <div className="p-5 sm:p-6">
                   <div className="mb-4 flex items-center gap-3">
                     <div className="size-10 overflow-hidden rounded-xl border border-border bg-muted">
                       <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=80&q=80" className="h-full w-full object-cover" alt="" />
@@ -278,8 +349,8 @@ export function ZekaiLanding() {
                 </div>
               </div>
 
-              {/* Floating: agents */}
-              <div className="absolute -top-5 -right-5 rounded-[20px] bg-card px-4 py-3 shadow-xl border border-border">
+              {/* Floating: agents — gizli mobilde */}
+              <div className="absolute -top-5 -right-5 hidden sm:block rounded-[20px] bg-card px-4 py-3 shadow-xl border border-border">
                 <div className="flex items-center gap-2">
                   <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
                   <p className="text-xs font-semibold text-foreground">8 Ajan çalışıyor</p>
@@ -287,8 +358,8 @@ export function ZekaiLanding() {
                 <p className="mt-0.5 text-[11px] text-muted-foreground">Yorum forensiği tamamlandı</p>
               </div>
 
-              {/* Floating: seller */}
-              <div className="absolute -bottom-4 -left-5 flex items-center gap-3 rounded-[20px] bg-card px-4 py-3 shadow-xl border border-border">
+              {/* Floating: seller — gizli mobilde */}
+              <div className="absolute -bottom-4 -left-5 hidden sm:flex items-center gap-3 rounded-[20px] bg-card px-4 py-3 shadow-xl border border-border">
                 <div className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/10">
                   <TrendingUp className="size-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
@@ -303,15 +374,15 @@ export function ZekaiLanding() {
       </section>
 
       {/* ── Stats ────────────────────────────────────────────────────────── */}
-      <section className="border-y border-border bg-card py-16">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+      <section className="border-y border-border bg-card py-12 md:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="grid grid-cols-2 gap-6 sm:gap-8 md:grid-cols-4">
             {STATS.map((s) => (
               <div key={s.label} className="text-center">
-                <p className="bg-gradient-to-r from-[#C1F25D] to-[#10B981] bg-clip-text text-5xl font-bold text-transparent">
+                <p className="bg-gradient-to-r from-[#C1F25D] to-[#10B981] bg-clip-text text-4xl sm:text-5xl font-bold text-transparent">
                   {s.value}
                 </p>
-                <p className="mt-1.5 font-medium text-muted-foreground">{s.label}</p>
+                <p className="mt-1.5 text-sm sm:text-base font-medium text-muted-foreground">{s.label}</p>
               </div>
             ))}
           </div>
@@ -319,12 +390,12 @@ export function ZekaiLanding() {
       </section>
 
       {/* ── For Whom — dual audience ──────────────────────────────────────── */}
-      <section id="kim-icin" className="py-20 md:py-28">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="mb-14 text-center">
+      <section id="kim-icin" className="py-16 sm:py-20 md:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="mb-10 sm:mb-14 text-center">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">KİM İÇİN?</p>
-            <h2 className="text-4xl font-bold text-foreground">E-ticarette Her İki Taraf İçin</h2>
-            <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">E-ticarette Her İki Taraf İçin</h2>
+            <p className="mx-auto mt-3 max-w-lg text-sm sm:text-base text-muted-foreground">
               Alıcı ya da satıcı olun, Zekai size özel araçlarla doğru kararı vermenizi sağlar.
             </p>
           </div>
@@ -336,15 +407,15 @@ export function ZekaiLanding() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="group relative overflow-hidden rounded-[28px] border border-[#C1F25D]/20 bg-card p-8 hover:border-[#C1F25D]/50 transition-all hover:-translate-y-1 hover:shadow-xl"
+              className="group relative overflow-hidden rounded-[28px] border border-[#C1F25D]/20 bg-card p-6 sm:p-8 hover:border-[#C1F25D]/50 transition-all hover:-translate-y-1 hover:shadow-xl"
             >
               <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-[#C1F25D]/5" />
               <div className="relative">
-                <div className="mb-5 flex size-14 items-center justify-center rounded-2xl bg-[#C1F25D]/15">
-                  <ShieldCheck className="size-7 text-[#5a8a00] dark:text-[#C1F25D]" />
+                <div className="mb-5 flex size-12 sm:size-14 items-center justify-center rounded-2xl bg-[#C1F25D]/15">
+                  <ShieldCheck className="size-6 sm:size-7 text-[#5a8a00] dark:text-[#C1F25D]" />
                 </div>
                 <p className="mb-1 text-xs font-bold uppercase tracking-widest text-[#5a8a00] dark:text-[#C1F25D]">Alıcılar İçin</p>
-                <h3 className="mb-2 text-2xl font-bold text-foreground">Pişmanlıksız Alışveriş</h3>
+                <h3 className="mb-2 text-xl sm:text-2xl font-bold text-foreground">Pişmanlıksız Alışveriş</h3>
                 <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
                   Satın almadan önce ürünün gerçek değerini, risklerini ve size uygunluğunu öğrenin.
                 </p>
@@ -372,15 +443,15 @@ export function ZekaiLanding() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="group relative overflow-hidden rounded-[28px] border border-blue-500/20 bg-card p-8 hover:border-blue-500/50 transition-all hover:-translate-y-1 hover:shadow-xl"
+              className="group relative overflow-hidden rounded-[28px] border border-blue-500/20 bg-card p-6 sm:p-8 hover:border-blue-500/50 transition-all hover:-translate-y-1 hover:shadow-xl"
             >
               <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-blue-500/5" />
               <div className="relative">
-                <div className="mb-5 flex size-14 items-center justify-center rounded-2xl bg-blue-500/10">
-                  <TrendingUp className="size-7 text-blue-500 dark:text-blue-400" />
+                <div className="mb-5 flex size-12 sm:size-14 items-center justify-center rounded-2xl bg-blue-500/10">
+                  <TrendingUp className="size-6 sm:size-7 text-blue-500 dark:text-blue-400" />
                 </div>
                 <p className="mb-1 text-xs font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400">Satıcılar İçin</p>
-                <h3 className="mb-2 text-2xl font-bold text-foreground">Seller Studio ile Büyü</h3>
+                <h3 className="mb-2 text-xl sm:text-2xl font-bold text-foreground">Seller Studio ile Büyü</h3>
                 <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
                   AI destekli araçlarla ürün sayfalarını optimize edin, müşteri gözüyle görün, içeriğinizi güçlendirin.
                 </p>
@@ -406,12 +477,12 @@ export function ZekaiLanding() {
       </section>
 
       {/* ── Features ─────────────────────────────────────────────────────── */}
-      <section id="ozellikler" className="border-y border-border bg-card py-20 md:py-28">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="mb-14 text-center">
+      <section id="ozellikler" className="border-y border-border bg-card py-16 sm:py-20 md:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="mb-10 sm:mb-14 text-center">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">ÖZELLİKLER</p>
-            <h2 className="text-4xl font-bold text-foreground">AI ile Bilinçli Ticaret</h2>
-            <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">AI ile Bilinçli Ticaret</h2>
+            <p className="mx-auto mt-3 max-w-lg text-sm sm:text-base text-muted-foreground">
               Alıcı ve satıcı için tasarlanmış, kanıta dayalı AI araçları.
             </p>
           </div>
@@ -426,15 +497,15 @@ export function ZekaiLanding() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.07 }}
-                  className="group rounded-3xl border border-transparent bg-background p-7 shadow-none transition-all hover:-translate-y-2 hover:shadow-xl"
+                  className="group rounded-3xl border border-transparent bg-background p-5 sm:p-7 shadow-none transition-all hover:-translate-y-2 hover:shadow-xl"
                   style={{ borderRadius: "24px" }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = f.color + "4D"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "transparent"; }}
                 >
-                  <div className="mb-5 flex size-14 items-center justify-center rounded-2xl" style={{ backgroundColor: f.color + "1A", color: f.color }}>
-                    <Icon className="size-7" />
+                  <div className="mb-5 flex size-12 sm:size-14 items-center justify-center rounded-2xl" style={{ backgroundColor: f.color + "1A", color: f.color }}>
+                    <Icon className="size-6 sm:size-7" />
                   </div>
-                  <h3 className="mb-2 text-lg font-bold text-foreground">{f.title}</h3>
+                  <h3 className="mb-2 text-base sm:text-lg font-bold text-foreground">{f.title}</h3>
                   <p className="text-sm leading-relaxed text-muted-foreground">{f.description}</p>
                 </motion.div>
               );
@@ -444,19 +515,19 @@ export function ZekaiLanding() {
       </section>
 
       {/* ── How it works — tabbed ─────────────────────────────────────────── */}
-      <section id="nasil-calisir" className="py-20 md:py-28">
-        <div className="mx-auto max-w-7xl px-6">
+      <section id="nasil-calisir" className="py-16 sm:py-20 md:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 text-center">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">NASIL ÇALIŞIR?</p>
-            <h2 className="text-4xl font-bold text-foreground">3 Adımda Başlayın</h2>
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">3 Adımda Başlayın</h2>
           </div>
 
           {/* Tab switcher */}
-          <div className="mb-12 flex justify-center">
-            <div className="flex rounded-full border border-border bg-card p-1">
+          <div className="mb-10 sm:mb-12 flex justify-center">
+            <div className="flex w-full max-w-xs sm:max-w-none sm:w-auto rounded-full border border-border bg-card p-1">
               <button
                 onClick={() => setActiveFlow("buyer")}
-                className={`cursor-pointer rounded-full px-6 py-2.5 text-sm font-semibold transition-all ${
+                className={`cursor-pointer flex-1 sm:flex-none rounded-full px-5 sm:px-6 py-2.5 text-sm font-semibold transition-all ${
                   activeFlow === "buyer"
                     ? "bg-[#C1F25D] text-black shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -466,7 +537,7 @@ export function ZekaiLanding() {
               </button>
               <button
                 onClick={() => setActiveFlow("seller")}
-                className={`cursor-pointer rounded-full px-6 py-2.5 text-sm font-semibold transition-all ${
+                className={`cursor-pointer flex-1 sm:flex-none rounded-full px-5 sm:px-6 py-2.5 text-sm font-semibold transition-all ${
                   activeFlow === "seller"
                     ? "bg-blue-600 text-white shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -482,7 +553,7 @@ export function ZekaiLanding() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="grid gap-8 md:grid-cols-3"
+            className="grid gap-10 sm:gap-8 md:grid-cols-3"
           >
             {(activeFlow === "buyer" ? BUYER_STEPS : SELLER_STEPS).map((item, idx) => {
               const Icon = item.icon;
@@ -492,12 +563,12 @@ export function ZekaiLanding() {
                 : "text-blue-600 dark:text-blue-400";
               return (
                 <div key={item.step} className="relative text-center">
-                  <p className="mb-2 text-8xl font-bold leading-none" style={{ color: accentColor + "33" }}>{item.step}</p>
+                  <p className="mb-2 text-7xl sm:text-8xl font-bold leading-none" style={{ color: accentColor + "33" }}>{item.step}</p>
                   <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl" style={{ backgroundColor: accentColor + "1A" }}>
                     <Icon className={`size-5 ${iconTextClass}`} />
                   </div>
-                  <h3 className="mb-2 text-xl font-bold text-foreground">{item.title}</h3>
-                  <p className="text-muted-foreground">{item.desc}</p>
+                  <h3 className="mb-2 text-lg sm:text-xl font-bold text-foreground">{item.title}</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground">{item.desc}</p>
                   {idx < 2 && (
                     <ArrowRight className="absolute right-0 top-12 hidden size-5 text-muted-foreground/40 md:block" />
                   )}
@@ -509,16 +580,16 @@ export function ZekaiLanding() {
       </section>
 
       {/* ── Testimonials ─────────────────────────────────────────────────── */}
-      <section className="border-y border-border bg-card py-20 md:py-28">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="mb-14 text-center">
+      <section className="border-y border-border bg-card py-16 sm:py-20 md:py-28">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="mb-10 sm:mb-14 text-center">
             <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">KULLANICI YORUMLARI</p>
-            <h2 className="text-4xl font-bold text-foreground">Ne Diyorlar?</h2>
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">Ne Diyorlar?</h2>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="rounded-3xl border border-border bg-background p-7" style={{ borderRadius: "24px" }}>
+              <div key={t.name} className="rounded-3xl border border-border bg-background p-5 sm:p-7" style={{ borderRadius: "24px" }}>
                 <div className="mb-4 flex gap-0.5">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star key={i} className="size-4 fill-amber-400 text-amber-400" />
@@ -526,7 +597,7 @@ export function ZekaiLanding() {
                 </div>
                 <p className="mb-5 text-sm leading-relaxed text-muted-foreground">&ldquo;{t.content}&rdquo;</p>
                 <div className="flex items-center gap-3">
-                  <img src={t.avatar} className="size-11 rounded-full object-cover" alt={t.name} />
+                  <img src={t.avatar} className="size-10 sm:size-11 rounded-full object-cover" alt={t.name} />
                   <div>
                     <p className="font-semibold text-foreground">{t.name}</p>
                     <p className="text-xs text-muted-foreground">{t.role}</p>
@@ -538,46 +609,53 @@ export function ZekaiLanding() {
         </div>
       </section>
 
-      {/* ── CTA — dual ───────────────────────────────────────────────────── */}
-      <section className="px-6 pb-20 md:pb-28 pt-20 md:pt-28">
-        <div className="mx-auto max-w-5xl">
+      {/* ── CTA ──────────────────────────────────────────────────────────── */}
+      <section className="px-4 sm:px-6 pb-16 sm:pb-20 md:pb-28 pt-16 sm:pt-20 md:pt-28">
+        <div className="mx-auto max-w-4xl">
           <div
-            className="relative overflow-hidden rounded-[32px] px-8 py-16 text-center text-white"
-            style={{ background: "linear-gradient(135deg, #1f2203 0%, #103B1D 100%)" }}
+            className="relative overflow-hidden rounded-[28px] sm:rounded-[32px] px-6 py-14 sm:px-12 sm:py-20 text-center text-white"
+            style={{ background: "linear-gradient(135deg, #1a1e04 0%, #0d3018 100%)" }}
           >
-            <div className="pointer-events-none absolute -right-14 -top-14 size-52 rounded-full bg-[#C1F25D]/8" />
-            <div className="pointer-events-none absolute -bottom-10 -left-10 size-40 rounded-full bg-[#C1F25D]/5" />
+            {/* Dekoratif arka plan daireleri */}
+            <div className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-[#C1F25D]/6" />
+            <div className="pointer-events-none absolute -bottom-16 -left-16 size-52 rounded-full bg-[#C1F25D]/4" />
+
             <div className="relative">
-              <h2 className="text-4xl font-bold md:text-5xl">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C1F25D]/20 bg-[#C1F25D]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-[#C1F25D]">
+                <Sparkles className="size-3" />
+                Ücretsiz · Kredi kartı gerekmez
+              </span>
+
+              <h2 className="mt-5 text-3xl font-bold leading-tight sm:text-4xl md:text-5xl">
                 Alıcı da kazan,{" "}
                 <span className="text-[#C1F25D]">satıcı da kazan.</span>
               </h2>
-              <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/65">
-                Zekai&apos;yi ücretsiz dene. Alıcı olarak pişmanlık riskini sıfırla ya da satıcı olarak Seller Studio ile işini büyüt — kredi kartı gerekmiyor.
+
+              <p className="mx-auto mt-4 max-w-lg text-base leading-relaxed text-white/55">
+                Risk almadan karar ver, ürünlerini AI ile büyüt.
               </p>
-              <div className="mt-10 grid gap-4 sm:flex sm:flex-wrap sm:justify-center">
-                {/* Buyer CTA */}
-                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-left sm:max-w-[220px]">
-                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-[#C1F25D]/70">Alıcılar İçin</p>
-                  <p className="mb-3 text-sm font-semibold text-white">Ürün analizi başlat</p>
-                  <Link href="/register" className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#C1F25D] px-5 py-2 text-sm font-bold text-black transition-colors hover:bg-[#aadc2d]">
-                    Ücretsiz Başla
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </div>
 
-                <div className="hidden sm:flex items-center px-2 text-white/20 text-2xl font-thin">|</div>
-
-                {/* Seller CTA */}
-                <div className="rounded-[20px] border border-white/10 bg-white/5 p-4 text-left sm:max-w-[220px]">
-                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-blue-400/70">Satıcılar İçin</p>
-                  <p className="mb-3 text-sm font-semibold text-white">Seller Studio&apos;ya gir</p>
-                  <Link href="/seller" className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-blue-400/50 bg-blue-600/20 px-5 py-2 text-sm font-bold text-blue-300 transition-colors hover:bg-blue-600/40">
-                    Satıcı Paneli
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </div>
+              <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                <Link
+                  href="/register"
+                  className="group flex w-full items-center justify-center gap-2 rounded-full bg-[#C1F25D] px-8 py-3.5 text-sm font-bold text-black transition-colors hover:bg-[#aadc2d] sm:w-auto"
+                >
+                  Ücretsiz Başla
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <Link
+                  href="/seller"
+                  className="group flex w-full items-center justify-center gap-2 rounded-full border border-white/20 px-8 py-3.5 text-sm font-bold text-white transition-colors hover:border-white/40 hover:bg-white/8 sm:w-auto"
+                >
+                  <Store className="size-4" />
+                  Seller Studio
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
               </div>
+
+              <p className="mt-6 text-xs text-white/30">
+                Alıcılar için pişmanlık analizi · Satıcılar için büyüme araçları
+              </p>
             </div>
           </div>
         </div>
@@ -585,14 +663,14 @@ export function ZekaiLanding() {
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer className="border-t border-border bg-card py-8">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-4 sm:px-6 md:flex-row md:justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex size-8 items-center justify-center rounded-lg bg-[#C1F25D]">
               <Sparkles className="size-4 text-black" />
             </div>
             <span className="font-bold text-foreground">ZekAI</span>
           </div>
-          <p className="text-sm text-muted-foreground">© 2025 ZekAI — AI Commerce Platform. Tüm hakları saklıdır.</p>
+          <p className="text-center text-sm text-muted-foreground">© 2025 ZekAI — AI Commerce Platform. Tüm hakları saklıdır.</p>
           <div className="flex gap-4 text-sm text-muted-foreground">
             <Link href="/privacy" className="transition-colors hover:text-foreground">Gizlilik</Link>
             <Link href="/terms" className="transition-colors hover:text-foreground">Kullanım Şartları</Link>

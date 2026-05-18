@@ -69,7 +69,7 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* ── Sidebar ── */}
+      {/* ── Desktop Sidebar ── */}
       <aside
         className={cn(
           "hidden lg:flex shrink-0 flex-col border-r border-border bg-card transition-all duration-200",
@@ -172,7 +172,8 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── Main ── */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-border bg-card/80 px-6 backdrop-blur-xl">
+        {/* Top header */}
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-border bg-card/80 px-4 sm:px-6 backdrop-blur-xl">
           <div className="flex items-center gap-2 lg:hidden">
             <ZekAILogo size={22} />
             <span className="text-base font-black text-foreground">ZekAI</span>
@@ -181,8 +182,40 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
           <ThemeToggle className="text-muted-foreground hover:bg-muted" />
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8">{children}</main>
+        {/* Content — pb-20 on mobile to clear bottom nav */}
+        <main className="flex-1 overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8 lg:pb-8">{children}</main>
       </div>
+
+      {/* ── Mobile Bottom Navigation ── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-xl lg:hidden">
+        <div className="flex">
+          {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+            const active = pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-1 py-3 transition-colors",
+                  active
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon className="size-5" />
+                <span className="text-[10px] font-semibold">{label}</span>
+              </Link>
+            );
+          })}
+          <button
+            onClick={handleLogout}
+            className="flex flex-1 cursor-pointer flex-col items-center gap-1 py-3 text-muted-foreground transition-colors hover:text-red-500"
+          >
+            <LogOut className="size-5" />
+            <span className="text-[10px] font-semibold">Çıkış</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

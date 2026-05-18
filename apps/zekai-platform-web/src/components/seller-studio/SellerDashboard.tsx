@@ -79,7 +79,7 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
 
         {/* Step 1 — Platform seç */}
         {step === 1 && (
-          <div className="px-8 pb-8 pt-6">
+          <div className="px-5 pb-6 pt-5 sm:px-8 sm:pb-8 sm:pt-6">
             <h2 className="text-xl font-black text-foreground">Platformunu seç</h2>
             <p className="mt-1.5 text-sm text-muted-foreground">
               Hangi platformdaki mağazanı ZekAI&apos;a bağlamak istiyorsun?
@@ -132,7 +132,7 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
 
         {/* Step 2 — API Key */}
         {step === 2 && (
-          <div className="px-8 pb-8 pt-6">
+          <div className="px-5 pb-6 pt-5 sm:px-8 sm:pb-8 sm:pt-6">
             <button onClick={() => setStep(1)} className="mb-4 flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-gray-600 dark:hover:text-gray-200">
               ← Geri
             </button>
@@ -192,7 +192,7 @@ function OnboardingPopup({ onDone, onSkip }: OnboardingPopupProps) {
 
         {/* Step 3 — Başarılı */}
         {step === 3 && (
-          <div className="px-8 pb-8 pt-6 text-center">
+          <div className="px-5 pb-6 pt-5 text-center sm:px-8 sm:pb-8 sm:pt-6">
             <div className="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl bg-green-50 dark:bg-green-500/10">
               <Sparkles className="size-8 text-green-500" />
             </div>
@@ -273,7 +273,7 @@ export function SellerDashboard() {
       <div className={cn("space-y-8", showOnboarding && "pointer-events-none select-none blur-sm")}>
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               Merhaba, {user?.fullName?.split(" ")[0] ?? "Satıcı"}
@@ -287,7 +287,7 @@ export function SellerDashboard() {
           {!isConnected && (
             <button
               onClick={() => setShowOnboarding(true)}
-              className="flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-600"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-600 sm:w-auto"
             >
               <Store className="size-4" />
               Mağazamı Bağla
@@ -297,7 +297,7 @@ export function SellerDashboard() {
             <button
               onClick={handleReset}
               title="Mağaza bağlantısını değiştir"
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted"
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted sm:w-auto"
             >
               <RefreshCw className="size-3.5" />
               Mağazayı Değiştir

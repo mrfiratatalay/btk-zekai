@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useProfileStore } from "@/lib/buyer-store";
 
@@ -16,7 +17,11 @@ export function BuyerOnboarding({ onComplete }: BuyerOnboardingProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await saveProfile({ name: name.trim() || "Alıcı", onboarded: true }).catch(() => {});
+    try {
+      await saveProfile({ name: name.trim() || "Alıcı", onboarded: true });
+    } catch {
+      toast.error("Profil kaydedilemedi, daha sonra tekrar dene.");
+    }
     onComplete();
   }
 

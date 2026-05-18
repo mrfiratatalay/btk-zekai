@@ -336,7 +336,7 @@ export function getBuyerProfile(): BuyerProfile {
 }
 
 export function saveBuyerProfile(data: Partial<BuyerProfile>): void {
-  useProfileStore.getState().save(data).catch(() => {});
+  useProfileStore.getState().save(data).catch((err) => console.error("[ZekAI] saveBuyerProfile failed:", err));
 }
 
 export function getProjects(): ShoppingProject[] {
@@ -358,19 +358,19 @@ export function saveAnalysis(analysis: SavedAnalysis): void {
       recommendationLevel: analysis.recommendationLevel,
       scoresJson: JSON.stringify(analysis.scores),
     })
-    .catch(() => {});
+    .catch((err) => console.error("[ZekAI] saveAnalysis failed:", err));
 }
 
 export function updateAnalysisStatus(id: string, status: SavedAnalysisStatus): void {
-  useAnalysesStore.getState().updateStatus(id, status).catch(() => {});
+  useAnalysesStore.getState().updateStatus(id, status).catch((err) => console.error("[ZekAI] updateAnalysisStatus failed:", err));
 }
 
 export function updateAnalysisNote(id: string, note: string): void {
-  useAnalysesStore.getState().updateNote(id, note).catch(() => {});
+  useAnalysesStore.getState().updateNote(id, note).catch((err) => console.error("[ZekAI] updateAnalysisNote failed:", err));
 }
 
 export function deleteAnalysis(id: string): void {
-  useAnalysesStore.getState().deleteAnalysis(id).catch(() => {});
+  useAnalysesStore.getState().deleteAnalysis(id).catch((err) => console.error("[ZekAI] deleteAnalysis failed:", err));
 }
 
 export function createProject(
@@ -395,18 +395,18 @@ export function createProject(
         ),
       }));
     })
-    .catch(() => {});
+    .catch((err) => console.error("[ZekAI] createProject failed:", err));
   return optimistic;
 }
 
 export function deleteProject(id: string): void {
-  useProjectsStore.getState().deleteProject(id).catch(() => {});
+  useProjectsStore.getState().deleteProject(id).catch((err) => console.error("[ZekAI] deleteProject failed:", err));
 }
 
 export function addAnalysisToProject(projectId: string, analysisExternalId: string): void {
-  useProjectsStore.getState().addAnalysis(projectId, analysisExternalId).catch(() => {});
+  useProjectsStore.getState().addAnalysis(projectId, analysisExternalId).catch((err) => console.error("[ZekAI] addAnalysisToProject failed:", err));
 }
 
 export function removeAnalysisFromProject(projectId: string, analysisExternalId: string): void {
-  useProjectsStore.getState().removeAnalysis(projectId, analysisExternalId).catch(() => {});
+  useProjectsStore.getState().removeAnalysis(projectId, analysisExternalId).catch((err) => console.error("[ZekAI] removeAnalysisFromProject failed:", err));
 }

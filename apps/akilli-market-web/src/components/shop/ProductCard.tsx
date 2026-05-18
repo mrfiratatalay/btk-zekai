@@ -5,17 +5,11 @@ import Link from "next/link";
 import { Heart, Star } from "lucide-react";
 import type { Product } from "@/types/product";
 import { formatPrice } from "@/lib/api/products";
-import { Badge } from "@/components/ui/badge";
 import { useFavoritesStore } from "@/lib/store/favorites-store";
 
 export function ProductCard({ product }: { product: Product }) {
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
   const isFavorite = useFavoritesStore((s) => s.isFavorite(product.id));
-
-  const savings =
-    product.originalPrice && product.originalPrice > product.price
-      ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-      : product.discountPercent;
 
   function handleFavorite(e: React.MouseEvent) {
     e.preventDefault();
@@ -55,11 +49,6 @@ export function ProductCard({ product }: { product: Product }) {
             <Heart className={`size-4 ${isFavorite ? "fill-[#FF6000]" : ""}`} />
           </button>
 
-          {product.discountPercent ? (
-            <Badge className="absolute left-3 top-3 rounded-md bg-[#DC2626] px-2.5 py-1 text-xs text-white">
-              %{product.discountPercent} indirim
-            </Badge>
-          ) : null}
         </div>
 
         <div className="space-y-3 p-4">
@@ -91,11 +80,6 @@ export function ProductCard({ product }: { product: Product }) {
                 </span>
               ) : null}
             </div>
-            {savings ? (
-              <p className="text-xs font-semibold text-[#16A34A]">
-                %{savings} tasarruf
-              </p>
-            ) : null}
           </div>
         </div>
       </article>

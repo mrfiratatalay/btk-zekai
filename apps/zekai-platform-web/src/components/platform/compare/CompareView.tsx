@@ -193,7 +193,7 @@ function ProductColumn({
         </Link>
         <button
           onClick={() => onRemove(analysis.id)}
-          className="flex size-8 items-center justify-center rounded-full bg-background border border-border text-muted-foreground hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30 transition-all"
+          className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-background border border-border text-muted-foreground hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/30 transition-all"
           aria-label="Kuyruğu çıkar"
         >
           <Trash2 className="size-3.5" />
@@ -277,7 +277,7 @@ export function CompareView() {
           <div className="mb-6 flex justify-end">
             <button
               onClick={handleClear}
-              className="text-xs font-bold text-muted-foreground hover:text-red-500 transition-colors"
+              className="cursor-pointer text-xs font-bold text-muted-foreground hover:text-red-500 transition-colors"
             >
               Listeyi Temizle
             </button>

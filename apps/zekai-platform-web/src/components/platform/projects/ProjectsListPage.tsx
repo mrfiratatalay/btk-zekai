@@ -60,7 +60,7 @@ function CreateProjectModal({ onClose, onCreate }: {
       >
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-base font-bold text-foreground">Yeni Karar Odası</h3>
-          <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+          <button onClick={onClose} className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">✕</button>
         </div>
 
         <div className="space-y-3">
@@ -167,7 +167,7 @@ function ProjectCard({
           </div>
           <button
             onClick={() => onDelete(project.id)}
-            className="shrink-0 flex size-8 items-center justify-center rounded-full text-muted-foreground/40 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all"
+            className="shrink-0 flex size-8 cursor-pointer items-center justify-center rounded-full text-muted-foreground/40 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all"
             aria-label="Sil"
           >
             <Trash2 className="size-4" />

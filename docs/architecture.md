@@ -7,7 +7,7 @@ ZekAI, iki ayrı platforma sahip AI destekli bir e-ticaret karar sistemidir.
 - **Akıllı Market** — Alıcıların alışveriş yaptığı, satıcıların ürün yönettiği e-ticaret platformu
 - **ZekAI Platform** — Satıcılar için AI destekli ürün optimizasyonu; alıcılar için pişmanlık riski analizi
 
-Sistem 5 servis, 2 frontend, 2 veritabanından oluşur ve Docker üzerinde çalışır.
+Sistem 5 servis, 2 frontend, 2 veritabanından oluşur.
 
 ---
 
@@ -16,44 +16,51 @@ Sistem 5 servis, 2 frontend, 2 veritabanından oluşur ve Docker üzerinde çal�
 ```
 btk-zekai/
 ├── apps/
-│   ├── akilli-market-web/       # E-ticaret frontend  (port 3000)
-│   └── zekai-platform-web/      # ZekAI platform      (port 3001)
+│   ├── akilli-market-web/       # E-ticaret frontend  (local: 3000)
+│   └── zekai-platform-web/      # ZekAI platform      (local: 3001)
 ├── services/
-│   ├── commerce-api/            # E-ticaret API        (port 5001)
-│   ├── zekai-api/               # ZekAI API            (port 5002)
-│   └── ai-service/              # AI Agent servisi     (port 8000) ← henüz devre dışı
+│   ├── commerce-api/            # E-ticaret API        (local: 5001)
+│   ├── zekai-api/               # ZekAI API            (local: 5002)
+│   └── ai-service/              # AI Agent servisi     (local: 8000)
+├── docs/                        # Proje dokümantasyonu
 ├── infra/
 │   └── postgres/init.sql        # İki DB'yi oluşturur
 ├── scripts/
 │   ├── start-docker.bat         # Backend Docker ile başlatır
 │   └── start-frontends.bat      # Frontend'leri local başlatır
-├── docker-compose.yml
-└── .env                         # GOOGLE_API_KEY (ai-service için)
+└── docker-compose.yml
 ```
 
 ---
 
 ## Servisler ve Portlar
 
-| Servis | Local Port | Teknoloji | Veritabanı |
-|--------|-----------|-----------|------------|
-| akilli-market-web | 3000 | Next.js 15 | — |
-| zekai-platform-web | 3001 | Next.js 15 | — |
-| commerce-api | 5001 | ASP.NET Core 10 | akilli_market_db |
-| zekai-api | 5002 | ASP.NET Core 10 | zekai_db |
-| ai-service | 8000 | Python / FastAPI / Google ADK | — |
-| postgres | 5432 | PostgreSQL 16 + pgvector | — |
-| redis | 6379 | Redis 7 | — |
+| Servis | Local Port | Production URL | Teknoloji | Veritabanı |
+|--------|-----------|----------------|-----------|------------|
+| akilli-market-web | 3000 | akilli-markett.vercel.app | Next.js 15 | — |
+| zekai-platform-web | 3001 | zekai-platformm.vercel.app | Next.js 15 | — |
+| commerce-api | 5001 | zekai-commerce-api.onrender.com | ASP.NET Core 10 | akilli_market_db |
+| zekai-api | 5002 | zekai-api.onrender.com | ASP.NET Core 10 | zekai_db |
+| ai-service | 8000 | zekai-ai-service.onrender.com | Python / FastAPI / Google Gemini | — |
+| postgres | 5432 | Render PostgreSQL | PostgreSQL 18 | — |
+
+> **Not:** Redis docker-compose'da tanımlı ancak aktif olarak kullanılmıyor. Production'da Render'a deploy edilmedi.
 
 ---
 
 ## İki Ayrı Veritabanı
 
-Tek PostgreSQL instance içinde iki bağımsız database:
-
+### Local
 ```
 PostgreSQL (localhost:5432)
 ├── akilli_market_db   →  commerce-api
+└── zekai_db           →  zekai-api
+```
+
+### Production (Render PostgreSQL — zekai-postgres)
+```
+PostgreSQL (dpg-d856nmbeo5us73enod90-a.frankfurt-postgres.render.com:5432)
+├── akilli_market_db   →  zekai-commerce-api
 └── zekai_db           →  zekai-api
 ```
 
@@ -70,6 +77,9 @@ akilli-market-web ──── commerce-api ──── akilli_market_db
 zekai-platform-web ─── zekai-api ─┬─── zekai_db
        (3001)            (5002)   ├─── commerce-api  (HTTP proxy)
                                   └─── ai-service    (SSE stream)
+
+zekai-api ─────────── ai-service ──── Google Gemini API
+                         (8000)           (gemini-2.5-flash)
 ```
 
 **Store Connect Mekanizması:**
@@ -79,7 +89,29 @@ zekai-api bu hesap bilgileriyle commerce-api'ye login olur, dönen JWT token'ı
 
 ---
 
-## Docker Kurulumu
+## AI Service — Buyer Analiz Akışı
+
+Alıcı ürün linki yapıştırıp "Analiz Et" dediğinde:
+
+```
+zekai-platform-web
+  → POST zekai-api /api/buyer/analyze
+    → POST ai-service /buyer/analyze
+      → Agent 1: Need Parser       (Gemini 2.5 Flash — seri)
+      → Agent 2: Price Tracker     (Gemini + Google Search Grounding — paralel)
+      → Agent 3: Review Miner      (Gemini 2.5 Flash — paralel)
+      → Agent 4: Visual Analyzer   (Gemini Vision — paralel)
+      → Agent 5: Synthesizer       (Gemini 2.5 Flash — seri)
+      → SSE stream → zekai-api → zekai-platform-web
+```
+
+**Mock Modu:** Gemini API rate limit (429) veya key hatası durumunda
+ai-service hazır mock verilerle SSE stream üretir.
+Frontend, `mock_notice` event'ini alınca mock mode banner'ı gösterir.
+
+---
+
+## Docker Kurulumu (Local)
 
 ### Başlatma
 ```
@@ -87,9 +119,16 @@ scripts\start-docker.bat   → postgres, redis, commerce-api, zekai-api
 scripts\start-frontends.bat → akilli-market-web (3000), zekai-platform-web (3001)
 ```
 
-### Gerekli Ortam Değişkeni
+ai-service local'de Docker olmadan da çalıştırılabilir:
+```bash
+cd services/ai-service
+pip install -r requirements.txt
+GOOGLE_API_KEY=xxx uvicorn main:app --port 8000
+```
+
+### Gerekli Ortam Değişkeni (local)
 ```ini
-# .env (kök dizinde)
+# .env (kök dizinde — Docker ai-service için)
 GOOGLE_API_KEY=your_google_ai_studio_key
 ```
 
@@ -102,10 +141,10 @@ GOOGLE_API_KEY=your_google_ai_studio_key
 
 ## JWT Konfigürasyonu
 
-| Servis | Secret | Issuer | Audience | Süre |
-|--------|--------|--------|----------|------|
-| commerce-api | `commerce-secret-key-minimum-32-characters-long!` | commerce-api | commerce-clients | 24 saat |
-| zekai-api | `zekai-secret-key-minimum-32-characters-long-xyz!` | zekai-api | zekai-clients | 24 saat |
+| Servis | Issuer | Audience | Süre |
+|--------|--------|----------|------|
+| commerce-api | commerce-api | commerce-clients | 24 saat |
+| zekai-api | zekai-api | zekai-clients | 24 saat |
 
 İki servisin JWT'leri birbirinden tamamen bağımsızdır.
 

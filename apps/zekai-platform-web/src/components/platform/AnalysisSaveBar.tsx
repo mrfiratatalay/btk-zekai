@@ -226,7 +226,7 @@ function ProjectSelectModal({
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-bold text-foreground">Karar Odasına Ekle</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xs">
+          <button onClick={onClose} className="cursor-pointer text-muted-foreground hover:text-foreground text-xs">
             ✕
           </button>
         </div>
@@ -238,7 +238,7 @@ function ProjectSelectModal({
                 <button
                   key={p.id}
                   onClick={() => handleAdd(p.id)}
-                  className="flex w-full items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-left hover:bg-muted transition-colors"
+                  className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-left hover:bg-muted transition-colors"
                 >
                   <FolderOpen className="size-4 shrink-0 text-[#5a8a00] dark:text-[#adff41]" />
                   <div className="min-w-0">
@@ -250,7 +250,7 @@ function ProjectSelectModal({
             </div>
             <button
               onClick={() => setCreating(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-2.5 text-xs text-muted-foreground hover:border-[#adff41]/40 hover:text-[#5a8a00] dark:hover:text-[#adff41] transition-colors"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border py-2.5 text-xs text-muted-foreground hover:border-[#adff41]/40 hover:text-[#5a8a00] dark:hover:text-[#adff41] transition-colors"
             >
               <Plus className="size-3.5" />
               Yeni Karar Odası Oluştur

@@ -176,13 +176,13 @@ export default function CheckoutPage() {
 
           <div className="space-y-2">
             <label className="text-sm font-semibold text-[#111827]">Ödeme Yöntemi</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {PAYMENT_METHODS.map((p) => (
                 <button
                   key={p}
                   type="button"
                   onClick={() => setPayment(p)}
-                  className={`rounded-xl border px-3 py-3 text-sm font-semibold transition ${
+                  className={`cursor-pointer rounded-xl border px-3 py-3 text-sm font-semibold transition ${
                     payment === p
                       ? "border-[#FF6000] bg-[#FFF4EC] text-[#FF6000]"
                       : "border-[#E5E7EB] text-[#6B7280] hover:border-[#FF6000]/40"

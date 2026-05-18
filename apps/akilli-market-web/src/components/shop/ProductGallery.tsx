@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Heart, Share2 } from "lucide-react";
 import type { Product } from "@/types/product";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useFavoritesStore } from "@/lib/store/favorites-store";
@@ -37,12 +36,6 @@ export function ProductGallery({ product }: { product: Product }) {
     <div className="space-y-3">
       {/* Ana görsel */}
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-slate-50">
-        {product.discountPercent ? (
-          <Badge className="absolute left-4 top-4 z-10 rounded-full bg-red-500 px-3 py-1 text-sm font-bold text-white shadow">
-            %{product.discountPercent}
-          </Badge>
-        ) : null}
-
         {/* Favori + Paylaş */}
         <div className="absolute right-3 top-3 z-10 flex flex-col gap-2">
           <Button

@@ -9,6 +9,8 @@ import {
   LayoutDashboard,
   FolderOpen,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAnalysesStore, useCompareStore } from "@/lib/buyer-store";
@@ -30,6 +32,7 @@ export function PlatformNav() {
 
   const [user, setUser] = useState<AuthUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,7 +60,7 @@ export function PlatformNav() {
 
   return (
     <nav className="sticky top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 md:px-8">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:px-8">
 
         {/* Logo */}
         <Link href="/platform" className="flex items-center gap-2 shrink-0">
@@ -76,37 +79,39 @@ export function PlatformNav() {
 
         {/* Right side */}
         <div className="flex items-center gap-1.5">
-          {/* Nav links */}
-          {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
-            const active = exact ? pathname === href : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "relative flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150",
-                  active
-                    ? "bg-[#adff41]/15 text-[#5a8a00] dark:text-[#adff41]"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className={cn("size-4 shrink-0", active ? "text-[#5a8a00] dark:text-[#adff41]" : "")} />
-                <span className="hidden md:inline">{label}</span>
-                {href === "/platform/saved" && savedCount > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#adff41] px-1.5 text-[11px] font-black text-[#1a2e00]">
-                    {savedCount}
-                  </span>
-                )}
-                {href === "/platform/compare" && compareCount > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-black text-amber-900">
-                    {compareCount}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+          {/* Nav links — masaüstünde görünür */}
+          <div className="hidden md:flex items-center gap-1.5">
+            {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+              const active = exact ? pathname === href : pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "relative flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150",
+                    active
+                      ? "bg-[#adff41]/15 text-[#5a8a00] dark:text-[#adff41]"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Icon className={cn("size-4 shrink-0", active ? "text-[#5a8a00] dark:text-[#adff41]" : "")} />
+                  <span>{label}</span>
+                  {href === "/platform/saved" && savedCount > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#adff41] px-1.5 text-[11px] font-black text-[#1a2e00]">
+                      {savedCount}
+                    </span>
+                  )}
+                  {href === "/platform/compare" && compareCount > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-black text-amber-900">
+                      {compareCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
 
-          <div className="mx-1 h-6 w-px bg-border/60" />
+          <div className="mx-1 hidden h-6 w-px bg-border/60 md:block" />
 
           <ThemeToggle />
 
@@ -130,7 +135,6 @@ export function PlatformNav() {
 
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-1.5 w-56 overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-                  {/* Kullanıcı bilgisi */}
                   <div className="px-4 py-3">
                     <p className="text-sm font-semibold text-foreground truncate">{user.fullName}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground truncate">{user.email}</p>
@@ -147,8 +151,54 @@ export function PlatformNav() {
               )}
             </div>
           )}
+
+          {/* Hamburger — sadece mobilde görünür */}
+          <button
+            onClick={() => setMobileNavOpen((v) => !v)}
+            className="flex cursor-pointer size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+            aria-label="Menü"
+          >
+            {mobileNavOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobil açılır menü */}
+      {mobileNavOpen && (
+        <div className="border-t border-border/40 bg-background/95 backdrop-blur-xl md:hidden">
+          <div className="mx-auto max-w-6xl space-y-1 px-4 py-3">
+            {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+              const active = exact ? pathname === href : pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMobileNavOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all",
+                    active
+                      ? "bg-[#adff41]/15 text-[#5a8a00] dark:text-[#adff41]"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Icon className={cn("size-5 shrink-0", active ? "text-[#5a8a00] dark:text-[#adff41]" : "")} />
+                  {label}
+                  {href === "/platform/saved" && savedCount > 0 && (
+                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#adff41] px-1.5 text-[11px] font-black text-[#1a2e00]">
+                      {savedCount}
+                    </span>
+                  )}
+                  {href === "/platform/compare" && compareCount > 0 && (
+                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1.5 text-[11px] font-black text-amber-900">
+                      {compareCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

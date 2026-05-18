@@ -477,24 +477,26 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
             )}
 
             {addingFeature ? (
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <input
                   autoFocus
                   value={newFeatureKey}
                   onChange={(e) => setNewFeatureKey(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Tab") { e.preventDefault(); } if (e.key === "Escape") { setAddingFeature(false); setNewFeatureKey(""); setNewFeatureVal(""); } }}
                   placeholder="Özellik adı (ör. RAM)"
-                  className="h-9 w-32 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  className="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white sm:w-32"
                 />
-                <input
-                  value={newFeatureVal}
-                  onChange={(e) => setNewFeatureVal(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") addFeature(); if (e.key === "Escape") { setAddingFeature(false); setNewFeatureKey(""); setNewFeatureVal(""); } }}
-                  placeholder="Değer (ör. 16 GB)"
-                  className="h-9 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
-                />
-                <button onClick={addFeature} className="flex h-9 cursor-pointer items-center gap-1 rounded-xl bg-green-500 px-3 text-xs font-bold text-white hover:bg-green-600"><Check className="size-3.5" /> Ekle</button>
-                <button onClick={() => { setAddingFeature(false); setNewFeatureKey(""); setNewFeatureVal(""); }} className="h-9 cursor-pointer rounded-xl px-2 text-gray-400 hover:text-gray-600"><X className="size-4" /></button>
+                <div className="flex gap-2">
+                  <input
+                    value={newFeatureVal}
+                    onChange={(e) => setNewFeatureVal(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") addFeature(); if (e.key === "Escape") { setAddingFeature(false); setNewFeatureKey(""); setNewFeatureVal(""); } }}
+                    placeholder="Değer (ör. 16 GB)"
+                    className="h-9 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  />
+                  <button onClick={addFeature} className="flex h-9 cursor-pointer items-center gap-1 rounded-xl bg-green-500 px-3 text-xs font-bold text-white hover:bg-green-600"><Check className="size-3.5" /> Ekle</button>
+                  <button onClick={() => { setAddingFeature(false); setNewFeatureKey(""); setNewFeatureVal(""); }} className="h-9 cursor-pointer rounded-xl px-2 text-gray-400 hover:text-gray-600"><X className="size-4" /></button>
+                </div>
               </div>
             ) : (
               <button onClick={() => setAddingFeature(true)} className="mt-3 flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-gray-400 transition-colors hover:text-green-500">

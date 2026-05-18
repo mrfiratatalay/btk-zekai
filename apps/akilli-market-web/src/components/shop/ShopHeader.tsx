@@ -31,16 +31,23 @@ function FavoritesButton() {
 export function ShopHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white/95 backdrop-blur">
-      <div className="mx-auto max-w-[1440px] px-6 py-3">
-        <div className="flex items-center gap-4">
-          {/* Logo */}
-          <Link href="/" className="shrink-0">
+      <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-6">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-4">
+          {/* Logo — sıra 1 */}
+          <Link href="/" className="order-1 shrink-0">
             <span className="text-xl font-extrabold tracking-tight text-[#111827]">Akıllı</span>
             <span className="text-xl font-extrabold tracking-tight text-[#FF6000]">Market</span>
           </Link>
 
-          {/* Arama */}
-          <div className="relative min-w-0 flex-1">
+          {/* Sağ butonlar — mobilde logo yanında (sıra 2, ml-auto), masaüstünde sona (sm:order-3) */}
+          <div className="order-2 ml-auto flex shrink-0 items-center gap-1.5 sm:order-3 sm:ml-0">
+            <FavoritesButton />
+            <CartButton />
+            <AccountButton />
+          </div>
+
+          {/* Arama — mobilde tam genişlik ikinci satır (sıra 3), masaüstünde orta (sm:order-2) */}
+          <div className="relative order-3 w-full min-w-0 sm:order-2 sm:flex-1 sm:w-auto">
             <input
               suppressHydrationWarning
               className="h-11 w-full rounded-xl border border-[#D1D5DB] bg-white pl-4 pr-14 text-sm outline-none focus:border-[#FF6000]"
@@ -53,13 +60,6 @@ export function ShopHeader() {
             >
               <Search className="size-5" />
             </button>
-          </div>
-
-          {/* Sağ — her buton aynı border stilinde, sonunda isim+çıkış */}
-          <div className="flex shrink-0 items-center gap-1.5">
-            <FavoritesButton />
-            <CartButton />
-            <AccountButton />
           </div>
         </div>
       </div>

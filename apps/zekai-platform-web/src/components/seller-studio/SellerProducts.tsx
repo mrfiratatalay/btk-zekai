@@ -91,7 +91,7 @@ export function SellerProducts() {
         </p>
       </div>
 
-      <div className="relative w-64">
+      <div className="relative w-full sm:w-64">
         <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           value={search}
@@ -101,7 +101,7 @@ export function SellerProducts() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((product) => (
           <Link
             key={product.id}

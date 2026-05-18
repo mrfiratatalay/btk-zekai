@@ -81,7 +81,7 @@ function StatusDropdown({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 items-center gap-1.5 rounded-full border border-border/50 bg-background/90 backdrop-blur-md px-3 text-[11px] font-bold text-foreground hover:bg-background transition-colors shadow-sm"
+        className="flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-border/50 bg-background/90 backdrop-blur-md px-3 text-[11px] font-bold text-foreground hover:bg-background transition-colors shadow-sm"
       >
         {STATUS_LABELS[current]}
         <ChevronDown className="size-3 text-muted-foreground" />
@@ -103,7 +103,7 @@ function StatusDropdown({
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center gap-2 px-3 py-2.5 text-xs hover:bg-muted transition-colors",
+                  "flex w-full cursor-pointer items-center gap-2 px-3 py-2.5 text-xs hover:bg-muted transition-colors",
                   current === opt.value ? "text-foreground font-semibold" : "text-muted-foreground"
                 )}
               >
@@ -205,7 +205,7 @@ function SavedAnalysisCard({
               "flex h-10 items-center justify-center gap-1.5 rounded-xl border text-[11px] font-bold transition-all",
               inCompare
                 ? "border-amber-300/50 bg-amber-50/50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 cursor-default"
-                : "border-border bg-background text-foreground hover:bg-muted hover:border-border/80"
+                : "cursor-pointer border-border bg-background text-foreground hover:bg-muted hover:border-border/80"
             )}
           >
             {inCompare ? <Check className="size-3.5" /> : <GitCompare className="size-3.5" />}
@@ -216,9 +216,9 @@ function SavedAnalysisCard({
             onClick={() => setEditingNote((e) => !e)}
             className={cn(
               "flex h-10 items-center justify-center gap-1.5 rounded-xl border text-[11px] font-bold transition-all",
-              note 
-                ? "border-[#adff41]/50 bg-[#adff41]/10 text-[#5a8a00] dark:text-[#adff41]" 
-                : "border-border bg-background text-foreground hover:bg-muted"
+              note
+                ? "cursor-pointer border-[#adff41]/50 bg-[#adff41]/10 text-[#5a8a00] dark:text-[#adff41]"
+                : "cursor-pointer border-border bg-background text-foreground hover:bg-muted"
             )}
           >
             {note ? "Notu Gör" : "+ Not Ekle"}
@@ -228,7 +228,7 @@ function SavedAnalysisCard({
         {/* Delete */}
         <button
           onClick={() => onDelete(analysis.id)}
-          className="absolute bottom-5 right-5 flex size-8 items-center justify-center rounded-full bg-background border border-border text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-500 transition-all shadow-sm"
+          className="absolute bottom-5 right-5 flex size-8 cursor-pointer items-center justify-center rounded-full bg-background border border-border text-muted-foreground/50 opacity-0 group-hover:opacity-100 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-500 transition-all shadow-sm"
           aria-label="Sil"
         >
           <Trash2 className="size-3.5" />
@@ -345,7 +345,7 @@ export function SavedAnalysesPage() {
                   key={opt.value}
                   onClick={() => setFilter(opt.value)}
                   className={cn(
-                    "flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all",
+                    "flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all",
                     filter === opt.value
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground hover:bg-background/50"

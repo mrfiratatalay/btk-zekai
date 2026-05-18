@@ -220,7 +220,7 @@ export function ProductDetailTabs({
           <div className="max-w-lg">
             <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-100">
               {Object.entries(product.features).map(([key, value]) => (
-                <div key={key} className="grid grid-cols-[160px_1fr] text-sm">
+                <div key={key} className="grid grid-cols-[100px_1fr] text-sm sm:grid-cols-[160px_1fr]">
                   <span className="bg-slate-50 px-4 py-3.5 font-medium text-slate-500">{key}</span>
                   <span className="px-4 py-3.5 text-slate-800">{value}</span>
                 </div>

@@ -70,7 +70,7 @@ function AddAnalysisModal({
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground">Ürün Ekle</h3>
-          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          <button onClick={onClose} className="cursor-pointer rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
             <X className="size-4" />
           </button>
         </div>
@@ -99,7 +99,7 @@ function AddAnalysisModal({
                     onClose();
                     toast.success("Ürün Karar Odasına eklendi.");
                   }}
-                  className="flex w-full items-center gap-3 rounded-xl border border-border bg-muted/30 px-3 py-3 text-left hover:bg-muted transition-colors"
+                  className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-muted/30 px-3 py-3 text-left hover:bg-muted transition-colors"
                 >
                   <div className="relative size-10 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
                     <Image src={a.productImage} alt={a.productTitle} fill sizes="40px" className="object-contain p-1" />
@@ -181,7 +181,7 @@ function AnalysisRow({
         </Link>
         <button
           onClick={onRemove}
-          className="rounded-lg p-1.5 text-muted-foreground/40 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 transition-colors"
+          className="cursor-pointer rounded-lg p-1.5 text-muted-foreground/40 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 transition-colors"
           aria-label="Çıkar"
         >
           <Trash2 className="size-3.5" />
@@ -302,7 +302,7 @@ export function ProjectDetailPage() {
           </div>
           <button
             onClick={handleDelete}
-            className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 transition-colors"
+            className="shrink-0 cursor-pointer rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 transition-colors"
           >
             Odayı Sil
           </button>
@@ -362,7 +362,7 @@ export function ProjectDetailPage() {
             <p className="text-sm text-muted-foreground">Henüz ürün eklenmedi.</p>
             <button
               onClick={() => setShowAddModal(true)}
-              className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#5a8a00] dark:text-[#adff41] hover:underline"
+              className="mt-3 inline-flex cursor-pointer items-center gap-1.5 text-xs text-[#5a8a00] dark:text-[#adff41] hover:underline"
             >
               <Plus className="size-3.5" />
               Ürün Ekle

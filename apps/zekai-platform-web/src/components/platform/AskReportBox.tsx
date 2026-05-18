@@ -54,7 +54,7 @@ export function AskReportBox() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
             onClick={() => setIsOpen(true)}
-            className="group fixed bottom-24 right-6 z-50 flex items-center gap-2.5 rounded-full bg-[#adff41] px-5 py-3.5 text-sm font-bold text-[#0a0a0f] shadow-2xl hover:bg-[#9aef30] transition-all hover:scale-105"
+            className="group fixed bottom-20 right-3 z-50 flex cursor-pointer items-center gap-2.5 rounded-full bg-[#adff41] px-4 py-3 text-sm font-bold text-[#0a0a0f] shadow-2xl hover:bg-[#9aef30] transition-all hover:scale-105 sm:bottom-24 sm:right-6 sm:px-5 sm:py-3.5"
           >
             <div className="flex size-7 items-center justify-center rounded-full bg-black/10 text-[#0a0a0f] transition-transform group-hover:scale-110">
                <Sparkles className="size-4" />
@@ -71,7 +71,7 @@ export function AskReportBox() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed bottom-24 right-6 w-[360px] z-50 flex flex-col rounded-[24px] border border-border bg-background/80 backdrop-blur-3xl shadow-2xl overflow-hidden"
+            className="fixed bottom-20 right-3 z-50 flex w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-[24px] border border-border bg-background/80 shadow-2xl backdrop-blur-3xl sm:bottom-24 sm:right-6 sm:w-[360px]"
             style={{ height: "480px" }}
           >
             {/* Header */}
@@ -86,9 +86,9 @@ export function AskReportBox() {
                   <p className="text-[11px] font-medium text-muted-foreground mt-0.5">Şu an rapora odaklı</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsOpen(false)} 
-                className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              <button
+                onClick={() => setIsOpen(false)}
+                className="cursor-pointer rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <X className="size-4" />
               </button>

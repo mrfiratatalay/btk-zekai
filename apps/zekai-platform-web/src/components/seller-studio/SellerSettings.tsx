@@ -207,14 +207,14 @@ export function SellerSettings() {
 
         {/* ── Mağaza Bağlantıları ── */}
         <div className="pt-8">
-          <div className="mb-5 flex items-center justify-between">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-bold text-foreground">Mağaza Bağlantıları</p>
               <p className="mt-0.5 text-xs text-muted-foreground">API anahtarınla mağazanı bağla, ürünler otomatik çekilsin.</p>
             </div>
             <button
               onClick={() => setShowModal(true)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-green-500 px-3.5 py-2 text-sm font-bold text-white hover:bg-green-600 active:scale-95 transition-all"
+              className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-green-500 px-3.5 py-2.5 text-sm font-bold text-white hover:bg-green-600 active:scale-95 transition-all sm:w-auto sm:py-2"
             >
               <Plus className="size-4" />
               Mağaza Ekle
@@ -263,7 +263,7 @@ export function SellerSettings() {
                   <button
                     onClick={() => handleDisconnect(conn.id)}
                     disabled={disconnecting === conn.id}
-                    className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted-foreground/40 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 transition-all"
+                    className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted-foreground/40 hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 transition-all lg:opacity-0 lg:group-hover:opacity-100"
                   >
                     {disconnecting === conn.id
                       ? <Loader2 className="size-3.5 animate-spin" />

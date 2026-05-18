@@ -37,7 +37,8 @@ import { formatPrice } from "@/lib/format";
 import type { Product } from "@/types/product";
 import { cn } from "@/lib/utils";
 
-const LINK_PREFIX = "https://zekai.market/urun/";
+const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
+const LINK_PREFIX = `${COMMERCE_WEB_URL}/product/`;
 
 function resolveProductId(url: string): string | null {
   const m = url.match(/\/(?:product|urun)\/([^/?#]+)/);
@@ -154,7 +155,7 @@ export function QuickAnalyzeBar() {
               <input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="Örn: Trendyol veya Hepsiburada ürün linkini yapıştır..."
+                placeholder="Örn: Trendyol, Hepsiburada veya Akıllı Market ürün linkini yapıştır..."
                 className="h-16 w-full rounded-[32px] border border-border/50 bg-background/80 backdrop-blur-2xl pl-16 pr-36 text-base text-foreground shadow-2xl outline-none placeholder:text-muted-foreground/50 focus:border-[#adff41]/50 focus:bg-background transition-all"
               />
               <Button
@@ -182,14 +183,14 @@ export function QuickAnalyzeBar() {
                     setUrl(`${LINK_PREFIX}${item.id}`);
                     setLinkError("");
                   }}
-                  className="flex items-center gap-1.5 rounded-full border border-border/50 bg-background/50 px-4 py-1.5 text-xs font-medium text-muted-foreground hover:border-[#adff41]/30 hover:bg-[#adff41]/5 hover:text-foreground transition-all"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-border/50 bg-background/50 px-4 py-1.5 text-xs font-medium text-muted-foreground hover:border-[#adff41]/30 hover:bg-[#adff41]/5 hover:text-foreground transition-all"
                 >
                   <Package className="size-3.5" />
                   {item.label}
                 </button>
               ))}
               <a
-                href={process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000"}
+                href={COMMERCE_WEB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold text-[#5a8a00] dark:text-[#adff41] hover:underline"
@@ -262,8 +263,8 @@ export function QuickAnalyzeBar() {
                         className={cn(
                           "flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all duration-300",
                           active
-                            ? "bg-foreground text-background shadow-md scale-[1.02]"
-                            : "bg-muted/40 border border-border/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            ? "cursor-pointer bg-foreground text-background shadow-md scale-[1.02]"
+                            : "cursor-pointer bg-muted/40 border border-border/50 text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
                         <Icon className={cn("size-3.5", active ? "text-[#adff41]" : "")} />
@@ -301,7 +302,7 @@ export function QuickAnalyzeBar() {
                         prev ? `${prev}, ${q.toLowerCase()}` : q
                       )
                     }
-                    className="rounded-full border border-border/50 bg-background px-3 py-1.5 text-[11px] font-bold text-muted-foreground hover:border-[#adff41]/30 hover:text-foreground hover:bg-[#adff41]/5 transition-all"
+                    className="cursor-pointer rounded-full border border-border/50 bg-background px-3 py-1.5 text-[11px] font-bold text-muted-foreground hover:border-[#adff41]/30 hover:text-foreground hover:bg-[#adff41]/5 transition-all"
                   >
                     + {q}
                   </button>

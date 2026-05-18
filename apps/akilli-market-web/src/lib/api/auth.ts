@@ -55,7 +55,13 @@ export function logout() {
 export function getCurrentUser(): AuthUser | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem("market_user");
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem("market_user");
+    return null;
+  }
 }
 
 export function isLoggedIn(): boolean {

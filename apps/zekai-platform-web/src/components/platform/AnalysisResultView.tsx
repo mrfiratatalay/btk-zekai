@@ -23,6 +23,7 @@ import { TrustTab }      from "@/components/platform/TrustTab";
 import { cn } from "@/lib/utils";
 import { AnalysisSaveBar } from "@/components/platform/AnalysisSaveBar";
 import { AskReportBox } from "@/components/platform/AskReportBox";
+import { useMockStore } from "@/lib/store/mock-store";
 
 const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
 
@@ -94,10 +95,11 @@ export function AnalysisResultView({
 }: {
   analysis: BuyerAnalysis; product?: Product;
 }) {
-  const lv      = LEVEL[analysis.recommendationLevel];
-  const signals = buildSignals(analysis);
-  const pct     = Math.min(100, analysis.overallRiskPercent);
+  const lv        = LEVEL[analysis.recommendationLevel];
+  const signals   = buildSignals(analysis);
+  const pct       = Math.min(100, analysis.overallRiskPercent);
   const { fitScore, trustScore, priceScore } = analysis.scores;
+  const isMockMode = useMockStore((s) => s.isMockMode);
 
   return (
     <motion.div
@@ -106,9 +108,16 @@ export function AnalysisResultView({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
     >
+      {/* Mock mode banner */}
+      {isMockMode && (
+        <div className="flex items-center justify-center gap-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/50 px-4 py-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="size-3.5 shrink-0" />
+          Demo modu — AI kapasitesi geçici olarak doldu. Bu analiz gerçek Gemini verisi değil.
+        </div>
+      )}
       {/* Top bar */}
       <div className="sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-4xl items-center gap-3 px-6 py-4">
+        <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-4 sm:px-6">
           {product && (
             <div className="relative size-10 shrink-0 overflow-hidden rounded-xl border border-border/50 bg-background shadow-inner">
               <Image src={product.image} alt={product.title} fill sizes="40px" className="object-contain p-1.5 mix-blend-multiply dark:mix-blend-normal" />
@@ -128,7 +137,7 @@ export function AnalysisResultView({
 
       {/* ── Hero Section (Compact & Premium) ──── */}
       <div className="bg-background pb-10 pt-8 border-b border-border/40">
-        <div className="mx-auto max-w-3xl px-6">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
           
           <div className="flex flex-col md:flex-row md:items-start gap-8 md:gap-12">
             
@@ -183,7 +192,7 @@ export function AnalysisResultView({
       <Tabs defaultValue="fit" className="w-full">
         <div className="sticky top-[73px] z-30 border-b border-border/40 bg-background/95 px-6 py-3 backdrop-blur-md">
           <div className="mx-auto max-w-4xl">
-            <TabsList className="flex h-12 w-full max-w-[500px] mx-auto items-center justify-between rounded-full bg-muted p-1">
+            <TabsList className="flex h-12 w-full mx-auto items-center justify-between rounded-full bg-muted p-1 sm:max-w-[500px]">
               {([
                 { v: "fit",    label: "Uygunluk", score: fitScore,   inv: false },
                 { v: "trust",  label: "Güven",    score: trustScore,  inv: false },
@@ -206,7 +215,7 @@ export function AnalysisResultView({
           </div>
         </div>
 
-        <div className="mx-auto max-w-4xl px-6 py-10 pb-20">
+        <div className="mx-auto max-w-4xl px-4 py-8 pb-20 sm:px-6 sm:py-10">
           <TabsContent value="fit"    className="mt-0"><FitTab    analysis={analysis} /></TabsContent>
           <TabsContent value="trust"  className="mt-0"><TrustTab  analysis={analysis} /></TabsContent>
           <TabsContent value="price"  className="mt-0"><PriceTab  analysis={analysis} /></TabsContent>
@@ -215,8 +224,8 @@ export function AnalysisResultView({
         </div>
 
         {/* Bottom Actions */}
-        <div className="sticky bottom-0 z-40 border-t border-border/40 bg-background/95 px-6 py-4 backdrop-blur-md">
-          <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4">
+        <div className="sticky bottom-0 z-40 border-t border-border/40 bg-background/95 px-4 py-4 backdrop-blur-md sm:px-6">
+          <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 sm:gap-4">
             <AnalysisSaveBar analysis={analysis} product={product!} />
             <Button asChild className="rounded-full bg-foreground text-background hover:bg-foreground/90 shrink-0 font-bold px-8 h-12 shadow-lg transition-transform hover:scale-105">
               <Link href={`/platform?productId=${analysis.productId}`}>
