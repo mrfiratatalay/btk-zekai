@@ -18,7 +18,7 @@ const AI_TOOLS = [
     id: "simulation",
     icon: Users,
     label: "Müşteri Simülasyonu",
-    desc: "12 sentetik müşteri profiliyle ürününü test et. Kimin alıp kimin vazgeçeceğini önceden gör.",
+    desc: "5 sentetik müşteri profiliyle ürününü test et. Kimin alıp kimin vazgeçeceğini önceden gör.",
     tag: "En Popüler",
     tagColor: "green",
     href: "/seller/products",
@@ -97,7 +97,7 @@ export function SellerAIStudio() {
             </span>
             <h2 className="mt-3 text-2xl font-black">Müşteri Simülasyonu</h2>
             <p className="mt-2 max-w-md text-sm leading-relaxed text-green-100">
-              Ürününü 12 farklı sentetik müşteri profiliyle test et. Kimin satın alıp kimin vazgeçeceğini anında gör, iyileştirme önerilerini al.
+              Ürününü 5 farklı sentetik müşteri profiliyle test et. Kimin satın alıp kimin vazgeçeceğini anında gör, iyileştirme önerilerini al.
             </p>
             <Link
               href="/seller/products"

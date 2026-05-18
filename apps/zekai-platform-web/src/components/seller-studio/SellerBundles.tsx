@@ -51,6 +51,7 @@ export function SellerBundles({
   });
 
   const recs = recommendations?.recommendations ?? [];
+  const suggestedProductIdeas = recommendations?.missingOpportunity?.suggestedProductIdeas ?? [];
 
   return (
     <div className="mx-auto max-w-6xl space-y-7">
@@ -165,11 +166,13 @@ export function SellerBundles({
             <PackagePlus className="mb-3 size-8 text-lime-700 dark:text-lime-300" />
             <p className="font-black text-foreground">{recommendations.missingOpportunity.title}</p>
             <p className="mt-1 text-sm text-muted-foreground">{recommendations.missingOpportunity.message}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {recommendations.missingOpportunity.suggestedProductIdeas.map((idea) => (
-                <span key={idea} className="rounded-full bg-card px-3 py-1 text-xs font-bold text-lime-700 dark:text-lime-300">{idea}</span>
-              ))}
-            </div>
+            {suggestedProductIdeas.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {suggestedProductIdeas.map((idea) => (
+                  <span key={idea} className="rounded-full bg-card px-3 py-1 text-xs font-bold text-lime-700 dark:text-lime-300">{idea}</span>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">Önerileri görmek için paket önerisi üret.</p>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
+  AlertTriangle,
   Briefcase,
   Check,
   ChevronRight,
@@ -17,6 +18,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useMockStore } from "@/lib/store/mock-store";
 import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 import { generateSocialContent, type SocialMediaContent } from "@/lib/api/seller";
@@ -190,6 +192,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
   const [generating, setGenerating] = useState(false);
   const [content, setContent] = useState<SocialMediaContent | null>(null);
   const hasGenerated = content !== null;
+  const isMockMode = useMockStore((s) => s.isMockMode);
 
   async function handleGenerate() {
     setGenerating(true);
@@ -211,6 +214,13 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
 
   return (
     <div className="pb-16">
+      {/* Demo mod uyarısı */}
+      {isMockMode && hasGenerated && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-400">
+          <AlertTriangle className="size-4 shrink-0" />
+          Demo mod — Gemini API kapasitesi geçici olarak doldu. Bu içerik gerçek AI çıktısı değil, örnek veridir. Daha sonra tekrar deneyin.
+        </div>
+      )}
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">

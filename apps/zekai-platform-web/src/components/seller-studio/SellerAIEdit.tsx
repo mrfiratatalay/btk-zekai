@@ -4,19 +4,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import {
+  AlertTriangle,
   Check,
   ChevronRight,
   ImagePlus,
+  Info,
   Loader2,
+  Pencil,
   Plus,
   Send,
   Sparkles,
   Wand2,
   X,
-  Info,
-  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useMockStore } from "@/lib/store/mock-store";
 import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 import {
@@ -105,6 +107,8 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
 
   const [hasStoreConnection, setHasStoreConnection] = useState(false);
   const [simulationInsight, setSimulationInsight]   = useState<SimulationInsight | null>(null);
+
+  const isMockMode = useMockStore((s) => s.isMockMode);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -257,6 +261,13 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
 
   return (
     <div className="pb-12">
+      {/* Demo mod uyarısı — Gemini API limiti aşıldığında mock içerik üretilir */}
+      {isMockMode && (aiApplied || generatedImages.length > 0) && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-400">
+          <AlertTriangle className="size-4 shrink-0" />
+          Demo mod — Gemini API kapasitesi geçici olarak doldu. Bu içerik gerçek AI çıktısı değil, örnek veridir. Daha sonra tekrar deneyin.
+        </div>
+      )}
       <div className="flex items-center gap-1.5 text-sm text-gray-400">
         <Link href="/seller/products" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">
           Ürünlerim

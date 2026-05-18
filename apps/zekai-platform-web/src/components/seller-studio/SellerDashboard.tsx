@@ -317,7 +317,7 @@ export function SellerDashboard() {
             <div>
               <p className="text-lg font-black text-foreground">Müşteri Simülasyonu</p>
               <p className="mt-1 text-sm text-gray-500 dark:text-muted-foreground">
-                12 farklı alıcı profiliyle ürününü test et. Kimin neden satın alıp almadığını gör.
+                5 farklı alıcı profiliyle ürününü test et. Kimin neden satın alıp almadığını gör.
               </p>
             </div>
             <div className="flex items-center gap-1.5 text-sm font-bold text-green-600 dark:text-green-400">

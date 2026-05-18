@@ -9,6 +9,7 @@ import {
   MessageSquare, ShoppingCart, ThumbsDown, XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMockStore } from "@/lib/store/mock-store";
 import type { SellerProductPerformance, SyntheticPersona } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 import { streamSimulateProduct } from "@/lib/api/seller";
@@ -482,6 +483,7 @@ function SimulationCompleted({ product, personas }: { product: SellerProductPerf
 export function SellerSimulation({ product }: { product: SellerProductPerformance }) {
   const [personas,   setPersonas]   = useState<SyntheticPersona[]>([]);
   const [totalPersonas, setTotalPersonas] = useState(MAX_PERSONAS);
+  const isMockMode = useMockStore((s) => s.isMockMode);
   const [streamDone, setStreamDone] = useState(false);
   const [streamStep, setStreamStep] = useState<string | null>("Simülasyon başlatılıyor...");
   const [loading,    setLoading]    = useState(true);
@@ -571,16 +573,31 @@ export function SellerSimulation({ product }: { product: SellerProductPerformanc
     );
   }
 
-  if (completed) return <SimulationCompleted product={product} personas={personas} />;
+  const mockBanner = isMockMode && personas.length > 0 ? (
+    <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-400">
+      <MessageSquare className="size-4 shrink-0" />
+      Demo mod — Gemini API kapasitesi geçici olarak doldu. Bu simülasyon gerçek AI profilleri değil, sabit demo verisidir.
+    </div>
+  ) : null;
+
+  if (completed) return (
+    <div>
+      {mockBanner}
+      <SimulationCompleted product={product} personas={personas} />
+    </div>
+  );
 
   return (
-    <SimulationRunning
-      product={product}
-      personas={personas}
-      totalPersonas={totalPersonas}
-      activeStep={activeStep}
-      phase={phase}
-      streamStep={streamStep}
-    />
+    <div>
+      {mockBanner}
+      <SimulationRunning
+        product={product}
+        personas={personas}
+        totalPersonas={totalPersonas}
+        activeStep={activeStep}
+        phase={phase}
+        streamStep={streamStep}
+      />
+    </div>
   );
 }
