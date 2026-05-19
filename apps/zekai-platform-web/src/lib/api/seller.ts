@@ -48,7 +48,13 @@ export const connectStore = (storeApiKey: string, storeName: string, platform = 
 export const disconnectStore = (connectionId: string) =>
   apiFetch<void>(`/api/seller/connections/${connectionId}`, { method: "DELETE" });
 
-export const getSellerProducts = () => apiFetch<SellerProduct[]>("/api/seller/products");
+export const getSellerProducts = (refresh = false) => {
+  const query = refresh ? `?_=${Date.now()}` : "";
+  return apiFetch<SellerProduct[]>(`/api/seller/products${query}`, {
+    cache: "no-store",
+    headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+  });
+};
 
 export const getSellerProduct = (id: string) =>
   apiFetch<SellerProduct>(`/api/seller/products/${id}`);
