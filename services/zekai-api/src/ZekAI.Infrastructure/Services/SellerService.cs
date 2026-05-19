@@ -13,6 +13,8 @@ namespace ZekAI.Infrastructure.Services;
 public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServiceClient aiService)
 {
     private static readonly TimeSpan BundleRecommendationCacheTtl = TimeSpan.FromDays(7);
+    private const decimal BundleRecommendationDiscountPercent = 5m;
+    private const string BundleRecommendationDiscountPolicyVersion = "backend-fixed-5-v1";
 
     public async Task<List<StoreConnectionDto>> GetConnectionsAsync(Guid userId)
     {
@@ -352,7 +354,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             {
                 var comp = productMap[r.ComplementaryProductId];
                 var originalTotal = pd.Price + comp.Price;
-                var discountAmount = Math.Round(originalTotal * r.SuggestedDiscount / 100m, 2);
+                var discountAmount = Math.Round(originalTotal * BundleRecommendationDiscountPercent / 100m, 2);
                 return new
                 {
                     primaryProduct = new
@@ -371,7 +373,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
                     suggestedShortDescription = r.BundleShortDescription,
                     suggestedCampaignText = r.BundleCampaignText,
                     suggestedCtaLabel = r.CtaLabel,
-                    suggestedDiscountPercent = (decimal)r.SuggestedDiscount,
+                    suggestedDiscountPercent = BundleRecommendationDiscountPercent,
                     recommendationReason = r.WhyTogether,
                     score = r.SemanticScore,
                     originalTotal,
@@ -448,6 +450,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
                     .Select(kv => new { kv.Key, kv.Value })
                     .ToList(),
             },
+            discountPolicyVersion = BundleRecommendationDiscountPolicyVersion,
             candidates = candidates
                 .OrderBy(c => c.Id)
                 .Select(c => new
