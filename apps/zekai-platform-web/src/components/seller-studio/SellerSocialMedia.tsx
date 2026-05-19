@@ -954,7 +954,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
       {/* Two-column layout: sticky settings (left) + content (right) */}
       <div className="grid gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
         {/* Left sticky column */}
-        <div className="space-y-4 lg:sticky lg:top-0 lg:self-start">
+        <div className="space-y-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
           <ProductSummary product={product} />
           <SettingsPanel
             tone={tone}
