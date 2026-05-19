@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Eye, EyeOff, Lock, Mail, Sparkles, TrendingUp } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, TrendingUp } from "lucide-react";
 import { login } from "@/lib/api/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { ZekaiLogo } from "@/components/ui/ZekaiLogo";
 
 type Role = "buyer" | "seller";
 
@@ -42,11 +43,8 @@ export function LoginPage() {
       </div>
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="mb-8 flex items-center justify-center gap-2.5">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-[#C1F25D]">
-            <Sparkles className="size-5 text-black" />
-          </div>
-          <span className="text-2xl font-bold tracking-tight text-foreground">ZekAI</span>
+        <div className="mb-8 flex items-center justify-center">
+          <ZekaiLogo size="lg" />
         </div>
 
         {/* Card */}

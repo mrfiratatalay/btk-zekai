@@ -177,14 +177,12 @@ export function Step2Place({ fullscreen = false }: { fullscreen?: boolean }) {
     }
   }
 
-  // ── Desktop split layout ───────────────────────────────────────────────────
+  // ── Layout ───────────────────────────────────────────────────────────────
   return (
-    <div className={cn("flex flex-col min-h-screen bg-[#080808]", fullscreen && "")}>
-      {/* ── Desktop: side-by-side grid; Mobile: column ── */}
-      <div className="flex flex-1 flex-col lg:flex-row min-h-screen">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#080808] lg:flex-row">
 
-        {/* ── LEFT: 3D Figure (full height on desktop) ── */}
-        <div className="relative w-full lg:flex-1 bg-[#080808]" style={{ minHeight: 420 }}>
+        {/* ── LEFT: 3D Figure — fixed height on mobile, fills width on desktop ── */}
+        <div className="relative w-full overflow-hidden bg-[#080808] h-[42vh] flex-shrink-0 lg:h-auto lg:flex-1">
           {/* Back button (desktop) */}
           <button
             onClick={() => prevStep()}
@@ -204,24 +202,24 @@ export function Step2Place({ fullscreen = false }: { fullscreen?: boolean }) {
           </div>
 
           {/* Step indicator */}
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1">
             {[
               { n: 1, label: "Amaç" },
               { n: 2, label: "Yerleştir" },
               { n: 3, label: "Analiz" },
             ].map((s, i) => (
-              <div key={s.n} className="flex items-center gap-1.5">
+              <div key={s.n} className="flex items-center gap-1">
                 <div className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold",
+                  "flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold",
                   s.n === 2 ? "bg-[#adff41] text-[#1a2e00]" : "border border-white/20 text-white/40",
                 )}>
                   <span className={cn(
-                    "flex size-4 items-center justify-center rounded-full text-[10px] font-black",
+                    "flex size-3.5 items-center justify-center rounded-full text-[9px] font-black",
                     s.n === 2 ? "bg-[#1a2e00] text-[#adff41]" : "border border-current",
                   )}>{s.n}</span>
                   {s.label}
                 </div>
-                {i < 2 && <div className="h-px w-3 bg-white/15" />}
+                {i < 2 && <div className="h-px w-2 bg-white/15" />}
               </div>
             ))}
           </div>
@@ -281,8 +279,8 @@ export function Step2Place({ fullscreen = false }: { fullscreen?: boolean }) {
           </div>
         </div>
 
-        {/* ── RIGHT: Panel (scrollable) ── */}
-        <div className="w-full lg:w-[420px] xl:w-[480px] flex flex-col bg-background border-l border-border/60 overflow-y-auto">
+        {/* ── RIGHT: Panel — fills remaining viewport height on mobile, fixed width on desktop ── */}
+        <div className="flex flex-1 flex-col overflow-y-auto border-t border-border/60 bg-background lg:flex-none lg:w-[420px] xl:w-[480px] lg:border-t-0 lg:border-l">
           <div className="flex-1 p-5 space-y-4">
 
             {/* Products list */}
@@ -441,7 +439,6 @@ export function Step2Place({ fullscreen = false }: { fullscreen?: boolean }) {
             )}
           </div>
         </div>
-      </div>
 
       {/* Product selector */}
       <AnimatePresence>

@@ -7,17 +7,7 @@ import { ChevronLeft, ChevronRight, ChevronUp, LogOut, Package, Settings } from 
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-
-function ZekAILogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <rect x="0" y="0" width="12" height="12" rx="3" fill="#22c55e" />
-      <rect x="16" y="0" width="12" height="12" rx="3" fill="#22c55e" opacity="0.7" />
-      <rect x="0" y="16" width="12" height="12" rx="3" fill="#22c55e" opacity="0.7" />
-      <rect x="16" y="16" width="12" height="12" rx="3" fill="#22c55e" opacity="0.4" />
-    </svg>
-  );
-}
+import { ZekaiLogo } from "@/components/ui/ZekaiLogo";
 
 const NAV_ITEMS = [
   { label: "Ürünlerim", href: "/seller/products", icon: Package },
@@ -89,11 +79,10 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
         <div className={cn("flex h-16 shrink-0 items-center border-b border-border px-3", collapsed ? "justify-center" : "justify-between px-4")}>
           {!collapsed && (
             <div className="flex items-center gap-2.5">
-              <ZekAILogo size={26} />
-              <span className="text-base font-black tracking-tight text-foreground">ZekAI</span>
+              <ZekaiLogo size="md" />
             </div>
           )}
-          {collapsed && <ZekAILogo size={24} />}
+          {collapsed && <ZekaiLogo size="md" showText={false} />}
           <button
             onClick={toggleCollapse}
             className={cn(
@@ -184,8 +173,7 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
         {/* Top header */}
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-border bg-card/80 px-4 sm:px-6 backdrop-blur-xl">
           <div className="flex items-center gap-2 lg:hidden">
-            <ZekAILogo size={22} />
-            <span className="text-base font-black text-foreground">ZekAI</span>
+            <ZekaiLogo size="md" />
           </div>
           <div className="hidden lg:block" />
           <ThemeToggle className="text-muted-foreground hover:bg-muted" />

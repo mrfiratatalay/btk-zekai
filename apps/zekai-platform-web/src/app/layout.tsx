@@ -12,7 +12,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Zekai — AI Commerce Platform",
+  title: "ZekAI — AI Commerce Platform",
   description:
     "Alıcılar için pişmanlık riski analizi, satıcılar için ürün optimizasyonu sunan AI SaaS platformu.",
 };

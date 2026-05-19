@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowRight, CheckCircle, Eye, EyeOff, Lock, Mail, Phone, Sparkles, Store, User } from "lucide-react";
+import { ArrowRight, CheckCircle, Eye, EyeOff, Lock, Mail, Phone, Store, User } from "lucide-react";
 import { register } from "@/lib/api/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import { ZekaiLogo } from "@/components/ui/ZekaiLogo";
 
 type Role = "buyer" | "seller";
 
@@ -103,11 +104,8 @@ export function RegisterPage() {
       </div>
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="mb-8 flex items-center justify-center gap-2.5">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-[#C1F25D]">
-            <Sparkles className="size-5 text-black" />
-          </div>
-          <span className="text-2xl font-bold tracking-tight text-foreground">ZekAI</span>
+        <div className="mb-8 flex items-center justify-center">
+          <ZekaiLogo size="lg" />
         </div>
 
         <div className="rounded-3xl border border-border bg-card p-8 shadow-sm" style={{ borderRadius: "24px" }}>

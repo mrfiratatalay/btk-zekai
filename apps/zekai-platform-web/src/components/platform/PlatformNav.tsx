@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useAnalysesStore, useCompareStore, useKombinsStore } from "@/lib/buyer-store";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
+import { ZekaiLogo } from "@/components/ui/ZekaiLogo";
 
 const NAV_ITEMS = [
   { href: "/platform", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -66,18 +67,8 @@ export function PlatformNav() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:px-8">
 
         {/* Logo */}
-        <Link href="/platform" className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center justify-center size-8 rounded-lg bg-[#adff41] shadow-sm">
-            <span className="text-sm font-black text-[#1a2e00] leading-none">Z</span>
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="text-base font-black text-foreground tracking-tight">
-              Zek<span className="text-[#5a8a00] dark:text-[#adff41]">AI</span>
-            </span>
-            <span className="text-[10px] font-semibold tracking-widest text-muted-foreground/50 uppercase">
-              Karar Merkezi
-            </span>
-          </div>
+        <Link href="/platform" className="shrink-0">
+          <ZekaiLogo size="md" subtitle="Karar Merkezi" />
         </Link>
 
         {/* Right side */}

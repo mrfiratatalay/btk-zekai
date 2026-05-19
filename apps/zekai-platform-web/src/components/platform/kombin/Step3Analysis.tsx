@@ -143,9 +143,9 @@ export function Step3Analysis() {
       className="flex flex-col gap-5"
     >
       {/* Overall Score */}
-      <div className="flex items-center gap-5 rounded-2xl border border-border bg-card p-5">
+      <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:gap-5 sm:items-start">
         <ScoreGauge score={scores.overall} />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 text-center sm:text-left">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
             Genel Kombin Skoru
           </p>
@@ -155,7 +155,7 @@ export function Step3Analysis() {
       </div>
 
       {/* Sub scores */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <SubScoreCard icon={Heart}       label="İhtiyaç Uyumu"  value={scores.needFit} />
         <SubScoreCard icon={Puzzle}      label="Parça Uyumu"    value={scores.partFit} />
         <SubScoreCard icon={Scale}       label="Bütçe Dengesi"  value={scores.budgetBalance} />

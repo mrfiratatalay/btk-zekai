@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ZekaiLogo } from "@/components/ui/ZekaiLogo";
 import {
   ArrowRight,
   BarChart3,
@@ -146,11 +147,8 @@ export function ZekaiLanding() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5" onClick={closeMobileMenu}>
-            <div className="flex size-9 sm:size-10 items-center justify-center rounded-xl bg-[#C1F25D]">
-              <Sparkles className="size-4 sm:size-5 text-black" />
-            </div>
-            <span className="text-lg sm:text-xl font-bold tracking-tight text-foreground">ZekAI</span>
+          <Link href="/" onClick={closeMobileMenu}>
+            <ZekaiLogo size="lg" />
           </Link>
 
           {/* Desktop nav links */}
@@ -664,12 +662,7 @@ export function ZekaiLanding() {
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer className="border-t border-border bg-card py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-4 sm:px-6 md:flex-row md:justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-[#C1F25D]">
-              <Sparkles className="size-4 text-black" />
-            </div>
-            <span className="font-bold text-foreground">ZekAI</span>
-          </div>
+          <ZekaiLogo size="md" />
           <p className="text-center text-sm text-muted-foreground">© 2025 ZekAI — AI Commerce Platform. Tüm hakları saklıdır.</p>
           <div className="flex gap-4 text-sm text-muted-foreground">
             <Link href="/privacy" className="transition-colors hover:text-foreground">Gizlilik</Link>

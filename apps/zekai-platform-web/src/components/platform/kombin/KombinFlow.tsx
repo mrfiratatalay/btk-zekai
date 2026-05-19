@@ -37,7 +37,7 @@ function StepIndicator({ current }: { current: number }) {
           <div key={step.id} className="flex items-center gap-1.5">
             <div
               className={cn(
-                "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all",
+                "flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition-all",
                 state === "active" && "bg-[#adff41] text-[#1a2e00]",
                 state === "done" && "bg-muted text-muted-foreground",
                 state === "idle" && "border border-border text-muted-foreground bg-transparent",
