@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Bot, ChevronRight, Eye, Package, PackagePlus, Share2, Sparkles } from "lucide-react";
+import { Bot, ChevronRight, Eye, MessageCircle, Package, PackagePlus, Share2, Sparkles } from "lucide-react";
 import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 
@@ -17,6 +17,7 @@ const MODULES = [
     href: (id: string) => `/seller/product/${id}/ai-edit`,
     iconBg: "bg-blue-500/10",
     iconColor: "text-blue-600 dark:text-blue-400",
+    badge: undefined,
   },
   {
     key: "simulation",
@@ -26,6 +27,7 @@ const MODULES = [
     href: (id: string) => `/seller/product/${id}/simulation`,
     iconBg: "bg-green-500/10",
     iconColor: "text-green-600 dark:text-green-400",
+    badge: undefined,
   },
   {
     key: "social",
@@ -35,6 +37,7 @@ const MODULES = [
     href: (id: string) => `/seller/product/${id}/social`,
     iconBg: "bg-green-500/10",
     iconColor: "text-green-600 dark:text-green-400",
+    badge: undefined,
   },
   {
     key: "bundles",
@@ -44,6 +47,17 @@ const MODULES = [
     href: (id: string) => `/seller/product/${id}/bundles`,
     iconBg: "bg-lime-500/10",
     iconColor: "text-lime-700 dark:text-lime-300",
+    badge: undefined,
+  },
+  {
+    key: "customer-voice",
+    icon: MessageCircle,
+    title: "Müşteri Sesi AI",
+    description: "Yorumlara yanıt taslakları ve SSS önerileri üret",
+    href: (id: string) => `/seller/product/${id}/customer-voice`,
+    iconBg: "bg-violet-500/10",
+    iconColor: "text-violet-600 dark:text-violet-400",
+    badge: "YENİ",
   },
 ] as const;
 
@@ -111,7 +125,14 @@ export function SellerProductDetail({ product }: { product: SellerProductPerform
                   <Icon className={`size-4 ${mod.iconColor}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-foreground">{mod.title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-foreground">{mod.title}</p>
+                    {mod.badge && (
+                      <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-600 dark:text-violet-400">
+                        {mod.badge}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">{mod.description}</p>
                 </div>
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5" />

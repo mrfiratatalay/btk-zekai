@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using ZekAI.Application.DTOs.Products;
 using ZekAI.Domain.Entities;
+using ZekAI.Domain.Entities;
 using ZekAI.Domain.Enums;
 using ZekAI.Infrastructure.Data;
 
@@ -73,14 +74,22 @@ public class ProductService(AppDbContext db)
 
     public async Task<List<ProductReviewDto>> GetReviewsAsync(string productId)
     {
-        return await db.ProductReviews
+        var rawReviews = await db.ProductReviews
             .Where(r => r.ProductId == productId)
             .OrderByDescending(r => r.HelpfulCount)
-            .Select(r => new ProductReviewDto(
-                r.Id, r.AuthorName, r.Rating, r.Title, r.Text,
-                r.VerifiedPurchase, r.Date, r.HelpfulCount,
-                JsonSerializer.Deserialize<List<string>>(r.TagsJson) ?? new()
-            )).ToListAsync();
+            .ToListAsync();
+
+        var reviewIds = rawReviews.Select(r => r.Id).ToList();
+        var replies = await db.ReviewReplies
+            .Where(rr => reviewIds.Contains(rr.ReviewId))
+            .ToDictionaryAsync(rr => rr.ReviewId, rr => rr.ReplyText);
+
+        return rawReviews.Select(r => new ProductReviewDto(
+            r.Id, r.AuthorName, r.Rating, r.Title, r.Text,
+            r.VerifiedPurchase, r.Date, r.HelpfulCount,
+            JsonSerializer.Deserialize<List<string>>(r.TagsJson) ?? new(),
+            replies.TryGetValue(r.Id, out var reply) ? reply : null
+        )).ToList();
     }
 
     public async Task<ProductReviewDto> CreateReviewAsync(string productId, Guid userId, CreateProductReviewRequest req)
@@ -127,6 +136,15 @@ public class ProductService(AppDbContext db)
             review.VerifiedPurchase, review.Date, review.HelpfulCount,
             req.Tags ?? []
         );
+    }
+
+    public async Task<List<ProductFaqDto>> GetPublicFaqsAsync(string productId)
+    {
+        return await db.ProductFaqs
+            .Where(f => f.ProductId == productId)
+            .OrderBy(f => f.SortOrder).ThenBy(f => f.CreatedAt)
+            .Select(f => new ProductFaqDto(f.Id, f.Question, f.Answer, f.CategoryTag, f.SortOrder, f.CreatedAt))
+            .ToListAsync();
     }
 
     public async Task<List<PriceHistoryDto>> GetPriceHistoryAsync(string productId)

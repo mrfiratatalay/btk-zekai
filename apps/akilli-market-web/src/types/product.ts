@@ -10,6 +10,7 @@ export type ProductReview = {
   date: string;
   helpfulCount: number;
   tags: string[];
+  sellerReply: string | null;
 };
 
 export type Product = {

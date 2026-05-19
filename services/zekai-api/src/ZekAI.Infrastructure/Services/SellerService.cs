@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using ZekAI.Application.DTOs;
 using ZekAI.Domain.Entities;
 using ZekAI.Infrastructure.Data;
@@ -10,7 +11,7 @@ using ZekAI.Infrastructure.Http;
 
 namespace ZekAI.Infrastructure.Services;
 
-public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServiceClient aiService)
+public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServiceClient aiService, IHttpClientFactory httpClientFactory, IConfiguration config)
 {
     private static readonly TimeSpan BundleRecommendationCacheTtl = TimeSpan.FromDays(7);
     private const decimal BundleRecommendationDiscountPercent = 5m;
@@ -1141,5 +1142,203 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         return node is JsonObject obj &&
                obj.TryGetPropertyValue("_mock", out var mockNode) &&
                mockNode?.GetValue<bool>() == true;
+    }
+
+    // ── Customer Voice ────────────────────────────────────────────────────────
+
+    public async Task<CustomerVoiceDto> GetCustomerVoiceAsync(Guid userId, string productId)
+    {
+        var conn = await GetConnectionAsync(userId);
+
+        var replyDrafts = await db.ReviewReplyDrafts
+            .Where(d => d.ZekaiUserId == userId && d.ProductId == productId)
+            .OrderBy(d => d.ReviewId)
+            .Select(d => new ReviewReplyDraftDto(
+                d.Id, d.ReviewId, d.ReviewText, d.AuthorName, d.Rating,
+                d.SuggestedReply, d.Sentiment, d.IssueType, d.NeedsReply,
+                d.Status, d.CreatedAt, d.PublishedAt))
+            .ToListAsync();
+
+        var faqDraftsRaw = await db.FaqDrafts
+            .Where(d => d.ZekaiUserId == userId && d.ProductId == productId)
+            .OrderBy(d => d.CreatedAt)
+            .ToListAsync();
+
+        var faqDrafts = faqDraftsRaw.Select(d => new FaqDraftDto(
+            d.Id, d.Question, d.Answer,
+            JsonSerializer.Deserialize<List<int>>(d.SourceReviewIdsJson) ?? [],
+            d.CategoryTag, d.Status, d.CreatedAt, d.PublishedAt))
+            .ToList();
+
+        var reviews = await commerce.GetSellerProductReviewsAsync(conn.CommerceAccessToken, productId);
+
+        return new CustomerVoiceDto(reviews.Select(r => new CommerceReviewSummaryDto(
+            r.Id, r.AuthorName, r.Rating, r.Title, r.Text, r.VerifiedPurchase, r.Date, r.Tags ?? []
+        )).ToList(), replyDrafts, faqDrafts);
+    }
+
+    public async Task<CustomerVoiceDto> GenerateCustomerVoiceAsync(Guid userId, string productId)
+    {
+        var conn = await GetConnectionAsync(userId);
+
+        var reviews = await commerce.GetSellerProductReviewsAsync(conn.CommerceAccessToken, productId);
+        if (reviews.Count == 0)
+            throw new InvalidOperationException("Bu ürün için henüz yorum bulunmuyor.");
+
+        var product = await commerce.GetSellerProductAsync(conn.CommerceAccessToken, productId)
+            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+
+        var reviewInputs = reviews.Select(r => new AiReviewInput(
+            r.Id, r.AuthorName, r.Rating, r.Text, r.Tags ?? []
+        )).ToList();
+
+        var aiResult = await aiService.GenerateCustomerVoiceAsync(
+            product.Title, product.Category, reviewInputs);
+
+        if (aiResult is null)
+            throw new InvalidOperationException("AI servisi yanıt vermedi.");
+
+        // Mevcut taslakları sil, yenilerini kaydet
+        var existingReplies = await db.ReviewReplyDrafts
+            .Where(d => d.ZekaiUserId == userId && d.ProductId == productId && d.Status == "draft")
+            .ToListAsync();
+        db.ReviewReplyDrafts.RemoveRange(existingReplies);
+
+        var existingFaqs = await db.FaqDrafts
+            .Where(d => d.ZekaiUserId == userId && d.ProductId == productId && d.Status == "draft")
+            .ToListAsync();
+        db.FaqDrafts.RemoveRange(existingFaqs);
+
+        var reviewMap = reviews.ToDictionary(r => r.Id);
+
+        foreach (var draft in aiResult.ReplyDrafts)
+        {
+            if (!reviewMap.TryGetValue(draft.ReviewId, out var review)) continue;
+            db.ReviewReplyDrafts.Add(new ReviewReplyDraft
+            {
+                ZekaiUserId = userId,
+                ProductId = productId,
+                ReviewId = draft.ReviewId,
+                ReviewText = review.Text,
+                AuthorName = review.AuthorName,
+                Rating = review.Rating,
+                SuggestedReply = draft.SuggestedReply,
+                Sentiment = draft.Sentiment,
+                IssueType = draft.IssueType,
+                NeedsReply = draft.NeedsReply,
+                Status = "draft",
+            });
+        }
+
+        foreach (var faq in aiResult.FaqDrafts)
+        {
+            db.FaqDrafts.Add(new FaqDraft
+            {
+                ZekaiUserId = userId,
+                ProductId = productId,
+                Question = faq.Question,
+                Answer = faq.Answer,
+                SourceReviewIdsJson = JsonSerializer.Serialize(faq.SourceReviewIds),
+                CategoryTag = faq.CategoryTag,
+                Status = "draft",
+            });
+        }
+
+        await db.SaveChangesAsync();
+
+        return await GetCustomerVoiceAsync(userId, productId);
+    }
+
+    public async Task<ReviewReplyDraftDto> PublishReviewReplyDraftAsync(Guid userId, int draftId)
+    {
+        var draft = await db.ReviewReplyDrafts
+            .FirstOrDefaultAsync(d => d.Id == draftId && d.ZekaiUserId == userId)
+            ?? throw new KeyNotFoundException("Taslak bulunamadı.");
+
+        var conn = await GetConnectionAsync(userId);
+        await commerce.PublishReviewReplyAsync(conn.CommerceAccessToken, draft.ProductId, draft.ReviewId, draft.SuggestedReply);
+
+        draft.Status = "published";
+        draft.PublishedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        _ = TriggerMarketRevalidateAsync(draft.ProductId);
+
+        return new ReviewReplyDraftDto(
+            draft.Id, draft.ReviewId, draft.ReviewText, draft.AuthorName, draft.Rating,
+            draft.SuggestedReply, draft.Sentiment, draft.IssueType, draft.NeedsReply,
+            draft.Status, draft.CreatedAt, draft.PublishedAt);
+    }
+
+    public async Task<FaqDraftDto> PublishFaqDraftAsync(Guid userId, int draftId, int sortOrder = 0)
+    {
+        var draft = await db.FaqDrafts
+            .FirstOrDefaultAsync(d => d.Id == draftId && d.ZekaiUserId == userId)
+            ?? throw new KeyNotFoundException("Taslak bulunamadı.");
+
+        var conn = await GetConnectionAsync(userId);
+        await commerce.PublishFaqAsync(conn.CommerceAccessToken, draft.ProductId, draft.Question, draft.Answer, draft.CategoryTag, sortOrder);
+
+        draft.Status = "published";
+        draft.PublishedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        _ = TriggerMarketRevalidateAsync(draft.ProductId);
+
+        return new FaqDraftDto(
+            draft.Id, draft.Question, draft.Answer,
+            JsonSerializer.Deserialize<List<int>>(draft.SourceReviewIdsJson) ?? [],
+            draft.CategoryTag, draft.Status, draft.CreatedAt, draft.PublishedAt);
+    }
+
+    public async Task<ReviewReplyDraftDto> UpdateReplyDraftAsync(Guid userId, int draftId, string newText)
+    {
+        var draft = await db.ReviewReplyDrafts
+            .FirstOrDefaultAsync(d => d.Id == draftId && d.ZekaiUserId == userId)
+            ?? throw new KeyNotFoundException("Taslak bulunamadı.");
+
+        draft.SuggestedReply = newText.Trim();
+        await db.SaveChangesAsync();
+
+        return new ReviewReplyDraftDto(
+            draft.Id, draft.ReviewId, draft.ReviewText, draft.AuthorName, draft.Rating,
+            draft.SuggestedReply, draft.Sentiment, draft.IssueType, draft.NeedsReply,
+            draft.Status, draft.CreatedAt, draft.PublishedAt);
+    }
+
+    public async Task<FaqDraftDto> UpdateFaqDraftAsync(Guid userId, int draftId, string question, string answer)
+    {
+        var draft = await db.FaqDrafts
+            .FirstOrDefaultAsync(d => d.Id == draftId && d.ZekaiUserId == userId)
+            ?? throw new KeyNotFoundException("Taslak bulunamadı.");
+
+        draft.Question = question.Trim();
+        draft.Answer = answer.Trim();
+        await db.SaveChangesAsync();
+
+        return new FaqDraftDto(
+            draft.Id, draft.Question, draft.Answer,
+            JsonSerializer.Deserialize<List<int>>(draft.SourceReviewIdsJson) ?? [],
+            draft.CategoryTag, draft.Status, draft.CreatedAt, draft.PublishedAt);
+    }
+
+    private async Task<SellerStoreConnection> GetConnectionAsync(Guid userId)
+    {
+        return await db.StoreConnections.FirstOrDefaultAsync(sc => sc.ZekaiUserId == userId && sc.Status == "connected")
+            ?? throw new InvalidOperationException("Aktif mağaza bağlantısı bulunamadı.");
+    }
+
+    private async Task TriggerMarketRevalidateAsync(string productId)
+    {
+        try
+        {
+            var secret = config["Market:RevalidateSecret"] ?? "zekai-revalidate-2024";
+            var client = httpClientFactory.CreateClient("AkilliMarket");
+            await client.PostAsync($"/api/revalidate?secret={secret}&productId={productId}", null);
+        }
+        catch
+        {
+            // Revalidation failure must never break the publish flow
+        }
     }
 }

@@ -120,6 +120,17 @@ export async function postProductReview(
 export const getProductBundles = (id: string) =>
   apiFetch<PublicProductBundle[]>(`/api/products/${id}/bundles`, [], { cache: "no-store" });
 
+export interface ProductFaq {
+  id: number;
+  question: string;
+  answer: string;
+  categoryTag: string;
+  sortOrder: number;
+}
+
+export const getProductFaqs = (id: string) =>
+  apiFetch<ProductFaq[]>(`/api/products/${id}/faqs`, [], { next: { revalidate: 60 } });
+
 export interface Category {
   id: number;
   name: string;

@@ -378,6 +378,48 @@ namespace ZekAI.Infrastructure.Migrations
                     b.ToTable("ProductBundles");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.ProductFaq", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CategoryTag")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SellerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SellerId");
+
+                    b.HasIndex("ProductId", "SellerId", "Question");
+
+                    b.ToTable("ProductFaqs");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.ProductImage", b =>
                 {
                     b.Property<int>("Id")
@@ -522,6 +564,43 @@ namespace ZekAI.Infrastructure.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.ReviewReply", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReplyText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("ReviewId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SellerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ReviewId")
+                        .IsUnique();
+
+                    b.HasIndex("SellerId");
+
+                    b.ToTable("ReviewReplies");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.Seller", b =>
@@ -680,7 +759,7 @@ namespace ZekAI.Infrastructure.Migrations
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("StoreConnections");
+                    b.ToTable("StoreConnections", (string)null);
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.User", b =>
@@ -816,6 +895,25 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Navigation("Seller");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.ProductFaq", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZekAI.Domain.Entities.Seller", "Seller")
+                        .WithMany()
+                        .HasForeignKey("SellerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Seller");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.ProductImage", b =>
                 {
                     b.HasOne("ZekAI.Domain.Entities.Product", "Product")
@@ -865,6 +963,33 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.ReviewReply", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZekAI.Domain.Entities.ProductReview", "Review")
+                        .WithMany()
+                        .HasForeignKey("ReviewId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ZekAI.Domain.Entities.Seller", "Seller")
+                        .WithMany()
+                        .HasForeignKey("SellerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Review");
+
+                    b.Navigation("Seller");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.Seller", b =>

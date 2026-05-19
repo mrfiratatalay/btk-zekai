@@ -69,7 +69,8 @@ public record ProductReviewDto(
     bool VerifiedPurchase,
     DateTime Date,
     int HelpfulCount,
-    List<string> Tags
+    List<string> Tags,
+    string? SellerReply = null
 );
 
 public class CreateProductReviewRequest
@@ -82,3 +83,19 @@ public class CreateProductReviewRequest
 
 public record PriceHistoryDto(string Day, decimal Price, decimal MarketMedian);
 public record CategoryDto(int Id, string Name, string Slug);
+
+public record ReviewReplyDto(int Id, int ReviewId, string ReplyText, DateTime CreatedAt);
+public record ProductFaqDto(int Id, string Question, string Answer, string CategoryTag, int SortOrder, DateTime CreatedAt);
+
+public class PublishReviewReplyRequest
+{
+    public string ReplyText { get; init; } = "";
+}
+
+public class PublishFaqRequest
+{
+    public string Question { get; init; } = "";
+    public string Answer { get; init; } = "";
+    public string CategoryTag { get; init; } = "";
+    public int SortOrder { get; init; }
+}

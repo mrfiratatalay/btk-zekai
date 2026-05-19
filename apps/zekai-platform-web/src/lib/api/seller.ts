@@ -578,3 +578,81 @@ export const getProductAiArtifacts = (productId: string) =>
 export const deleteAiArtifact = (artifactId: string) =>
   apiFetch<{ message: string }>(`/api/seller/ai-artifacts/${artifactId}`, { method: "DELETE" });
 
+// ── Müşteri Sesi AI (Reply Drafts + FAQ Drafts) ───────────────────────────────
+
+export interface CustomerVoiceReview {
+  id: number;
+  authorName: string;
+  rating: number;
+  title: string;
+  text: string;
+  verifiedPurchase: boolean;
+  date: string;
+  tags: string[];
+}
+
+export interface CustomerVoiceReplyDraft {
+  id: number;
+  reviewId: number;
+  reviewText: string;
+  authorName: string;
+  rating: number;
+  suggestedReply: string;
+  sentiment: "positive" | "negative" | "mixed";
+  issueType: string;
+  needsReply: boolean;
+  status: "draft" | "approved" | "published" | "rejected";
+  createdAt: string;
+  publishedAt: string | null;
+}
+
+export interface CustomerVoiceFaqDraft {
+  id: number;
+  question: string;
+  answer: string;
+  sourceReviewIds: number[];
+  categoryTag: string;
+  status: "draft" | "approved" | "published" | "rejected";
+  createdAt: string;
+  publishedAt: string | null;
+}
+
+export interface CustomerVoiceData {
+  reviews: CustomerVoiceReview[];
+  replyDrafts: CustomerVoiceReplyDraft[];
+  faqDrafts: CustomerVoiceFaqDraft[];
+}
+
+export const getCustomerVoice = (productId: string) =>
+  apiFetch<CustomerVoiceData>(`/api/seller/products/${productId}/customer-voice`);
+
+export const generateCustomerVoice = (productId: string) =>
+  apiFetch<CustomerVoiceData>(`/api/seller/products/${productId}/customer-voice/generate`, {
+    method: "POST",
+    suppressMockMode: true,
+  });
+
+export const updateReplyDraft = (draftId: number, suggestedReply: string) =>
+  apiFetch<CustomerVoiceReplyDraft>(`/api/seller/customer-voice/reply-drafts/${draftId}`, {
+    method: "PUT",
+    body: JSON.stringify({ suggestedReply }),
+  });
+
+export const publishReplyDraft = (draftId: number) =>
+  apiFetch<CustomerVoiceReplyDraft>(`/api/seller/customer-voice/reply-drafts/${draftId}/publish`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+
+export const updateFaqDraft = (draftId: number, question: string, answer: string) =>
+  apiFetch<CustomerVoiceFaqDraft>(`/api/seller/customer-voice/faq-drafts/${draftId}`, {
+    method: "PUT",
+    body: JSON.stringify({ question, answer }),
+  });
+
+export const publishFaqDraft = (draftId: number, sortOrder = 0) =>
+  apiFetch<CustomerVoiceFaqDraft>(`/api/seller/customer-voice/faq-drafts/${draftId}/publish`, {
+    method: "POST",
+    body: JSON.stringify({ sortOrder }),
+  });
+

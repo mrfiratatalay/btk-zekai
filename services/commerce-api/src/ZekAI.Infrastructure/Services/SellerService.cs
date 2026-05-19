@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using ZekAI.Application.DTOs.Products;
 using ZekAI.Application.DTOs.Seller;
 using ZekAI.Domain.Entities;
 using ZekAI.Domain.Enums;
@@ -966,6 +967,90 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
             "ev-yasam" => ["Yedek ampul", "Kablo duzenleyici", "Masa organizeri", "Temizlik seti"],
             _ => ["Tamamlayici aksesuar", "Bakim urunu", "Yedek parca", "Hediye paketi"]
         };
+    }
+
+    // ── Customer Voice ────────────────────────────────────────────────────────
+
+    public async Task<List<ProductReviewDto>> GetProductReviewsForSellerAsync(Guid userId, string productId)
+    {
+        var seller = await GetSellerByUserIdAsync(userId);
+        if (!await db.SellerProducts.AnyAsync(sp => sp.SellerId == seller.Id && sp.ProductId == productId))
+            throw new KeyNotFoundException("Ürün bulunamadı.");
+
+        var raw = await db.ProductReviews
+            .Where(r => r.ProductId == productId)
+            .OrderByDescending(r => r.Rating == 1 || r.Rating == 2)
+            .ThenByDescending(r => r.Date)
+            .Take(20)
+            .ToListAsync();
+
+        return raw.Select(r => new ProductReviewDto(
+            r.Id, r.AuthorName, r.Rating, r.Title, r.Text,
+            r.VerifiedPurchase, r.Date, r.HelpfulCount,
+            JsonSerializer.Deserialize<List<string>>(r.TagsJson) ?? new()
+        )).ToList();
+    }
+
+    public async Task<ReviewReplyDto> PublishReviewReplyAsync(Guid userId, string productId, int reviewId, string replyText)
+    {
+        var seller = await GetSellerByUserIdAsync(userId);
+        if (!await db.SellerProducts.AnyAsync(sp => sp.SellerId == seller.Id && sp.ProductId == productId))
+            throw new KeyNotFoundException("Ürün bulunamadı.");
+
+        if (!await db.ProductReviews.AnyAsync(r => r.Id == reviewId && r.ProductId == productId))
+            throw new KeyNotFoundException("Yorum bulunamadı.");
+
+        var existing = await db.ReviewReplies.FirstOrDefaultAsync(r => r.ReviewId == reviewId);
+        if (existing is not null)
+        {
+            existing.ReplyText = replyText.Trim();
+            existing.CreatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return new ReviewReplyDto(existing.Id, existing.ReviewId, existing.ReplyText, existing.CreatedAt);
+        }
+
+        var reply = new ReviewReply
+        {
+            ProductId = productId,
+            ReviewId = reviewId,
+            SellerId = seller.Id,
+            ReplyText = replyText.Trim(),
+        };
+        db.ReviewReplies.Add(reply);
+        await db.SaveChangesAsync();
+        await TryRevalidateStorefrontAsync(productId);
+        return new ReviewReplyDto(reply.Id, reply.ReviewId, reply.ReplyText, reply.CreatedAt);
+    }
+
+    public async Task<ProductFaqDto> PublishFaqAsync(Guid userId, string productId, PublishFaqRequest req)
+    {
+        var seller = await GetSellerByUserIdAsync(userId);
+        if (!await db.SellerProducts.AnyAsync(sp => sp.SellerId == seller.Id && sp.ProductId == productId))
+            throw new KeyNotFoundException("Ürün bulunamadı.");
+
+        var faq = new ProductFaq
+        {
+            ProductId = productId,
+            SellerId = seller.Id,
+            Question = req.Question.Trim(),
+            Answer = req.Answer.Trim(),
+            CategoryTag = req.CategoryTag.Trim(),
+            SortOrder = req.SortOrder,
+        };
+        db.ProductFaqs.Add(faq);
+        await db.SaveChangesAsync();
+        await TryRevalidateStorefrontAsync(productId);
+        return new ProductFaqDto(faq.Id, faq.Question, faq.Answer, faq.CategoryTag, faq.SortOrder, faq.CreatedAt);
+    }
+
+    public async Task<Dictionary<int, ReviewReplyDto?>> GetReviewRepliesAsync(string productId)
+    {
+        return await db.ReviewReplies
+            .Where(r => r.ProductId == productId)
+            .ToDictionaryAsync(
+                r => r.ReviewId,
+                r => (ReviewReplyDto?)new ReviewReplyDto(r.Id, r.ReviewId, r.ReplyText, r.CreatedAt)
+            );
     }
 
     private static string GenerateSlug(string title)

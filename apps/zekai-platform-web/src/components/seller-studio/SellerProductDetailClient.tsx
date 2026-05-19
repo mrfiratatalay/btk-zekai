@@ -56,17 +56,36 @@ export function SellerProductDetailClient({ productId }: { productId: string }) 
 
     async function load() {
       try {
-        const pd = await getProduct(productId);
-        if (!pd) { setError("Ürün bulunamadı."); return; }
-
         if (user?.role === "Seller") {
+          // Önce seller endpoint — yayınlanmamış ürünler de gelir
+          const sp = await getSellerProduct(productId);
+
+          // Public detail de dene (açıklama/özellikler için); yayınlanmamışsa pas geç
           try {
-            const sp = await getSellerProduct(productId);
+            const pd = await getProduct(productId);
             setProduct(mapToPerformance(sp, pd));
           } catch {
-            setProduct(mapPublicToPerformance(pd));
+            // Yayınlanmamış ürün: seller verisinden minimum bilgiyle devam
+            setProduct({
+              id: sp.id,
+              title: sp.title,
+              image: sp.primaryImage ?? "",
+              brand: "",
+              category: sp.category,
+              categoryId: 0,
+              price: sp.price,
+              originalPrice: null,
+              stock: sp.stock,
+              cargoText: "",
+              updatedAt: new Date(sp.updatedAt).toLocaleDateString("tr-TR"),
+              description: "",
+              shortDescription: "",
+              features: {},
+            });
           }
         } else {
+          const pd = await getProduct(productId);
+          if (!pd) { setError("Ürün bulunamadı."); return; }
           setProduct(mapPublicToPerformance(pd));
         }
       } catch {
