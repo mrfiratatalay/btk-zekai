@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ChevronUp, FileStack, LogOut, Package, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
+import { getAllAiArtifacts, getAllDrafts, getAllSocialDrafts } from "@/lib/api/seller";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { ZekaiLogo } from "@/components/ui/ZekaiLogo";
 
@@ -21,6 +22,7 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [recordsCount, setRecordsCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Simülasyon ekranı tam ekran immersive bir deneyim olmalı:
@@ -35,6 +37,27 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
     const saved = localStorage.getItem("seller_sidebar_collapsed");
     if (saved === "true") setCollapsed(true);
   }, [router]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+    async function loadRecordCount() {
+      const [drafts, socialDrafts, artifacts] = await Promise.all([
+        getAllDrafts().catch(() => []),
+        getAllSocialDrafts().catch(() => []),
+        getAllAiArtifacts().catch(() => []),
+      ]);
+      if (!cancelled) setRecordsCount(drafts.length + socialDrafts.length + artifacts.length);
+    }
+
+    loadRecordCount();
+    window.addEventListener("seller-records-updated", loadRecordCount);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("seller-records-updated", loadRecordCount);
+    };
+  }, [user]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -100,6 +123,7 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 space-y-0.5 px-2 py-3">
           {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
             const active = pathname.startsWith(href);
+            const showBadge = href === "/seller/drafts" && recordsCount > 0;
             return (
               <Link
                 key={href}
@@ -115,6 +139,11 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
               >
                 <Icon className={cn("size-[18px] shrink-0", active ? "text-green-600 dark:text-green-400" : "text-muted-foreground")} />
                 {!collapsed && label}
+                {!collapsed && showBadge && (
+                  <span className="ml-auto rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-black leading-none text-white">
+                    {recordsCount > 99 ? "99+" : recordsCount}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -189,6 +218,7 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
         <div className="flex">
           {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
             const active = pathname.startsWith(href);
+            const showBadge = href === "/seller/drafts" && recordsCount > 0;
             return (
               <Link
                 key={href}
@@ -200,7 +230,14 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Icon className="size-5" />
+                <span className="relative">
+                  <Icon className="size-5" />
+                  {showBadge && (
+                    <span className="absolute -right-2 -top-2 min-w-4 rounded-full bg-green-500 px-1 text-[9px] font-black leading-4 text-white">
+                      {recordsCount > 9 ? "9+" : recordsCount}
+                    </span>
+                  )}
+                </span>
                 <span className="text-[10px] font-semibold">{label}</span>
               </Link>
             );

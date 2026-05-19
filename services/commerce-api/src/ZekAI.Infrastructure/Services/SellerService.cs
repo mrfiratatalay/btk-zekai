@@ -175,6 +175,7 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
         db.SellerProducts.Add(sellerProduct);
 
         await db.SaveChangesAsync();
+        await TryRevalidateStorefrontAsync(slug);
 
         return new SellerProductDto(
             slug, product.Title,
@@ -720,6 +721,8 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
 
         db.ProductBundles.Add(bundle);
         await db.SaveChangesAsync();
+        if (req.Publish)
+            await TryRevalidateStorefrontAsync(productId);
 
         return await GetBundleByIdAsync(seller.Id, productId, bundle.Id);
     }

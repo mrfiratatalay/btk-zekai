@@ -195,6 +195,19 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function combineAbortSignals(signals: AbortSignal[]): AbortSignal {
+  const controller = new AbortController();
+  const abort = () => controller.abort(signals.find((s) => s.aborted)?.reason);
+  for (const signal of signals) {
+    if (signal.aborted) {
+      abort();
+      break;
+    }
+    signal.addEventListener("abort", abort, { once: true });
+  }
+  return controller.signal;
+}
+
 async function streamSseEvents(
   response: Response,
   onEvent: (event: AdkAgentEvent) => void,
@@ -251,7 +264,7 @@ export async function runBuyerAgentStream({
   onEvent: (event: AdkAgentEvent) => void;
 }) {
   const timeoutSignal = AbortSignal.timeout(ANALYZE_TIMEOUT_MS);
-  const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+  const combinedSignal = signal ? combineAbortSignals([signal, timeoutSignal]) : timeoutSignal;
   const response = await fetch(`${ZEKAI_API_URL}/api/buyer/analyze`, {
     method: "POST",
     headers: {

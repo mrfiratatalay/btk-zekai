@@ -183,6 +183,19 @@ type SseEvent = {
   actions?: { state_delta?: Record<string, unknown> };
 };
 
+function combineAbortSignals(signals: AbortSignal[]): AbortSignal {
+  const controller = new AbortController();
+  const abort = () => controller.abort(signals.find((s) => s.aborted)?.reason);
+  for (const signal of signals) {
+    if (signal.aborted) {
+      abort();
+      break;
+    }
+    signal.addEventListener("abort", abort, { once: true });
+  }
+  return controller.signal;
+}
+
 export async function streamCompareVerdict(
   payload: CompareVerdictPayload,
   onEvent: (event: SseEvent) => void,
@@ -191,7 +204,7 @@ export async function streamCompareVerdict(
   const token = typeof window === "undefined" ? null : localStorage.getItem("zekai_token");
   const timeoutSignal = AbortSignal.timeout(60_000);
   const combinedSignal = signal
-    ? AbortSignal.any([signal, timeoutSignal])
+    ? combineAbortSignals([signal, timeoutSignal])
     : timeoutSignal;
 
   const response = await fetch(`${API_BASE}/api/buyer/compare-verdict`, {

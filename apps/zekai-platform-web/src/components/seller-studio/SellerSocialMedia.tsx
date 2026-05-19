@@ -514,6 +514,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
       setContent(result);
       setActivePlatform(selectedPlatforms[0] ?? "instagram");
       setStep(targetStep);
+      window.dispatchEvent(new Event("seller-records-updated"));
       toast.success(result._cached ? "Sosyal medya içeriği hazır." : "Sosyal medya içeriği üretildi.");
     } catch {
       toast.error("İçerik üretilemedi, lütfen tekrar deneyin.");
@@ -535,6 +536,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
         content: { ...content, tone, purpose, platforms },
         activate: true,
       });
+      window.dispatchEvent(new Event("seller-records-updated"));
       toast.success("İçerik kaydedildi.");
     } catch {
       toast.error("İçerik kaydedilemedi.");

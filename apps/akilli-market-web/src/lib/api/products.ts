@@ -86,7 +86,7 @@ export const getProducts = (params?: { category?: string; search?: string }) => 
   if (params?.category) qs.set("category", params.category);
   if (params?.search) qs.set("search", params.search);
   const query = qs.toString() ? `?${qs}` : "";
-  return apiFetch<ProductListItem[]>(`/api/products${query}`, []);
+  return apiFetch<ProductListItem[]>(`/api/products${query}`, [], { cache: "no-store" });
 };
 
 export const getProduct = (id: string) =>

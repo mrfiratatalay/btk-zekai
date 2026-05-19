@@ -16,6 +16,7 @@ export function SellerBundlesClient({ productId }: { productId: string }) {
   });
   const recommendationsMutation = useMutation({
     mutationFn: (force: boolean) => generateBundleRecommendations(productId, { force }),
+    onSuccess: () => window.dispatchEvent(new Event("seller-records-updated")),
     onError: (err: Error) => alert(`Paket önerisi üretilemedi: ${err.message}`),
   });
 

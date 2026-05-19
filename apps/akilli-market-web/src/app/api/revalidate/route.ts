@@ -11,10 +11,10 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Geçersiz token." }, { status: 401 });
   }
 
+  revalidatePath("/");
+
   if (productId) {
     revalidatePath(`/product/${productId}`);
-  } else {
-    revalidatePath("/");
   }
 
   return Response.json({ revalidated: true, productId });

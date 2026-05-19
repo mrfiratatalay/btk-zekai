@@ -181,6 +181,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       if (result.whatIImproved) setAiImprovementNote(result.whatIImproved);
       setAiApplied(true);
       setHasUnsavedChanges(true);
+      window.dispatchEvent(new Event("seller-records-updated"));
       toast.success(
         simulationInsight
           ? result._cached
@@ -204,6 +205,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       const img = await generateProductImage(product.id, style);
       setGeneratedImages((prev) => [...prev.filter((p) => p.type !== style), img]);
       setSelectedImageType(style);
+      window.dispatchEvent(new Event("seller-records-updated"));
       toast.success(img._cached ? `${IMAGE_STYLE_LABELS[style]} kayıtlı görseli kullanıldı` : `${IMAGE_STYLE_LABELS[style]} görseli üretildi ve kaydedildi`);
     } catch {
       toast.error("Görsel üretilemedi. Lütfen tekrar dene.");
