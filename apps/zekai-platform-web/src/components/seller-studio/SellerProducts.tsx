@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Package, Search, Settings, Store, Tag } from "lucide-react";
-import { getSellerProducts, getStoreConnections, type SellerProduct, type StoreConnection } from "@/lib/api/seller";
+import { FileStack, Package, Search, Settings, Store, Tag } from "lucide-react";
+import { getSellerProducts, getStoreConnections, getAllDrafts, type SellerProduct, type StoreConnection } from "@/lib/api/seller";
 import { resolveCommerceImage } from "@/lib/utils";
 
 function formatPrice(value: number) {
@@ -19,6 +19,7 @@ export function SellerProducts() {
   const [search, setSearch] = useState("");
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [storeConn, setStoreConn] = useState<StoreConnection | null>(null);
+  const [draftCounts, setDraftCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,6 +31,10 @@ export function SellerProducts() {
         if (conn) {
           const prods = await getSellerProducts();
           setProducts(prods);
+          const drafts = await getAllDrafts().catch(() => []);
+          const counts: Record<string, number> = {};
+          for (const d of drafts) counts[d.commerceProductId] = (counts[d.commerceProductId] ?? 0) + 1;
+          setDraftCounts(counts);
         }
       } catch (e) {
         console.error("Failed to fetch products:", e);
@@ -118,7 +123,14 @@ export function SellerProducts() {
               )}
             </div>
             <div className="flex min-w-0 flex-1 flex-col justify-center py-4 pr-4">
-              <h3 className="line-clamp-2 text-[15px] font-bold leading-snug text-foreground">{product.title}</h3>
+              <div className="flex items-start gap-2">
+                <h3 className="line-clamp-2 text-[15px] font-bold leading-snug text-foreground">{product.title}</h3>
+                {draftCounts[product.id] > 0 && (
+                  <span className="mt-0.5 flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
+                    <FileStack className="size-3" /> {draftCounts[product.id]}
+                  </span>
+                )}
+              </div>
               <div className="mt-3 grid grid-cols-2 gap-1">
                 {[
                   { icon: <Tag className="size-3" />, label: "Fiyat", value: formatPrice(product.price) },

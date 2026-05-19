@@ -129,6 +129,145 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         return await commerce.UpdateProductAsync(conn.CommerceAccessToken, productId, updatePayload);
     }
 
+    // ── Seller Product Drafts ─────────────────────────────────────────────
+    // AI çıktısı DB'de saklanır; yayınlama bu kayıttan kopyalanır → tekrar AI
+    // maliyeti oluşmaz. Çoklu varyasyon: ürün başına birden fazla taslak.
+
+    private static readonly JsonSerializerOptions DraftJsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+    public async Task<ProductDraftDto> SaveDraftAsync(Guid userId, string productId, SaveProductDraftRequest req)
+    {
+        var conn = await GetActiveConnectionAsync(userId);
+
+        // Üretilen görselleri commerce storage'a kalıcılaştır (ürünü değiştirmeden)
+        var images = new List<DraftImageDto>();
+        foreach (var img in req.Images)
+        {
+            if (!string.IsNullOrWhiteSpace(img.Url))
+            {
+                images.Add(new DraftImageDto(img.Type, img.Label, img.Url!));
+                continue;
+            }
+            if (string.IsNullOrWhiteSpace(img.ImageBase64)) continue;
+
+            var doc = await commerce.ProxyPostAsync(
+                conn.CommerceAccessToken,
+                $"/api/seller/products/{productId}/draft-image",
+                new { imageBase64 = img.ImageBase64, mimeType = img.MimeType ?? "image/png" });
+
+            var url = doc?.RootElement.TryGetProperty("imageUrl", out var u) == true ? u.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(url))
+                images.Add(new DraftImageDto(img.Type, img.Label, url!));
+        }
+
+        var draft = new SellerProductDraft
+        {
+            UserId = userId,
+            CommerceProductId = productId,
+            Label = string.IsNullOrWhiteSpace(req.Label)
+                ? $"Taslak · {DateTime.UtcNow:dd.MM HH:mm}"
+                : req.Label.Trim(),
+            Title = req.Title,
+            ShortDescription = req.ShortDescription,
+            Description = req.Description,
+            FeaturesJson = JsonSerializer.Serialize(req.Features, DraftJsonOpts),
+            Price = req.Price,
+            OriginalPrice = req.OriginalPrice,
+            Stock = req.Stock,
+            Brand = req.Brand,
+            CargoText = req.CargoText,
+            CategoryId = req.CategoryId,
+            ImagesJson = JsonSerializer.Serialize(images, DraftJsonOpts),
+        };
+
+        db.SellerProductDrafts.Add(draft);
+        await db.SaveChangesAsync();
+        return ToDto(draft);
+    }
+
+    public async Task<List<ProductDraftDto>> GetProductDraftsAsync(Guid userId, string productId)
+    {
+        var drafts = await db.SellerProductDrafts
+            .Where(d => d.UserId == userId && d.CommerceProductId == productId)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
+        return drafts.Select(ToDto).ToList();
+    }
+
+    public async Task<List<ProductDraftDto>> GetAllDraftsAsync(Guid userId)
+    {
+        var drafts = await db.SellerProductDrafts
+            .Where(d => d.UserId == userId)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
+        return drafts.Select(ToDto).ToList();
+    }
+
+    public async Task<bool> DeleteDraftAsync(Guid userId, Guid draftId)
+    {
+        var draft = await db.SellerProductDrafts
+            .FirstOrDefaultAsync(d => d.Id == draftId && d.UserId == userId);
+        if (draft is null) return false;
+        db.SellerProductDrafts.Remove(draft);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Taslağı canlı commerce ürününe kopyalar + yayına alır. Sıfır AI maliyeti.
+    /// </summary>
+    public async Task<bool> PublishDraftAsync(Guid userId, Guid draftId)
+    {
+        var conn = await GetActiveConnectionAsync(userId);
+        var draft = await db.SellerProductDrafts
+            .FirstOrDefaultAsync(d => d.Id == draftId && d.UserId == userId)
+            ?? throw new KeyNotFoundException("Taslak bulunamadı.");
+
+        var features = JsonSerializer.Deserialize<Dictionary<string, string>>(draft.FeaturesJson, DraftJsonOpts)
+                       ?? new Dictionary<string, string>();
+        var images = JsonSerializer.Deserialize<List<DraftImageDto>>(draft.ImagesJson, DraftJsonOpts)
+                     ?? new List<DraftImageDto>();
+        var primaryImageUrl = images.FirstOrDefault()?.Url;
+
+        var payload = new
+        {
+            title = draft.Title,
+            shortDescription = draft.ShortDescription,
+            description = draft.Description,
+            features,
+            price = draft.Price,
+            stock = draft.Stock,
+            brand = draft.Brand,
+            originalPrice = draft.OriginalPrice,
+            clearOriginalPrice = draft.OriginalPrice is null,
+            cargoText = draft.CargoText,
+            categoryId = draft.CategoryId,
+            primaryImageUrl = primaryImageUrl,
+        };
+
+        var updated = await commerce.UpdateProductAsync(conn.CommerceAccessToken, draft.CommerceProductId, payload);
+        if (!updated) return false;
+        return await commerce.PublishProductAsync(conn.CommerceAccessToken, draft.CommerceProductId, true);
+    }
+
+    private static ProductDraftDto ToDto(SellerProductDraft d) => new(
+        d.Id,
+        d.CommerceProductId,
+        d.Label,
+        d.Title,
+        d.ShortDescription,
+        d.Description,
+        JsonSerializer.Deserialize<Dictionary<string, string>>(d.FeaturesJson, DraftJsonOpts) ?? new(),
+        d.Price,
+        d.OriginalPrice,
+        d.Stock,
+        d.Brand,
+        d.CargoText,
+        d.CategoryId,
+        JsonSerializer.Deserialize<List<DraftImageDto>>(d.ImagesJson, DraftJsonOpts) ?? new(),
+        d.CreatedAt
+    );
+
     public async Task SyncAsync(Guid userId)
     {
         var conn = await GetActiveConnectionAsync(userId);
@@ -262,14 +401,14 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         return new SimulationProductPayload(pd.Title, pd.Category, pd.Price, pd.Description, features);
     }
 
-    public async Task<object?> GenerateProductImageAsync(Guid userId, string productId)
+    public async Task<object?> GenerateProductImageAsync(Guid userId, string productId, string style)
     {
         await GetActiveConnectionAsync(userId);
 
         var pd = await commerce.GetProductDetailAsync(productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
-        return await aiService.GenerateProductImageAsync(pd.Title, pd.Category, pd.Description);
+        return await aiService.GenerateProductImageAsync(pd.Title, pd.Category, pd.Description, style);
     }
 
     public async Task<object?> GenerateProductImagesAsync(Guid userId, string productId)

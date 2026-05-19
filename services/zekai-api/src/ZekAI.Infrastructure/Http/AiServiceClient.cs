@@ -99,14 +99,14 @@ public class AiServiceClient(HttpClient http)
     // ── Single Image (legacy) ─────────────────────────────────────────────────
 
     public async Task<AiImageResult?> GenerateProductImageAsync(
-        string productTitle, string category, string? description)
+        string productTitle, string category, string? description, string style)
     {
         var payload = new
         {
             product_title = productTitle,
             category,
             description,
-            style = "ecommerce",
+            style,
         };
 
         var response = await http.PostAsJsonAsync("/seller/ai-image", payload, JsonOpts);

@@ -1,6 +1,8 @@
 import asyncio
 import base64
+import hashlib
 import os
+import time
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
@@ -14,6 +16,44 @@ router = APIRouter()
 
 # Nano Banana 2 — speed-optimized image generation
 IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+
+# ── On-demand single-image cache (maliyet optimizasyonu) ──────────────────────
+# Aynı ürün + stil tekrar istendiğinde Gemini'ye gitmeden cache'ten döner.
+_CACHE_TTL = int(os.getenv("SELLER_IMAGE_CACHE_TTL_SECONDS", "86400"))
+_CACHE_MAX = int(os.getenv("SELLER_IMAGE_CACHE_MAX_ITEMS", "128"))
+# key -> (b64, mime, ts)
+_image_cache: dict[str, tuple[str, str, float]] = {}
+
+
+def _cache_key(title: str, category: str, desc: str | None, style: str) -> str:
+    raw = f"{title.strip()}|{category.strip()}|{(desc or '').strip()}|{style}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _cache_get(key: str) -> tuple[str, str] | None:
+    hit = _image_cache.get(key)
+    if hit is None:
+        return None
+    b64, mime, ts = hit
+    if time.time() - ts > _CACHE_TTL:
+        _image_cache.pop(key, None)
+        return None
+    return b64, mime
+
+
+def _cache_set(key: str, b64: str, mime: str) -> None:
+    if len(_image_cache) >= _CACHE_MAX:
+        # En eski girdiyi at (FIFO yeterli — düşük hacimli kullanım)
+        oldest = min(_image_cache, key=lambda k: _image_cache[k][2])
+        _image_cache.pop(oldest, None)
+    _image_cache[key] = (b64, mime, time.time())
+
+
+_PROMPT_BUILDERS = {
+    "studio": lambda t, c, d: _build_studio_prompt(t, c, d),
+    "unboxing": lambda t, c, d: _build_unboxing_prompt(t, c, d),
+    "lifestyle": lambda t, c, d: _build_lifestyle_prompt(t, c, d),
+}
 
 
 class ImageGenerateRequest(BaseModel):
@@ -114,14 +154,27 @@ def _build_lifestyle_prompt(title: str, category: str, desc: str | None) -> str:
 
 @router.post("/ai-image", response_model=ImageGenerateResponse)
 async def generate_product_image(req: ImageGenerateRequest):
-    """Single image generation (legacy endpoint — kept for backwards compatibility)."""
+    """On-demand tek görsel üretimi (studio | unboxing | lifestyle) + cache."""
+    style = req.style if req.style in _PROMPT_BUILDERS else "studio"
+
+    # Aynı ürün + stil daha önce üretildiyse Gemini'ye gitmeden döndür
+    key = _cache_key(req.product_title, req.category, req.description, style)
+    cached = _cache_get(key)
+    if cached is not None:
+        b64, mime = cached
+        return ImageGenerateResponse(
+            image_base64=b64,
+            mime_type=mime,
+            description=f"{req.product_title} için AI görseli (önbellek).",
+        )
+
     client = _get_client()
-    prompt = _build_studio_prompt(req.product_title, req.category, req.description)
+    prompt = _PROMPT_BUILDERS[style](req.product_title, req.category, req.description)
     try:
         image_b64, mime_type = await asyncio.to_thread(_generate_image_sync, client, prompt)
     except genai_errors.APIError as exc:
         if is_mockable_gemini_error(exc):
-            b64, mime = await asyncio.to_thread(fetch_picsum_b64, "studio")
+            b64, mime = await asyncio.to_thread(fetch_picsum_b64, style)
             return JSONResponse(content={
                 "image_base64": b64,
                 "mime_type": mime,
@@ -131,6 +184,8 @@ async def generate_product_image(req: ImageGenerateRequest):
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    _cache_set(key, image_b64, mime_type)
     return ImageGenerateResponse(
         image_base64=image_b64,
         mime_type=mime_type,

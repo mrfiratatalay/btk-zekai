@@ -131,6 +131,21 @@ public class SellerController(SellerService seller) : ControllerBase
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    [HttpPost("products/{productId}/draft-image")]
+    public async Task<IActionResult> SaveDraftImage(
+        string productId,
+        [FromBody] UpdateProductImageRequest req,
+        [FromServices] IWebHostEnvironment env)
+    {
+        try
+        {
+            var imageUrl = await seller.SaveDraftImageAsync(UserId, productId, req.ImageBase64, req.MimeType, env.WebRootPath);
+            return Ok(new { imageUrl });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     // ── Social Media Content ───────────────────────────────────────────────
 
     [HttpPost("products/{productId}/social-content")]

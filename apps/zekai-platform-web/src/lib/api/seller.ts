@@ -357,10 +357,30 @@ export interface GeneratedProductImagesResponse {
   images: GeneratedProductImageItem[];
 }
 
-export const generateProductImage = (productId: string) =>
-  apiFetch<GeneratedProductImage>(`/api/seller/products/${productId}/ai-image`, {
-    method: "POST",
-  });
+export type ProductImageStyle = "studio" | "unboxing" | "lifestyle";
+
+export const IMAGE_STYLE_LABELS: Record<ProductImageStyle, string> = {
+  studio: "Stüdyo",
+  unboxing: "Kutu Açma",
+  lifestyle: "Kullanım",
+};
+
+// On-demand tek görsel — istenen stil için üretir (aynı ürün+stil backend'de cache'lenir)
+export const generateProductImage = async (
+  productId: string,
+  style: ProductImageStyle = "studio",
+): Promise<GeneratedProductImageItem> => {
+  const res = await apiFetch<GeneratedProductImage>(
+    `/api/seller/products/${productId}/ai-image`,
+    { method: "POST", body: JSON.stringify({ style }) },
+  );
+  return {
+    type: style,
+    label: IMAGE_STYLE_LABELS[style],
+    imageBase64: res.imageBase64,
+    mimeType: res.mimeType,
+  };
+};
 
 export const generateProductImages = (productId: string) =>
   apiFetch<GeneratedProductImagesResponse>(`/api/seller/products/${productId}/ai-images`, {
@@ -417,6 +437,83 @@ export const updateProductContent = async (
     }
   }
 
+  return result;
+};
+
+// ── Ürün Taslakları (AI çıktısı DB'de saklanır → ücretsiz tekrar yayın) ──────
+
+export interface DraftImage {
+  type: string;
+  label: string;
+  url: string;
+}
+
+export interface ProductDraft {
+  id: string;
+  commerceProductId: string;
+  label: string;
+  title: string;
+  shortDescription: string;
+  description: string;
+  features: Record<string, string>;
+  price: number;
+  originalPrice: number | null;
+  stock: number;
+  brand: string;
+  cargoText: string;
+  categoryId: number;
+  images: DraftImage[];
+  createdAt: string;
+}
+
+export interface SaveDraftInput {
+  label?: string;
+  title: string;
+  shortDescription: string;
+  description: string;
+  features: Record<string, string>;
+  price: number;
+  originalPrice?: number | null;
+  stock: number;
+  brand: string;
+  cargoText: string;
+  categoryId: number;
+  // Üretilen görseller — base64 gönderilir, backend commerce storage'a kalıcılaştırır
+  images: { type: string; label: string; imageBase64?: string; mimeType?: string; url?: string }[];
+}
+
+export const saveProductDraft = (productId: string, input: SaveDraftInput) =>
+  apiFetch<ProductDraft>(`/api/seller/products/${productId}/drafts`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export const getProductDrafts = (productId: string) =>
+  apiFetch<ProductDraft[]>(`/api/seller/products/${productId}/drafts`);
+
+export const getAllDrafts = () => apiFetch<ProductDraft[]>(`/api/seller/drafts`);
+
+export const deleteDraft = (draftId: string) =>
+  apiFetch<{ message: string }>(`/api/seller/drafts/${draftId}`, { method: "DELETE" });
+
+export const publishDraft = async (
+  draftId: string,
+  commerceProductId: string,
+): Promise<{ message: string }> => {
+  const result = await apiFetch<{ message: string }>(
+    `/api/seller/drafts/${draftId}/publish`,
+    { method: "POST" },
+  );
+  // Akıllı Market Next.js cache temizle
+  const commerceWebUrl = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
+  try {
+    await fetch(
+      `${commerceWebUrl}/api/revalidate?secret=zekai-revalidate-2024&productId=${encodeURIComponent(commerceProductId)}`,
+      { method: "POST" },
+    );
+  } catch {
+    // Revalidation başarısız olsa da yayın tamamdır
+  }
   return result;
 };
 

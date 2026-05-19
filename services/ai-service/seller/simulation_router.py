@@ -1,24 +1,24 @@
 import asyncio
+import hashlib
 import json
 import os
-from typing import Literal
+import time
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from google import genai
 from google.genai import errors as genai_errors, types
-from pydantic import BaseModel
-
-from mock.responses import is_mockable_gemini_error, MOCK_PERSONAS
+from pydantic import BaseModel, ValidationError
 
 router = APIRouter()
 
-MODEL = "gemini-2.5-flash"
+MODEL = os.getenv("SIMULATION_MODEL", "gemini-2.5-flash-lite")
+FALLBACK_MODEL = os.getenv("SIMULATION_FALLBACK_MODEL", "gemini-2.5-flash")
+SIMULATION_TIMEOUT_SECONDS = int(os.getenv("SIMULATION_TIMEOUT_SECONDS", "45"))
+SIMULATION_CACHE_TTL_SECONDS = int(os.getenv("SIMULATION_CACHE_TTL_SECONDS", "86400"))
+SIMULATION_CACHE_MAX_ITEMS = int(os.getenv("SIMULATION_CACHE_MAX_ITEMS", "256"))
 
-
-# ── Focus Area Constants ──────────────────────────────────────────────────────
-# Ürün kartında müşterinin gözünü diktiği görsel hedef alanlar.
-# Frontend bu sabitleri anchor olarak kullanır — eşleşme zorunlu.
 
 FocusArea = Literal[
     "image", "title", "price", "rating", "reviews",
@@ -31,58 +31,71 @@ FOCUS_AREAS: list[str] = [
 ]
 
 FOCUS_LABELS: dict[str, str] = {
-    "image":    "Görsellere bakıyor",
-    "title":    "Başlığı okuyor",
-    "price":    "Fiyatı tartıyor",
-    "rating":   "Puanları inceliyor",
-    "reviews":  "Yorumlara bakıyor",
-    "features": "Özellikleri inceliyor",
-    "shipping": "Kargoya bakıyor",
-    "warranty": "Garantiye bakıyor",
-    "cta":      "Sepete eklemeyi düşünüyor",
+    "image": "Gorsellere bakiyor",
+    "title": "Basligi okuyor",
+    "price": "Fiyati tartiyor",
+    "rating": "Puanlari inceliyor",
+    "reviews": "Yorumlara bakiyor",
+    "features": "Ozellikleri inceliyor",
+    "shipping": "Kargoya bakiyor",
+    "warranty": "Garantiye bakiyor",
+    "cta": "Sepete eklemeyi dusunuyor",
 }
 
+DEFAULT_SEGMENTS = [
+    {
+        "id": "butce_odakli_alici",
+        "name": "Elif",
+        "age": 28,
+        "city": "Istanbul",
+        "segment": "Butce odakli alici",
+        "profile": "Fiyat performans dengesine bakar ve gereksiz pahali urunlerden uzak durur.",
+        "caresAbout": "Fiyat, yorumlar ve garanti",
+        "focusArea": "price",
+    },
+    {
+        "id": "kalite_arayan_profesyonel",
+        "name": "Mert",
+        "age": 34,
+        "city": "Ankara",
+        "segment": "Kalite arayan profesyonel",
+        "profile": "Isinde uzun sure kullanabilecegi guvenilir urunleri tercih eder.",
+        "caresAbout": "Kalite, teknik ozellikler ve garanti",
+        "focusArea": "features",
+    },
+    {
+        "id": "yorumlara_bakan_kullanici",
+        "name": "Zeynep",
+        "age": 31,
+        "city": "Izmir",
+        "segment": "Yorumlara bakan kullanici",
+        "profile": "Karar vermeden once diger alicilarin deneyimlerini dikkatle okur.",
+        "caresAbout": "Yorumlar, puan ve sikayetler",
+        "focusArea": "reviews",
+    },
+    {
+        "id": "hizli_karar_veren",
+        "name": "Burak",
+        "age": 25,
+        "city": "Bursa",
+        "segment": "Hizli karar veren",
+        "profile": "Urun bilgisi netse ve teslimat iyi gorunuyorsa hizli satin alir.",
+        "caresAbout": "Kargo, baslik ve satin alma kolayligi",
+        "focusArea": "shipping",
+    },
+    {
+        "id": "tasarim_odakli_alici",
+        "name": "Derya",
+        "age": 39,
+        "city": "Eskisehir",
+        "segment": "Tasarim odakli alici",
+        "profile": "Urunun gorunusu, sunumu ve marka algisi kararinda etkili olur.",
+        "caresAbout": "Gorseller, marka algisi ve aciklama",
+        "focusArea": "image",
+    },
+]
 
-def _caresabout_to_focus(cares_about: str) -> str:
-    """caresAbout serbest metnini en uygun focusArea slug'ına çevirir."""
-    c = (cares_about or "").lower()
-    if any(k in c for k in ("fiyat", "bütçe", "ucuz", "ekonomik", "indirim")):
-        return "price"
-    if any(k in c for k in ("yorum", "deneyim", "kullanıcı geri", "şikayet")):
-        return "reviews"
-    if any(k in c for k in ("puan", "rating", "yıldız")):
-        return "rating"
-    if any(k in c for k in ("kalite", "özellik", "teknik", "performans", "spec")):
-        return "features"
-    if any(k in c for k in ("marka", "itibar", "isim")):
-        return "title"
-    if any(k in c for k in ("görsel", "tasarım", "renk", "estetik", "görünüm")):
-        return "image"
-    if any(k in c for k in ("kargo", "teslimat", "hızlı", "ulaşım")):
-        return "shipping"
-    if any(k in c for k in ("garanti", "iade", "değişim", "servis")):
-        return "warranty"
-    if any(k in c for k in ("hızlı al", "satın", "kolay sipariş")):
-        return "cta"
-    return "features"
-
-
-def assign_focus_areas(personas: list["_DynamicPersona"]) -> list[str]:
-    """Her personaya farklı bir focusArea ata. caresAbout'a saygı duyar,
-    çakışmalarda kullanılmamış area'lara fallback yapar. En az 4 (çoğu zaman 5)
-    farklı area garantisi verir."""
-    used: set[str] = set()
-    result: list[str] = []
-    for p in personas:
-        preferred = _caresabout_to_focus(p.caresAbout)
-        if preferred not in used:
-            used.add(preferred)
-            result.append(preferred)
-            continue
-        chosen = next((a for a in FOCUS_AREAS if a not in used), preferred)
-        used.add(chosen)
-        result.append(chosen)
-    return result
+_SIMULATION_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
 class SimulateRequest(BaseModel):
@@ -101,7 +114,7 @@ class PersonaResult(BaseModel):
     segment: str
     profile: str
     caresAbout: str
-    decision: str  # buy | skip | undecided
+    decision: str
     reason: str
     lookedAt: list[str]
     recommendation: str
@@ -115,9 +128,9 @@ class SimulateResponse(BaseModel):
     personas: list[PersonaResult]
 
 
-# ── Step 1 output: dynamic persona generation ─────────────────────────────────
-
-class _DynamicPersona(BaseModel):
+# Gemini response schemas intentionally avoid strict Field constraints. Large
+# constrained schemas can be rejected by Gemini structured output.
+class _GeminiPersona(BaseModel):
     id: str
     name: str
     age: int
@@ -125,238 +138,258 @@ class _DynamicPersona(BaseModel):
     segment: str
     profile: str
     caresAbout: str
-
-
-class _PersonaList(BaseModel):
-    personas: list[_DynamicPersona]
-
-
-# ── Step 2 output: per-persona decision ───────────────────────────────────────
-
-class _AIPersonaDecision(BaseModel):
-    decision: Literal["buy", "skip", "undecided"]
+    decision: str
     reason: str
-    looked_at: list[str]
+    lookedAt: list[str]
     recommendation: str
     monologue: str
-    bubble_text: str
+    focusArea: str
+    bubbleText: str
+
+
+class _GeminiSimulation(BaseModel):
+    personas: list[_GeminiPersona]
+    seller_summary: str = ""
 
 
 def _get_client() -> genai.Client:
     api_key = os.getenv("GOOGLE_API_KEY", "").strip()
     if not api_key or api_key == "your_google_api_key_here":
-        raise HTTPException(status_code=503, detail="GOOGLE_API_KEY tanımlı değil.")
+        raise HTTPException(status_code=503, detail="GOOGLE_API_KEY tanimli degil.")
     return genai.Client(api_key=api_key)
 
 
-def _generate_personas_sync(client: genai.Client, req: SimulateRequest) -> list[_DynamicPersona]:
-    """Step 1: Generate 5 realistic buyer personas tailored to this product."""
-    prompt = f"""Bu ürün için bu ürünü gerçekten satın almayı düşünebilecek 5 farklı alıcı profili üret.
-
-Ürün: {req.product_title}
-Kategori: {req.category}
-Fiyat: ₺{req.price:.0f}
-{f"Açıklama: {req.description[:150]}" if req.description else ""}
-
-Kurallar:
-- Her profil BU ÜRÜNe özgü, gerçekçi ve birbirinden farklı bir alıcı tipini temsil etmeli
-- id: slug formatında, nokta/boşluk yok (ör: genc_oyuncu, caliskan_anne)
-- Türkiye şehirleri kullan (İstanbul, Ankara, İzmir, Bursa, Konya, Eskişehir vb.)
-- segment: kısa açıklama (Öğrenci, Freelancer, Oyuncu, Çalışan Anne, vb.)
-- profile: 1-2 cümle, bu kişinin bağlamı ve bu ürünü neden arayabileceği
-- caresAbout: bu kişinin SADECE BU ÜRÜN için öncelik verdiği 1-2 somut alan"""
-
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=_PersonaList,
-        ),
-    )
-    # APIError (rate limit dahil) burada yukarı iletilir
-    result = _PersonaList.model_validate_json(response.text)
-    return result.personas[:5]  # max 5
+def _sse(event: dict[str, Any]) -> str:
+    return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
 
-def _build_persona_prompt(
-    persona: _DynamicPersona,
-    product_title: str,
-    category: str,
-    price: float,
-    description: str | None,
-    features: list[str],
-    focus_area: str,
-    focus_label: str,
-) -> str:
-    features_text = ", ".join(features) if features else "belirtilmemiş"
-    desc_text = description or "belirtilmemiş"
-    return f"""Sen bir e-ticaret alışveriş simülatörüsün. Aşağıdaki müşteri profilini birebir canlandır ve ürünü bu müşteri gözüyle değerlendir.
-
-Müşteri Profili:
-- İsim: {persona.name}, {persona.age} yaşında, {persona.city}
-- Segment: {persona.segment}
-- Profil: {persona.profile}
-- Önceliği: {persona.caresAbout}
-
-Değerlendirilecek Ürün:
-- Başlık: {product_title}
-- Kategori: {category}
-- Fiyat: ₺{price:.0f}
-- Açıklama: {desc_text}
-- Özellikler: {features_text}
-
-Bu müşteri ÖZELLİKLE ürün kartının şu bölümüne odaklanıyor: "{focus_label}" (alan kodu: {focus_area}).
-Bu, müşterinin önceliği ({persona.caresAbout}) ile uyumlu, asıl dikkat ettiği yer burası.
-
-Aşağıdaki alanları gerçekçi biçimde doldur. Karar, ürünün bu müşteriye uygunluğuna göre olmalı.
-
-- decision: "buy" (satın alır), "skip" (almaz), "undecided" (kararsız)
-- reason: Kararın kısa gerekçesi, bu müşterinin bakış açısından (1-2 cümle)
-- looked_at: Müşterinin baktığı bilgi alanları (ör: ["Fiyat", "Özellikler", "Açıklama"]); listenin İLK elemanı "{focus_label}" ile uyumlu olmalı
-- recommendation: Seller'a 1 cümlelik somut iyileştirme önerisi — bu müşteri segmentini daha iyi nasıl ikna edersin?
-- monologue: Bu müşterinin iç sesi, birinci şahıs, samimi (1 cümle)
-- bubble_text: Müşterinin "{focus_label}" alanına bakarken aklından geçen ÇOK KISA düşünce ya da soru.
-  Kurallar:
-  * MAKS 8 kelime, soru veya gözlem
-  * Tek satır, tırnaksız, noktalama serbest
-  * "{focus_area}" alanına özgü — örnek:
-    - price   → "Fiyat bütçeme uyar mı?" / "Bu fiyata değer mi?"
-    - reviews → "Yorumlar güven veriyor mu?" / "Kaç kişi almış?"
-    - rating  → "Puan yüksek mi gerçekten?"
-    - features → "Bu özellikler bana yeter mi?"
-    - image   → "Görsel kaliteli görünüyor mu?"
-    - shipping → "Kargo ne zaman gelir?"
-    - warranty → "Garanti süresi yeterli mi?"
-    - title   → "Marka tanıdık geldi mi?"
-    - cta     → "Sepete eklesem mi?"
-  * Persona segmentine ({persona.segment}) ve önceliğine ({persona.caresAbout}) uygun ton kullan."""
+def _cache_key(req: SimulateRequest) -> str:
+    payload = {
+        "product_title": req.product_title.strip().lower(),
+        "category": req.category.strip().lower(),
+        "price": round(req.price, 2),
+        "description": (req.description or "").strip().lower()[:2000],
+        "features": [item.strip().lower() for item in req.features[:30]],
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-async def _evaluate_persona(
-    client: genai.Client,
-    persona: _DynamicPersona,
-    req: SimulateRequest,
-    focus_area: str,
-    focus_label: str,
-) -> PersonaResult:
-    prompt = _build_persona_prompt(
-        persona, req.product_title, req.category, req.price, req.description, req.features,
-        focus_area, focus_label,
-    )
-    fallback = PersonaResult(
-        id=persona.id,
-        name=persona.name,
-        age=persona.age,
-        city=persona.city,
-        segment=persona.segment,
-        profile=persona.profile,
-        caresAbout=persona.caresAbout,
+def _get_cached_result(key: str) -> SimulateResponse | None:
+    cached = _SIMULATION_CACHE.get(key)
+    if not cached:
+        return None
+    created_at, result = cached
+    if time.time() - created_at > SIMULATION_CACHE_TTL_SECONDS:
+        _SIMULATION_CACHE.pop(key, None)
+        return None
+    return SimulateResponse.model_validate(result)
+
+
+def _save_cached_result(key: str, result: SimulateResponse) -> None:
+    if len(_SIMULATION_CACHE) >= SIMULATION_CACHE_MAX_ITEMS:
+        oldest_key = min(_SIMULATION_CACHE.items(), key=lambda item: item[1][0])[0]
+        _SIMULATION_CACHE.pop(oldest_key, None)
+    _SIMULATION_CACHE[key] = (time.time(), result.model_dump())
+
+
+def _safe_focus_area(value: str | None, used: set[str], fallback_index: int) -> str:
+    area = (value or "").strip()
+    if area not in FOCUS_AREAS:
+        area = FOCUS_AREAS[fallback_index % len(FOCUS_AREAS)]
+    if area in used:
+        area = next((candidate for candidate in FOCUS_AREAS if candidate not in used), area)
+    used.add(area)
+    return area
+
+
+def _safe_decision(value: str | None) -> str:
+    decision = (value or "").strip().lower()
+    return decision if decision in {"buy", "skip", "undecided"} else "undecided"
+
+
+def _fallback_persona(index: int, req: SimulateRequest) -> PersonaResult:
+    base = DEFAULT_SEGMENTS[index % len(DEFAULT_SEGMENTS)]
+    focus_area = str(base["focusArea"])
+    focus_label = FOCUS_LABELS.get(focus_area, FOCUS_LABELS["features"])
+    return PersonaResult(
+        id=str(base["id"]),
+        name=str(base["name"]),
+        age=int(base["age"]),
+        city=str(base["city"]),
+        segment=str(base["segment"]),
+        profile=str(base["profile"]),
+        caresAbout=str(base["caresAbout"]),
         decision="undecided",
-        reason="Değerlendirme tamamlanamadı.",
-        lookedAt=[focus_label],
-        recommendation="Ürün bilgilerini tamamla.",
-        monologue="Yeterli bilgi bulamadım.",
+        reason=f"{req.product_title} icin bilgi yeterli gorunuyor ama karar vermeden once detaylari netlestirmek ister.",
+        lookedAt=[focus_label, "Fiyat", "Ozellikler"],
+        recommendation="Urun aciklamasinda fiyat, garanti ve en guclu faydayi daha net goster.",
+        monologue="Bilgiler fena degil ama biraz daha kanit gormek isterim.",
         focusArea=focus_area,
         focusLabel=focus_label,
         bubbleText=focus_label,
     )
-    try:
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model=MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=_AIPersonaDecision,
-                thinking_config=types.ThinkingConfig(thinking_budget=3072),
-            ),
+
+
+def _normalize_simulation(raw: _GeminiSimulation, req: SimulateRequest) -> SimulateResponse:
+    used_focus: set[str] = set()
+    personas: list[PersonaResult] = []
+
+    for index, item in enumerate(raw.personas[:5]):
+        focus_area = _safe_focus_area(item.focusArea, used_focus, index)
+        focus_label = FOCUS_LABELS.get(focus_area, FOCUS_LABELS["features"])
+        looked_at = item.lookedAt[:5] if item.lookedAt else [focus_label]
+        if looked_at[0] != focus_label:
+            looked_at = [focus_label, *looked_at[:4]]
+
+        personas.append(
+            PersonaResult(
+                id=(item.id or f"persona_{index + 1}").strip().replace(" ", "_")[:80],
+                name=(item.name or DEFAULT_SEGMENTS[index]["name"])[:80],
+                age=max(18, min(75, int(item.age or DEFAULT_SEGMENTS[index]["age"]))),
+                city=(item.city or DEFAULT_SEGMENTS[index]["city"])[:80],
+                segment=(item.segment or DEFAULT_SEGMENTS[index]["segment"])[:120],
+                profile=(item.profile or DEFAULT_SEGMENTS[index]["profile"])[:280],
+                caresAbout=(item.caresAbout or DEFAULT_SEGMENTS[index]["caresAbout"])[:180],
+                decision=_safe_decision(item.decision),
+                reason=(item.reason or "Urun bilgilerine gore kararsiz kaldi.")[:360],
+                lookedAt=looked_at,
+                recommendation=(item.recommendation or "Urun sayfasinda ana faydayi daha net anlat.")[:260],
+                monologue=(item.monologue or "Biraz daha net bilgi gormek isterim.")[:220],
+                focusArea=focus_area,
+                focusLabel=focus_label,
+                bubbleText=(item.bubbleText or focus_label)[:90],
+            )
         )
-        ai = _AIPersonaDecision.model_validate_json(response.text)
-        bubble = (ai.bubble_text or "").strip() or focus_label
-        return PersonaResult(
-            id=persona.id,
-            name=persona.name,
-            age=persona.age,
-            city=persona.city,
-            segment=persona.segment,
-            profile=persona.profile,
-            caresAbout=persona.caresAbout,
-            decision=ai.decision,
-            reason=ai.reason,
-            lookedAt=ai.looked_at,
-            recommendation=ai.recommendation,
-            monologue=ai.monologue,
-            focusArea=focus_area,
-            focusLabel=focus_label,
-            bubbleText=bubble,
-        )
-    except Exception:
-        return fallback
+
+    while len(personas) < 5:
+        fallback = _fallback_persona(len(personas), req)
+        fallback.focusArea = _safe_focus_area(fallback.focusArea, used_focus, len(personas))
+        fallback.focusLabel = FOCUS_LABELS.get(fallback.focusArea, FOCUS_LABELS["features"])
+        fallback.lookedAt = [fallback.focusLabel, "Fiyat", "Ozellikler"]
+        personas.append(fallback)
+
+    return SimulateResponse(personas=personas)
 
 
-# ── Mock SSE Stream ────────────────────────────────────────────────────────────
+def _simulation_prompt(req: SimulateRequest) -> str:
+    features = "\n".join(f"- {item}" for item in req.features[:20]) or "- Ozellik verisi yok"
+    description = (req.description or "Aciklama yok")[:1800]
+    return f"""
+Sen ZekAI seller studio icin maliyet-bilincine sahip bir e-ticaret musteri simulasyon ajanisin.
+Tek gorevin, bu urun sayfasini inceleyen 5 farkli Turk musteri perspektifini tek JSON ciktisinda uretmek.
 
-async def _mock_simulate_stream() -> None:
-    """Rate limit aşıldığında mock persona stream'i üretir."""
-    yield f'data: {json.dumps({"type": "mock_notice"})}\n\n'
-    yield f'data: {json.dumps({"type": "step", "message": "Müşteri profilleri oluşturuluyor... (demo mod)"})}\n\n'
-    await asyncio.sleep(0.5)
-    yield f'data: {json.dumps({"type": "step", "message": "5 profil hazır, değerlendirme başlıyor... (demo mod)"})}\n\n'
+Urun:
+- Baslik: {req.product_title}
+- Kategori: {req.category}
+- Fiyat: {req.price:.2f} TRY
+- Aciklama: {description}
+- Ozellikler:
+{features}
 
-    for persona in MOCK_PERSONAS:
-        await asyncio.sleep(0.7)
-        yield f'data: {json.dumps({"type": "persona", "persona": persona})}\n\n'
+Kurallar:
+- Sadece bu tek urun sayfasi bilgisine dayan.
+- 5 persona birbirinden farkli olmali.
+- Her persona icin decision sadece buy, skip veya undecided olsun.
+- focusArea sadece su degerlerden biri olsun: {", ".join(FOCUS_AREAS)}.
+- 5 persona mumkun oldugunca farkli focusArea kullansin.
+- lookedAt listesinin ilk elemani focusArea ile uyumlu olsun.
+- recommendation saticiya tek cumlelik uygulanabilir oneridir.
+- bubbleText en fazla 8 kelimelik kisa dusunce veya soru olsun.
+- Son kullanici dili dogal olsun, rapor dili kullanma.
+- Ayni urunde herkes satin almasin; gercekci sekilde bazi kisiler kararsiz veya vazgecmis olabilir.
+""".strip()
 
-    yield f'data: {json.dumps({"type": "done"})}\n\n'
+
+def _generate_simulation_with_model(
+    client: genai.Client,
+    req: SimulateRequest,
+    model: str,
+) -> SimulateResponse:
+    config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=_GeminiSimulation,
+        temperature=0.35,
+    )
+    response = client.models.generate_content(
+        model=model,
+        contents=_simulation_prompt(req),
+        config=config,
+    )
+    raw = _GeminiSimulation.model_validate_json(response.text or "{}")
+    return _normalize_simulation(raw, req)
+
+
+def _run_simulation_sync(client: genai.Client, req: SimulateRequest) -> SimulateResponse:
+    models = [MODEL]
+    if FALLBACK_MODEL and FALLBACK_MODEL != MODEL:
+        models.append(FALLBACK_MODEL)
+
+    last_exc: Exception | None = None
+    for index, model in enumerate(models):
+        try:
+            return _generate_simulation_with_model(client, req, model)
+        except Exception as exc:
+            last_exc = exc
+            if index == len(models) - 1:
+                break
+            if not _is_retryable_gemini_error(exc) and not isinstance(exc, (ValidationError, json.JSONDecodeError)):
+                break
+
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("Simulasyon modeli calistirilamadi.")
+
+
+def _is_retryable_gemini_error(exc: BaseException) -> bool:
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
+        return True
+    if not isinstance(exc, genai_errors.APIError):
+        return False
+    code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    return code in (408, 429, 500, 502, 503, 504)
+
+
+async def _simulate_once(req: SimulateRequest) -> tuple[SimulateResponse, bool]:
+    key = _cache_key(req)
+    cached = _get_cached_result(key)
+    if cached:
+        return cached, True
+
+    client = _get_client()
+    result = await asyncio.wait_for(
+        asyncio.to_thread(_run_simulation_sync, client, req),
+        timeout=SIMULATION_TIMEOUT_SECONDS,
+    )
+    _save_cached_result(key, result)
+    return result, False
 
 
 @router.post("/simulate-stream")
 async def simulate_stream(req: SimulateRequest) -> StreamingResponse:
-    """SSE endpoint — streams persona results one by one as they complete."""
-
     async def generate():
-        client = _get_client()
+        yield _sse({"type": "step", "message": "Urun sayfasi ve hedef alanlar hazirlaniyor..."})
 
-        # Step 1: Generate dynamic personas — rate limit buradan tespit edilir
-        yield f'data: {json.dumps({"type": "step", "message": "Müşteri profilleri oluşturuluyor..."})}\n\n'
         try:
-            personas = await asyncio.to_thread(_generate_personas_sync, client, req)
-        except genai_errors.APIError as exc:
-            if is_mockable_gemini_error(exc):
-                async for event in _mock_simulate_stream():
-                    yield event
-                return
-            yield f'data: {json.dumps({"type": "error", "message": str(exc)})}\n\n'
-            return
+            cached = _get_cached_result(_cache_key(req))
+            if cached:
+                result = cached
+                yield _sse({"type": "step", "message": "Kayitli simulasyon bulundu, AI cagrisi yapilmadi."})
+            else:
+                yield _sse({"type": "step", "message": "Tek simulasyon ajani 5 musteri perspektifini uretiyor..."})
+                result, _ = await _simulate_once(req)
+                yield _sse({"type": "step", "message": "Karar motoru musteri tepkilerini siraliyor..."})
+
+            yield _sse({"type": "step", "message": f"{len(result.personas)} profil hazir, sahne oynatiliyor..."})
+            for persona in result.personas:
+                await asyncio.sleep(0.15)
+                yield _sse({"type": "persona", "persona": persona.model_dump()})
+            yield _sse({"type": "done"})
+        except (ValidationError, json.JSONDecodeError):
+            yield _sse({"type": "error", "message": "Gemini beklenen simulasyon JSON'unu uretmedi. Lutfen tekrar deneyin."})
         except Exception as exc:
-            yield f'data: {json.dumps({"type": "error", "message": str(exc)})}\n\n'
-            return
-
-        yield f'data: {json.dumps({"type": "step", "message": f"{len(personas)} profil hazır, değerlendirme başlıyor..."})}\n\n'
-
-        # Step 2: Evaluate all personas concurrently, stream results as they complete.
-        # Her personaya farklı bir focusArea ata ki sahnede 5 ayrı görsel hedef olsun.
-        focus_areas = assign_focus_areas(personas)
-
-        queue: asyncio.Queue = asyncio.Queue()
-
-        async def eval_and_enqueue(persona: _DynamicPersona, focus_area: str) -> None:
-            focus_label = FOCUS_LABELS.get(focus_area, FOCUS_LABELS["features"])
-            result = await _evaluate_persona(client, persona, req, focus_area, focus_label)
-            await queue.put(result)
-
-        tasks = [
-            asyncio.create_task(eval_and_enqueue(p, focus_areas[i]))
-            for i, p in enumerate(personas)
-        ]
-
-        for _ in range(len(personas)):
-            result: PersonaResult = await queue.get()
-            yield f'data: {json.dumps({"type": "persona", "persona": result.model_dump()})}\n\n'
-
-        await asyncio.gather(*tasks, return_exceptions=True)
-        yield f'data: {json.dumps({"type": "done"})}\n\n'
+            msg = "Gemini gecici olarak yanit veremedi." if _is_retryable_gemini_error(exc) else "Musteri simulasyonu olusturulamadi."
+            yield _sse({"type": "error", "message": f"{msg} {str(exc)[:120]}"})
 
     return StreamingResponse(
         generate(),
@@ -367,53 +400,11 @@ async def simulate_stream(req: SimulateRequest) -> StreamingResponse:
 
 @router.post("/simulate", response_model=SimulateResponse)
 async def simulate(req: SimulateRequest):
-    client = _get_client()
-
-    # Step 1: Generate dynamic personas for this product
     try:
-        personas = await asyncio.to_thread(_generate_personas_sync, client, req)
-    except genai_errors.APIError as exc:
-        if is_mockable_gemini_error(exc):
-            mock_result = {"personas": MOCK_PERSONAS, "_mock": True}
-            return JSONResponse(content=mock_result)
-        raise HTTPException(status_code=503, detail="Persona üretimi başarısız.")
-    except Exception:
-        raise HTTPException(status_code=503, detail="Persona üretimi başarısız.")
-
-    # Step 2: Evaluate all personas in parallel with high-thinking mode.
-    # Her personaya farklı focusArea ata — 5 ayrı görsel hedef garantisi.
-    focus_areas = assign_focus_areas(personas)
-    tasks = [
-        _evaluate_persona(
-            client, persona, req,
-            focus_areas[i],
-            FOCUS_LABELS.get(focus_areas[i], FOCUS_LABELS["features"]),
-        )
-        for i, persona in enumerate(personas)
-    ]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    output: list[PersonaResult] = []
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            p = personas[i]
-            fa = focus_areas[i]
-            fl = FOCUS_LABELS.get(fa, FOCUS_LABELS["features"])
-            output.append(
-                PersonaResult(
-                    id=p.id, name=p.name, age=p.age, city=p.city,
-                    segment=p.segment, profile=p.profile, caresAbout=p.caresAbout,
-                    decision="undecided",
-                    reason="Değerlendirme sırasında hata oluştu.",
-                    lookedAt=[fl],
-                    recommendation="Ürün bilgilerini tamamla.",
-                    monologue="Yeterli bilgi bulamadım.",
-                    focusArea=fa,
-                    focusLabel=fl,
-                    bubbleText=fl,
-                )
-            )
-        else:
-            output.append(result)  # type: ignore[arg-type]
-
-    return SimulateResponse(personas=output)
+        result, _ = await _simulate_once(req)
+        return result
+    except (ValidationError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=503, detail="Gemini beklenen simulasyon JSON'unu uretmedi.") from exc
+    except Exception as exc:
+        msg = "Gemini gecici olarak yanit veremedi." if _is_retryable_gemini_error(exc) else "Musteri simulasyonu olusturulamadi."
+        raise HTTPException(status_code=503, detail=f"{msg} {str(exc)[:120]}") from exc

@@ -12,7 +12,7 @@ from mock.responses import is_mockable_gemini_error, get_mock_content
 
 router = APIRouter()
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-2.5-flash-lite"
 
 
 class SimulationContext(BaseModel):
@@ -136,7 +136,7 @@ def _generate_content_sync(client: genai.Client, req: ContentGenerateRequest) ->
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=ContentGenerateResponse,
-            thinking_config=types.ThinkingConfig(thinking_budget=2048),
+            temperature=0.2,
         ),
     )
     return ContentGenerateResponse.model_validate_json(response.text)

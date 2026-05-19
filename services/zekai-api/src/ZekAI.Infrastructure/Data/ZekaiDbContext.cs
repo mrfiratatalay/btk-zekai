@@ -14,6 +14,7 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
     public DbSet<ShoppingProject> ShoppingProjects => Set<ShoppingProject>();
     public DbSet<ShoppingProjectAnalysis> ShoppingProjectAnalyses => Set<ShoppingProjectAnalysis>();
     public DbSet<SavedKombin> SavedKombins => Set<SavedKombin>();
+    public DbSet<SellerProductDraft> SellerProductDrafts => Set<SellerProductDraft>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -78,5 +79,16 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
             .HasIndex(k => new { k.UserId, k.ExternalId }).IsUnique();
         mb.Entity<SavedKombin>()
             .Property(k => k.Budget).HasColumnType("numeric(10,2)");
+
+        mb.Entity<SellerProductDraft>()
+            .HasOne(d => d.User)
+            .WithMany()
+            .HasForeignKey(d => d.UserId);
+        mb.Entity<SellerProductDraft>()
+            .HasIndex(d => new { d.UserId, d.CommerceProductId });
+        mb.Entity<SellerProductDraft>()
+            .Property(d => d.Price).HasColumnType("numeric(12,2)");
+        mb.Entity<SellerProductDraft>()
+            .Property(d => d.OriginalPrice).HasColumnType("numeric(12,2)");
     }
 }

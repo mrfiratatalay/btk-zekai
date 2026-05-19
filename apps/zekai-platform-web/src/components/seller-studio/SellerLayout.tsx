@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronUp, LogOut, Package, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, FileStack, LogOut, Package, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUser, logout, type AuthUser } from "@/lib/api/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
@@ -11,6 +11,7 @@ import { ZekaiLogo } from "@/components/ui/ZekaiLogo";
 
 const NAV_ITEMS = [
   { label: "Ürünlerim", href: "/seller/products", icon: Package },
+  { label: "Taslaklarım", href: "/seller/drafts", icon: FileStack },
   { label: "Ayarlar", href: "/seller/settings", icon: Settings },
 ];
 

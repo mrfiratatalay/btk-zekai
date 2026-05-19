@@ -29,12 +29,54 @@ public record SimulationInsightDto(
 
 public record AiContentRequest(SimulationInsightDto? SimulationInsight);
 
+public record AiImageRequest(string? Style);
+
 public record SimulationProductPayload(
     string ProductTitle,
     string Category,
     decimal Price,
     string? Description,
     List<string> Features
+);
+
+// ── Seller Product Drafts ────────────────────────────────────────────────
+
+public record DraftImageInput(string Type, string Label, string? ImageBase64, string? MimeType, string? Url);
+
+public class SaveProductDraftRequest
+{
+    public string Label { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string ShortDescription { get; set; } = "";
+    public string Description { get; set; } = "";
+    public Dictionary<string, string> Features { get; set; } = new();
+    public decimal Price { get; set; }
+    public decimal? OriginalPrice { get; set; }
+    public int Stock { get; set; }
+    public string Brand { get; set; } = "";
+    public string CargoText { get; set; } = "";
+    public int CategoryId { get; set; }
+    public List<DraftImageInput> Images { get; set; } = new();
+}
+
+public record DraftImageDto(string Type, string Label, string Url);
+
+public record ProductDraftDto(
+    Guid Id,
+    string CommerceProductId,
+    string Label,
+    string Title,
+    string ShortDescription,
+    string Description,
+    Dictionary<string, string> Features,
+    decimal Price,
+    decimal? OriginalPrice,
+    int Stock,
+    string Brand,
+    string CargoText,
+    int CategoryId,
+    List<DraftImageDto> Images,
+    DateTime CreatedAt
 );
 
 // Mirrors commerce-api's SellerProductDto — must stay in sync

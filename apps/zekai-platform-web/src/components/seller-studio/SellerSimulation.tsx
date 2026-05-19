@@ -611,6 +611,7 @@ export function SellerSimulation({ product }: { product: SellerProductPerformanc
   const isMockMode = useMockStore((s) => s.isMockMode);
   const [streamDone, setStreamDone] = useState(false);
   const [streamStep, setStreamStep] = useState<string | null>("Simülasyon başlatılıyor...");
+  const [simulationError, setSimulationError] = useState<string | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [activeStep, setActiveStep] = useState(0);
   const [phase,      setPhase]      = useState<SimPhase>("looking");
@@ -648,8 +649,13 @@ export function SellerSimulation({ product }: { product: SellerProductPerformanc
         setStreamDone(true);
         setStreamStep(null);
         setLoading(false);
+      } else if (event.type === "error") {
+        setSimulationError(event.message);
+        setStreamDone(true);
+        setLoading(false);
       }
     }).catch(() => {
+      setSimulationError("Müşteri simülasyonu başlatılamadı. Lütfen tekrar deneyin.");
       setLoading(false);
       setStreamDone(true);
     });
@@ -685,6 +691,26 @@ export function SellerSimulation({ product }: { product: SellerProductPerformanc
       Demo mod — Gemini API kapasitesi geçici olarak doldu. Bu simülasyon gerçek AI profilleri değil, sabit demo verisidir.
     </div>
   ) : null;
+
+  if (simulationError && personas.length === 0) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-linear-to-br from-[#f6f8fa] to-white px-6 text-center dark:from-[#0a0a0a] dark:to-[#0e0e0e]">
+        <div className="flex size-14 items-center justify-center rounded-full bg-red-500/10">
+          <XCircle className="size-7 text-red-500" />
+        </div>
+        <div>
+          <p className="font-semibold text-foreground">Simülasyon tamamlanamadı</p>
+          <p className="mt-1 max-w-md text-sm text-muted-foreground">{simulationError}</p>
+        </div>
+        <Link
+          href={`/seller/product/${product.id}`}
+          className="rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          Ürüne dön
+        </Link>
+      </div>
+    );
+  }
 
   if (loading && personas.length === 0) {
     return (

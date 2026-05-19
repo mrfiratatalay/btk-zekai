@@ -325,16 +325,7 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
             .FirstOrDefaultAsync(sp => sp.SellerId == seller.Id && sp.ProductId == productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
-        // Save image file to wwwroot/images/products/
-        var ext = mimeType.Contains("png") ? "png" : "jpg";
-        var fileName = $"{productId}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.{ext}";
-        var imagesDir = Path.Combine(webRootPath, "images", "products");
-        Directory.CreateDirectory(imagesDir);
-        var filePath = Path.Combine(imagesDir, fileName);
-        var imageBytes = Convert.FromBase64String(imageBase64);
-        await File.WriteAllBytesAsync(filePath, imageBytes);
-
-        var imageUrl = $"/images/products/{fileName}";
+        var imageUrl = await SaveImageFileAsync(productId, imageBase64, mimeType, webRootPath);
 
         // Update or replace primary image record
         var existing = await db.ProductImages
@@ -358,6 +349,32 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
         sp.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return imageUrl;
+    }
+
+    /// <summary>
+    /// AI ile üretilen görseli commerce storage'a kaydeder ama ürünü DEĞİŞTİRMEZ
+    /// (primary image / UpdatedAt'e dokunmaz). Taslak görsellerini kalıcılaştırmak için.
+    /// </summary>
+    public async Task<string> SaveDraftImageAsync(Guid userId, string productId, string imageBase64, string mimeType, string webRootPath)
+    {
+        var seller = await GetSellerByUserIdAsync(userId);
+        var owns = await db.SellerProducts
+            .AnyAsync(sp => sp.SellerId == seller.Id && sp.ProductId == productId);
+        if (!owns) throw new KeyNotFoundException("Ürün bulunamadı.");
+
+        return await SaveImageFileAsync(productId, imageBase64, mimeType, webRootPath);
+    }
+
+    private static async Task<string> SaveImageFileAsync(string productId, string imageBase64, string mimeType, string webRootPath)
+    {
+        var ext = mimeType.Contains("png") ? "png" : "jpg";
+        var fileName = $"{productId}_{Guid.NewGuid():N}.{ext}";
+        var imagesDir = Path.Combine(webRootPath, "images", "products");
+        Directory.CreateDirectory(imagesDir);
+        var filePath = Path.Combine(imagesDir, fileName);
+        var imageBytes = Convert.FromBase64String(imageBase64);
+        await File.WriteAllBytesAsync(filePath, imageBytes);
+        return $"/images/products/{fileName}";
     }
 
     public async Task<SocialMediaContentDto> GenerateSocialContentAsync(Guid userId, string productId, GenerateSocialContentRequest req)

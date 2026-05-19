@@ -165,11 +165,11 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
                     b.Property<bool>("UsedSearch")
                         .HasColumnType("boolean");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -179,6 +179,116 @@ namespace ZekAI.Infrastructure.Migrations
                     b.HasIndex("UserId", "ProductId");
 
                     b.ToTable("AnalysisCaches");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.SavedKombin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Budget")
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("GoalText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProductsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "ExternalId")
+                        .IsUnique();
+
+                    b.ToTable("SavedKombins");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.SellerProductDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CargoText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CommerceProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FeaturesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImagesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("OriginalPrice")
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("ShortDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Stock")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CommerceProductId");
+
+                    b.ToTable("SellerProductDrafts");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.SellerStoreConnection", b =>
@@ -254,49 +364,6 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("ShoppingProjects");
-                });
-
-            modelBuilder.Entity("ZekAI.Domain.Entities.SavedKombin", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ExternalId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("GoalText")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal?>("Budget")
-                        .HasColumnType("numeric(10,2)");
-
-                    b.Property<string>("ProductsJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ResultJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "ExternalId")
-                        .IsUnique();
-
-                    b.ToTable("SavedKombins");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.ShoppingProjectAnalysis", b =>
@@ -410,6 +477,28 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.SavedKombin", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
+                        .WithMany("SavedKombins")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.SellerProductDraft", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.SellerStoreConnection", b =>
                 {
                     b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "ZekaiUser")
@@ -449,17 +538,6 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Navigation("Analysis");
 
                     b.Navigation("Project");
-                });
-
-            modelBuilder.Entity("ZekAI.Domain.Entities.SavedKombin", b =>
-                {
-                    b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
-                        .WithMany("SavedKombins")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.ZekaiRefreshToken", b =>

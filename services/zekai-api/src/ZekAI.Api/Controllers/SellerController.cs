@@ -227,11 +227,14 @@ public class SellerController(SellerService seller) : ControllerBase
     }
 
     [HttpPost("products/{productId}/ai-image")]
-    public async Task<IActionResult> GenerateProductImage(string productId)
+    public async Task<IActionResult> GenerateProductImage(
+        string productId,
+        [FromBody] AiImageRequest? req = null)
     {
         try
         {
-            var result = await seller.GenerateProductImageAsync(UserId, productId);
+            var style = string.IsNullOrWhiteSpace(req?.Style) ? "studio" : req.Style;
+            var result = await seller.GenerateProductImageAsync(UserId, productId, style);
             return result is null ? StatusCode(503, new { message = "AI servisi yanıt vermedi." }) : Ok(result);
         }
         catch (AiServiceException ex) { return AiServiceError(ex); }
@@ -260,6 +263,46 @@ public class SellerController(SellerService seller) : ControllerBase
             var result = await seller.UpdateProductImageAsync(UserId, productId, req.ImageBase64, req.MimeType);
             return result is null ? BadRequest(new { message = "Görsel güncellenemedi." }) : Ok(result);
         }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ── Product Drafts (AI çıktısı DB'de saklanır → ücretsiz tekrar yayın) ──
+
+    [HttpPost("products/{productId}/drafts")]
+    public async Task<IActionResult> SaveDraft(string productId, [FromBody] SaveProductDraftRequest req)
+    {
+        try { return Ok(await seller.SaveDraftAsync(UserId, productId, req)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpGet("products/{productId}/drafts")]
+    public async Task<IActionResult> GetProductDrafts(string productId)
+    {
+        try { return Ok(await seller.GetProductDraftsAsync(UserId, productId)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpGet("drafts")]
+    public async Task<IActionResult> GetAllDrafts()
+        => Ok(await seller.GetAllDraftsAsync(UserId));
+
+    [HttpDelete("drafts/{draftId:guid}")]
+    public async Task<IActionResult> DeleteDraft(Guid draftId)
+    {
+        var ok = await seller.DeleteDraftAsync(UserId, draftId);
+        return ok ? Ok(new { message = "Taslak silindi." }) : NotFound(new { message = "Taslak bulunamadı." });
+    }
+
+    [HttpPost("drafts/{draftId:guid}/publish")]
+    public async Task<IActionResult> PublishDraft(Guid draftId)
+    {
+        try
+        {
+            var ok = await seller.PublishDraftAsync(UserId, draftId);
+            return ok ? Ok(new { message = "Taslak yayınlandı." }) : BadRequest(new { message = "Yayınlama başarısız." });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 

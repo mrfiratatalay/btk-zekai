@@ -24,10 +24,14 @@ import { formatSellerPrice } from "@/lib/format";
 import {
   updateProductContent,
   generateAiContent,
-  generateProductImages,
+  generateProductImage,
+  saveProductDraft,
   applyProductImage,
   getStoreConnections,
   aiFeaturesToRecord,
+  IMAGE_STYLE_LABELS,
+  type SaveDraftInput,
+  type ProductImageStyle,
   type GeneratedProductImageItem,
   type SimulationInsight,
 } from "@/lib/api/seller";
@@ -96,6 +100,8 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
   const [aiGenerating, setAiGenerating]           = useState(false);
   const [aiImprovementNote, setAiImprovementNote] = useState<string | null>(null);
   const [imageGenerating, setImageGenerating]     = useState(false);
+  const [generatingStyle, setGeneratingStyle]     = useState<ProductImageStyle | null>(null);
+  const [lightboxSrc, setLightboxSrc]             = useState<string | null>(null);
   const [saving, setSaving]                       = useState(false);
   const [publishing, setPublishing]               = useState(false);
   const [aiApplied, setAiApplied]                 = useState(false);
@@ -135,6 +141,11 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
 
   const optimizationScore = aiApplied ? "AI İçerik Uygulandı" : description ? "Temel İçerik Var" : "İçerik Eksik";
   const selectedImage = generatedImages.find((img) => img.type === selectedImageType) ?? null;
+  const previewSrc = selectedImage
+    ? `data:${selectedImage.mimeType};base64,${selectedImage.imageBase64}`
+    : appliedImageUrl
+      ? `${COMMERCE_API}${appliedImageUrl}`
+      : product.image || null;
 
   function markDraft() { setIsDraft(true); }
 
@@ -175,20 +186,19 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
     }
   }
 
-  async function handleGenerateImages() {
+  async function handleGenerateImage(style: ProductImageStyle) {
     setImageGenerating(true);
-    setGeneratedImages([]);
-    setSelectedImageType(null);
+    setGeneratingStyle(style);
     try {
-      const result = await generateProductImages(product.id);
-      if (result.images.length === 0) throw new Error("Görsel üretilemedi.");
-      setGeneratedImages(result.images);
-      setSelectedImageType(result.images[0]?.type ?? null);
-      toast.success(`${result.images.length} görsel üretildi — birini seçip uygula`);
+      const img = await generateProductImage(product.id, style);
+      setGeneratedImages((prev) => [...prev.filter((p) => p.type !== style), img]);
+      setSelectedImageType(style);
+      toast.success(`${IMAGE_STYLE_LABELS[style]} görseli üretildi — uygula ile kaydet`);
     } catch {
       toast.error("Görsel üretilemedi. Lütfen tekrar dene.");
     } finally {
       setImageGenerating(false);
+      setGeneratingStyle(null);
     }
   }
 
@@ -211,11 +221,33 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
   async function handleSaveDraft() {
     setSaving(true);
     try {
-      await updateProductContent(product.id, buildPayload(), { publish: false });
+      const draftImages: SaveDraftInput["images"] = generatedImages.map((img) => ({
+        type: img.type,
+        label: img.label,
+        imageBase64: img.imageBase64,
+        mimeType: img.mimeType,
+      }));
+      // Uygulanmış görsel varsa (storage'da) onu da taslağa URL olarak iliştir
+      if (appliedImageUrl && draftImages.length === 0) {
+        draftImages.push({ type: "applied", label: "Uygulanan", url: appliedImageUrl });
+      }
+      await saveProductDraft(product.id, {
+        title,
+        shortDescription,
+        description,
+        features,
+        price: Number(price),
+        originalPrice: originalPrice ? Number(originalPrice) : null,
+        stock: Number(stock),
+        brand,
+        cargoText,
+        categoryId,
+        images: draftImages,
+      });
       setIsDraft(true);
-      toast.success("Taslak kaydedildi");
+      toast.success("Taslak kaydedildi — Taslaklarım'dan tek tıkla yayınlayabilirsin");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Kayıt başarısız.");
+      toast.error(err instanceof Error ? err.message : "Taslak kaydedilemedi.");
     } finally {
       setSaving(false);
     }
@@ -294,12 +326,15 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
         )}
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[300px_1fr]">
+      <div className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
 
         {/* ── SOL: Görsel paneli ── */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:sticky lg:top-6">
           <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <div className="relative aspect-square bg-[#f8f8f8] dark:bg-white/5">
+            <div
+              onClick={() => { if (previewSrc && !imageGenerating) setLightboxSrc(previewSrc); }}
+              className={`relative aspect-square bg-[#f8f8f8] dark:bg-white/5 ${previewSrc && !imageGenerating ? "cursor-zoom-in" : ""}`}
+            >
               {imageGenerating ? (
                 <div className="flex h-full flex-col items-center justify-center gap-3">
                   <div className="relative flex size-12 items-center justify-center">
@@ -308,8 +343,8 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                       <Wand2 className="size-5 text-violet-500" />
                     </div>
                   </div>
-                  <p className="text-xs text-gray-400">3 görsel üretiliyor...</p>
-                  <p className="text-[10px] text-gray-300">Stüdyo · Kutu Açma · Kullanım</p>
+                  <p className="text-xs text-gray-400">Görsel üretiliyor...</p>
+                  <p className="text-[10px] text-gray-300">{generatingStyle ? IMAGE_STYLE_LABELS[generatingStyle] : ""}</p>
                 </div>
               ) : selectedImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -318,7 +353,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={`${COMMERCE_API}${appliedImageUrl}`} alt={product.title} className="size-full object-contain p-6" />
               ) : product.image ? (
-                <Image src={product.image} alt={product.title} fill className="object-contain p-6" sizes="300px" />
+                <Image src={product.image} alt={product.title} fill className="object-contain p-6" sizes="(min-width:1024px) 50vw, 100vw" />
               ) : (
                 <div className="flex h-full items-center justify-center text-gray-200 dark:text-white/10">
                   <ImagePlus className="size-12" />
@@ -363,13 +398,22 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
               )}
             </div>
 
-            <div className="flex border-t border-gray-100 dark:border-white/8">
-              <button onClick={handleGenerateImages} disabled={imageGenerating || applyingImage} className="flex flex-1 cursor-pointer items-center justify-center gap-2 py-3 text-sm font-semibold text-violet-600 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-400 dark:hover:bg-violet-500/8">
-                <Wand2 className="size-4" />
-                {imageGenerating ? "Üretiliyor..." : "Görsel Üret (3 çekim)"}
-              </button>
+            <div className="border-t border-gray-100 dark:border-white/8">
+              <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-white/8">
+                {(["studio", "unboxing", "lifestyle"] as ProductImageStyle[]).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => handleGenerateImage(st)}
+                    disabled={imageGenerating || applyingImage}
+                    className="flex cursor-pointer flex-col items-center justify-center gap-1 py-3 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-400 dark:hover:bg-violet-500/8"
+                  >
+                    {generatingStyle === st ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                    {IMAGE_STYLE_LABELS[st]}
+                  </button>
+                ))}
+              </div>
               {selectedImage && (
-                <button onClick={handleApplyImage} disabled={applyingImage} className="flex cursor-pointer items-center gap-1.5 border-l border-gray-100 px-4 py-3 text-sm font-bold text-green-600 transition-colors hover:bg-green-50 disabled:opacity-60 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8">
+                <button onClick={handleApplyImage} disabled={applyingImage} className="flex w-full cursor-pointer items-center justify-center gap-1.5 border-t border-gray-100 px-4 py-3 text-sm font-bold text-green-600 transition-colors hover:bg-green-50 disabled:opacity-60 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8">
                   {applyingImage ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
                   Uygula
                 </button>
@@ -567,6 +611,28 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
           </div>
         </div>
       </div>
+
+      {lightboxSrc && (
+        <div
+          onClick={() => setLightboxSrc(null)}
+          className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/80 p-6 backdrop-blur-sm"
+        >
+          <button
+            onClick={() => setLightboxSrc(null)}
+            className="absolute right-5 top-5 cursor-pointer rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
+            aria-label="Kapat"
+          >
+            <X className="size-5" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxSrc}
+            alt={product.title}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-full max-w-full cursor-default rounded-xl object-contain shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 }
