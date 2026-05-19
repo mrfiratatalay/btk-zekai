@@ -68,7 +68,7 @@ export function SellerLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* ── Desktop Sidebar ── */}
       <aside
         className={cn(

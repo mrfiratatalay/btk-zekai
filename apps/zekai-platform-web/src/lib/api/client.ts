@@ -39,18 +39,23 @@ async function tryRefresh(): Promise<string | null> {
   }
 }
 
+type ApiFetchOptions = RequestInit & {
+  suppressMockMode?: boolean;
+};
+
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {},
+  options: ApiFetchOptions = {},
   retry = true,
 ): Promise<T> {
   const token = getToken();
+  const { suppressMockMode, ...fetchOptions } = options;
   const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
+    ...fetchOptions,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
+      ...fetchOptions.headers,
     },
   });
 
@@ -74,7 +79,7 @@ export async function apiFetch<T>(
   const text = await res.text();
   if (!text) return undefined as T;
   const data = JSON.parse(text);
-  if (data && typeof data === "object" && data._mock === true) {
+  if (!suppressMockMode && data && typeof data === "object" && data._mock === true) {
     useMockStore.getState().triggerMockMode();
   }
   return data as T;

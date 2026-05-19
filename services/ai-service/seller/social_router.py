@@ -2,12 +2,11 @@ import asyncio
 import os
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel, Field
 
-from mock.responses import is_mockable_gemini_error, get_mock_social_content
+from mock.responses import is_mockable_gemini_error
 
 router = APIRouter()
 
@@ -154,18 +153,18 @@ def _generate_sync(client: genai.Client, req: SocialContentRequest) -> SocialCon
 async def generate_social_content(req: SocialContentRequest):
     api_key = os.getenv("GOOGLE_API_KEY", "").strip()
     if not api_key or api_key == "your_google_api_key_here":
-        return JSONResponse(content=get_mock_social_content(
-            req.product_title, req.category, req.price,
-            req.tone, req.purpose, _normalize_platforms(req.platforms),
-        ))
+        raise HTTPException(
+            status_code=503,
+            detail="Gemini API key tanımlı değil. Sosyal medya içeriği mock veriyle üretilmedi.",
+        )
 
     client = genai.Client(api_key=api_key)
     try:
         return await asyncio.to_thread(_generate_sync, client, req)
     except genai_errors.APIError as exc:
         if is_mockable_gemini_error(exc):
-            return JSONResponse(content=get_mock_social_content(
-                req.product_title, req.category, req.price,
-                req.tone, req.purpose, _normalize_platforms(req.platforms),
-            ))
+            raise HTTPException(
+                status_code=503,
+                detail="Gemini API limitine veya erişim sorununa takıldı. Mock içerik üretilmedi; daha önce kaydedilmiş taslak/cache varsa onu kullan.",
+            ) from exc
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc

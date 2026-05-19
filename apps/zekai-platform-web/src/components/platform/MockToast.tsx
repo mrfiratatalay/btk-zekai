@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { useMockStore } from "@/lib/store/mock-store";
 
 export function MockToast() {
+  const pathname = usePathname();
   const isMockMode = useMockStore((s) => s.isMockMode);
   const toastShown = useMockStore((s) => s.toastShown);
   const markToastShown = useMockStore((s) => s.markToastShown);
 
   useEffect(() => {
+    if (pathname.includes("/seller/product/") && pathname.endsWith("/social")) return;
     if (isMockMode && !toastShown) {
       toast.warning("AI Demo Modu Aktif", {
         description:
@@ -18,7 +21,7 @@ export function MockToast() {
       });
       markToastShown();
     }
-  }, [isMockMode, toastShown, markToastShown]);
+  }, [isMockMode, toastShown, markToastShown, pathname]);
 
   return null;
 }
