@@ -29,7 +29,7 @@ export function SellerBundles({
   bundles: ProductBundle[];
   recommendations?: BundleRecommendationResponse;
   recommendationsLoading: boolean;
-  onGenerate: () => void;
+  onGenerate: (force?: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<BundleRecommendation | null>(null);
@@ -53,6 +53,18 @@ export function SellerBundles({
 
   const recs = recommendations?.recommendations ?? [];
   const suggestedProductIdeas = recommendations?.missingOpportunity?.suggestedProductIdeas ?? [];
+  const hasGeneratedRecommendations = Boolean(recommendations);
+
+  function handleGenerateClick() {
+    if (!hasGeneratedRecommendations) {
+      onGenerate(false);
+      return;
+    }
+
+    if (window.confirm("Gemini'ye yeni istek atılacak. Mevcut cache yerine yeniden üretmek istiyor musun?")) {
+      onGenerate(true);
+    }
+  }
 
   const STATUS_LABELS: Record<string, string> = {
     Draft: "Taslak",
@@ -102,11 +114,15 @@ export function SellerBundles({
             Mağazandaki tamamlayıcı ürünler kategori, fiyat ve stok verilerine göre eşleştirilir.
           </p>
           <button
-            onClick={onGenerate}
+            onClick={handleGenerateClick}
             disabled={recommendationsLoading}
             className="mt-5 h-11 w-full rounded-xl bg-lime-400 text-sm font-black text-gray-950 hover:bg-lime-300 disabled:opacity-60"
           >
-            {recommendationsLoading ? "Öneriler üretiliyor..." : "Paket Önerisi Üret"}
+            {recommendationsLoading
+              ? "Öneriler üretiliyor..."
+              : hasGeneratedRecommendations
+              ? "Yeniden Üret"
+              : "Gemini ile Paket Önerisi Üret"}
           </button>
         </div>
       </section>

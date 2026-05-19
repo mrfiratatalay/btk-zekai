@@ -273,10 +273,13 @@ public class SellerController(SellerService seller) : ControllerBase
     }
 
     [HttpPost("products/{productId}/bundle-recommendations")]
-    public async Task<IActionResult> GenerateBundleRecommendations(string productId)
+    public async Task<IActionResult> GenerateBundleRecommendations(
+        string productId,
+        [FromBody] BundleRecommendationRequest? req = null)
     {
-        try { return Ok(await seller.GenerateBundleRecommendationsAsync(UserId, productId)); }
+        try { return Ok(await seller.GenerateBundleRecommendationsAsync(UserId, productId, req?.Force ?? false)); }
         catch (AiServiceException ex) { return AiServiceError(ex); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 

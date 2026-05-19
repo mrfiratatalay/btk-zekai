@@ -1,4 +1,7 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using ZekAI.Application.DTOs;
 using ZekAI.Domain.Entities;
@@ -9,6 +12,8 @@ namespace ZekAI.Infrastructure.Services;
 
 public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServiceClient aiService)
 {
+    private static readonly TimeSpan BundleRecommendationCacheTtl = TimeSpan.FromDays(7);
+
     public async Task<List<StoreConnectionDto>> GetConnectionsAsync(Guid userId)
     {
         var connections = await db.StoreConnections
@@ -264,7 +269,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         return doc?.RootElement;
     }
 
-    public async Task<object?> GenerateBundleRecommendationsAsync(Guid userId, string productId)
+    public async Task<object?> GenerateBundleRecommendationsAsync(Guid userId, string productId, bool forceRegenerate = false)
     {
         var conn = await GetActiveConnectionAsync(userId);
 
@@ -279,12 +284,57 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             pd.Description,
             pd.Features?.Values.ToList() ?? []);
 
-        var candidates = allProducts
+        var candidateProducts = allProducts
             .Where(p => p.Id != productId && p.Stock > 0)
+            .ToList();
+
+        var candidates = candidateProducts
             .Select(p => new AiBundleCandidate(
                 p.Id, p.Title, p.Category, (double)p.Price,
                 null, []))
             .ToList();
+
+        if (candidates.Count == 0)
+        {
+            return new
+            {
+                recommendations = Array.Empty<object>(),
+                missingOpportunity = new
+                {
+                    title = "Eksik Fırsat",
+                    message = "Mağazada tamamlayıcı ürün bulunmuyor. Paket önerisi için önce stokta olan farklı bir ürün ekleyebilirsin.",
+                    suggestedProductIdeas = Array.Empty<string>(),
+                },
+                _mock = false,
+                _cached = false,
+            };
+        }
+
+        var sellerKey = string.IsNullOrWhiteSpace(conn.CommerceSellerId)
+            ? userId.ToString("N")
+            : conn.CommerceSellerId;
+        var productListHash = BuildBundleCacheHash(pd, candidateProducts);
+
+        if (!forceRegenerate)
+        {
+            var cached = await db.BundleRecommendationCaches
+                .FirstOrDefaultAsync(c =>
+                    c.SellerKey == sellerKey &&
+                    c.PrimaryProductId == productId &&
+                    c.ProductListHash == productListHash &&
+                    c.ExpiresAt > DateTime.UtcNow);
+
+            if (cached is not null)
+            {
+                cached.LastUsedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+
+                var cachedNode = JsonNode.Parse(cached.ResponseJson) ?? new JsonObject();
+                if (cachedNode is JsonObject cachedObject)
+                    cachedObject["_cached"] = true;
+                return cachedNode;
+            }
+        }
 
         var aiResult = await aiService.GenerateBundleRecommendationsAsync(primary, candidates);
         if (aiResult is null) return null;
@@ -294,6 +344,10 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
         var recommendations = aiResult.Recommendations
             .Where(r => productMap.ContainsKey(r.ComplementaryProductId))
+            .GroupBy(r => r.ComplementaryProductId)
+            .Select(g => g.OrderByDescending(r => r.SemanticScore).First())
+            .OrderByDescending(r => r.SemanticScore)
+            .Take(3)
             .Select(r =>
             {
                 var comp = productMap[r.ComplementaryProductId];
@@ -335,7 +389,12 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             }
             : null;
 
-        return new { recommendations, missingOpportunity, _mock = aiResult.Mock };
+        var response = new { recommendations, missingOpportunity, _mock = aiResult.Mock, _cached = false };
+
+        if (!aiResult.Mock)
+            await SaveBundleRecommendationCacheAsync(sellerKey, productId, productListHash, response);
+
+        return response;
     }
 
     public async Task<object?> CreateProductBundleAsync(Guid userId, string productId, object body)
@@ -371,5 +430,73 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         return await db.StoreConnections
             .FirstOrDefaultAsync(sc => sc.ZekaiUserId == userId && sc.Status == "connected")
             ?? throw new InvalidOperationException("Bağlı mağaza bulunamadı. Önce mağazanızı bağlayın.");
+    }
+
+    private static string BuildBundleCacheHash(CommerceProductDetailDto primary, List<CommerceProductDto> candidates)
+    {
+        var signature = new
+        {
+            primary = new
+            {
+                primary.Id,
+                primary.Title,
+                primary.Category,
+                primary.Price,
+                primary.Stock,
+                features = primary.Features?
+                    .OrderBy(kv => kv.Key)
+                    .Select(kv => new { kv.Key, kv.Value })
+                    .ToList(),
+            },
+            candidates = candidates
+                .OrderBy(c => c.Id)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Title,
+                    c.Category,
+                    c.Price,
+                    c.Stock,
+                    c.IsPublished,
+                    c.UpdatedAt,
+                })
+                .ToList(),
+        };
+
+        var json = JsonSerializer.Serialize(signature);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
+    }
+
+    private async Task SaveBundleRecommendationCacheAsync(string sellerKey, string productId, string productListHash, object response)
+    {
+        var now = DateTime.UtcNow;
+        var responseJson = JsonSerializer.Serialize(response);
+        var existing = await db.BundleRecommendationCaches.FirstOrDefaultAsync(c =>
+            c.SellerKey == sellerKey &&
+            c.PrimaryProductId == productId &&
+            c.ProductListHash == productListHash);
+
+        if (existing is null)
+        {
+            db.BundleRecommendationCaches.Add(new BundleRecommendationCache
+            {
+                SellerKey = sellerKey,
+                PrimaryProductId = productId,
+                ProductListHash = productListHash,
+                ResponseJson = responseJson,
+                CreatedAt = now,
+                UpdatedAt = now,
+                ExpiresAt = now.Add(BundleRecommendationCacheTtl),
+            });
+        }
+        else
+        {
+            existing.ResponseJson = responseJson;
+            existing.UpdatedAt = now;
+            existing.ExpiresAt = now.Add(BundleRecommendationCacheTtl);
+            existing.LastUsedAt = null;
+        }
+
+        await db.SaveChangesAsync();
     }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { getProduct } from "@/lib/api/products";
 import { getSellerProductBundles, generateBundleRecommendations } from "@/lib/api/seller";
@@ -15,10 +15,9 @@ export function SellerBundlesClient({ productId }: { productId: string }) {
     queryKey: ["seller-bundles", productId],
     queryFn: () => getSellerProductBundles(productId),
   });
-  const recommendationsQuery = useQuery({
-    queryKey: ["bundle-recommendations", productId],
-    queryFn: () => generateBundleRecommendations(productId),
-    enabled: false,
+  const recommendationsMutation = useMutation({
+    mutationFn: (force: boolean) => generateBundleRecommendations(productId, { force }),
+    onError: (err: Error) => alert(`Paket önerisi üretilemedi: ${err.message}`),
   });
 
   if (productQuery.isLoading || bundlesQuery.isLoading) {
@@ -37,9 +36,9 @@ export function SellerBundlesClient({ productId }: { productId: string }) {
     <SellerBundles
       product={productQuery.data}
       bundles={bundlesQuery.data ?? []}
-      recommendations={recommendationsQuery.data}
-      recommendationsLoading={recommendationsQuery.isFetching}
-      onGenerate={() => recommendationsQuery.refetch()}
+      recommendations={recommendationsMutation.data}
+      recommendationsLoading={recommendationsMutation.isPending}
+      onGenerate={(force = false) => recommendationsMutation.mutate(force)}
     />
   );
 }

@@ -75,7 +75,7 @@ ADAY TAMAMLAYICI ÜRÜNLER:
 {candidates_text}
 
 GÖREV:
-1. Aday ürünlerden en uyumlu tam olarak 3 ürünü seç (aday sayısı 3'ten azsa mevcut adaylarla devam et). Seçim kriterleri (önem sırasıyla):
+1. Aday ürünlerden en uyumlu en fazla 3 ürünü seç. 3 mantıklı eşleşme yoksa daha az öner; hiç mantıklı uyum yoksa boş liste dön. Seçim kriterleri (önem sırasıyla):
    a) Kullanım senaryosu örtüşmesi — birlikte kullanılır mı?
    b) Semantik uyum — aynı müşteri segmenti alır mı?
    c) Fiyat dengesi — çok pahalı ya da çok ucuz olmamalı
@@ -113,7 +113,7 @@ def _recommend_sync(client: genai.Client, req: BundleRecommendRequest) -> AiBund
             ),
             response_mime_type="application/json",
             response_schema=AiBundleRecommendResponse,
-            thinking_config=types.ThinkingConfig(thinking_budget=1024),
+            thinking_config=types.ThinkingConfig(thinking_budget=512),
         ),
     )
     return AiBundleRecommendResponse.model_validate_json(response.text)
