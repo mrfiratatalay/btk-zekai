@@ -186,12 +186,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         var aiResult = await aiService.GenerateSocialContentAsync(
             pd.Title, pd.Category, pd.Price, pd.Description, features, tone, purpose, platforms);
 
-        if (aiResult is null)
-        {
-            // AI servisi cevap vermezse fallback: eski C# template
-            var doc = await commerce.ProxyPostAsync(conn.CommerceAccessToken, $"/api/seller/products/{productId}/social-content", body);
-            return doc?.RootElement;
-        }
+        if (aiResult is null) return null;
 
         // commerce-api'ye kaydet
         var savePayload = new

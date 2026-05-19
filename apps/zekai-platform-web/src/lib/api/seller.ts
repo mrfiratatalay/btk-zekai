@@ -103,6 +103,7 @@ export const generateSocialContent = (productId: string, payload: GenerateSocial
   apiFetch<SocialMediaContent>(`/api/seller/products/${productId}/social-content`, {
     method: "POST",
     body: JSON.stringify(payload),
+    suppressMockMode: true,
   });
 
 export interface BundleProduct {
