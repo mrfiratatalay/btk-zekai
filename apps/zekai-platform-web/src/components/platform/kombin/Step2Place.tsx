@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Sparkles, Target, ChevronRight, ChevronLeft, X } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Trash2, Sparkles, Target, ChevronRight, ChevronLeft, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { useKombinStore } from "@/lib/kombin-store";
 import { useAnalysesStore } from "@/lib/buyer-store";
 import { inferBodyZone, formatPrice } from "@/lib/kombin-utils";
 import { runKombinAnalyzeStream } from "@/lib/api/kombin";
-import type { BodyZone, KombinProduct } from "@/types/kombin";
+import type { KombinStageEvent } from "@/lib/api/kombin";
+import type { BodyZone, KombinAnalysisResult, KombinProduct } from "@/types/kombin";
 
 const Figure3D = dynamic(
   () => import("./Figure3D").then((m) => ({ default: m.Figure3D })),
@@ -17,12 +18,20 @@ const Figure3D = dynamic(
 );
 
 const AGENT_LABELS: Record<string, string> = {
-  goal_parser: "Hedef Analizi",
-  product_fit: "Ürün Uyumu",
-  synergy:     "Sinerji",
-  budget:      "Bütçe",
-  synthesizer: "Sentez",
+  cache: "Kayitli Sonuc",
+  kombin_planner: "Hazirlik",
+  fit_advisor: "Kombin Danismani",
+  decision_engine: "Karar Motoru",
 };
+
+const AGENT_ORDER = ["kombin_planner", "fit_advisor", "decision_engine"] as const;
+const MIN_ANALYSIS_VIEW_MS = 8_000;
+
+type AgentStatus = "idle" | "running" | "done";
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 // 2D overlay positions for each body zone — tuned for RPM avatar + camera [0,0.9,3.2] fov=42
 const ZONE_OVERLAY: Record<BodyZone, { top: string; left: string; side: "left" | "right" | "center" }> = {
@@ -51,11 +60,13 @@ function ProductSelector({
   const analyses = useAnalysesStore((s) => s.analyses);
   const [search, setSearch] = useState("");
 
-  const filtered = analyses.filter(
-    (a) =>
-      !addedIds.has(a.productId) &&
-      (search === "" || a.productTitle.toLowerCase().includes(search.toLowerCase())),
-  );
+  const filtered = analyses
+    .filter(
+      (a) =>
+        !addedIds.has(a.productId) &&
+        (search === "" || a.productTitle.toLowerCase().includes(search.toLowerCase())),
+    )
+    .filter((a, idx, arr) => arr.findIndex((b) => b.productId === a.productId) === idx);
 
   return (
     <motion.div
@@ -140,6 +151,8 @@ export function Step2Place({ fullscreen = false }: { fullscreen?: boolean }) {
 
   const [showSelector, setShowSelector] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
+  const [agentStatuses, setAgentStatuses] = useState<Record<string, AgentStatus>>({});
+  const [agentLabels, setAgentLabels] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const addedIds = new Set(products.map((p) => p.id));
@@ -150,7 +163,21 @@ export function Step2Place({ fullscreen = false }: { fullscreen?: boolean }) {
   async function handleAnalyze() {
     if (!canAnalyze || isAnalyzing) return;
     setError(null);
+    setActiveAgent(null);
+    setAgentStatuses({});
+    setAgentLabels({});
     setIsAnalyzing(true);
+    const startedAt = Date.now();
+    let finalResult: KombinAnalysisResult | null = null;
+    let failed = false;
+
+    function handleStage(stage: KombinStageEvent) {
+      if (!stage.agent) return;
+      setActiveAgent(stage.agent);
+      setAgentStatuses((current) => ({ ...current, [stage.agent]: stage.status }));
+      setAgentLabels((current) => ({ ...current, [stage.agent]: stage.label }));
+    }
+
     try {
       await runKombinAnalyzeStream(
         {
@@ -166,15 +193,35 @@ export function Step2Place({ fullscreen = false }: { fullscreen?: boolean }) {
         },
         {
           onAgentStep: (author) => setActiveAgent(author),
+          onStage: handleStage,
           onLiveScores: (scores) => setLiveScores(scores),
-          onResult: (result) => { setAnalysisResult(result); nextStep(); },
-          onError: (err) => { setError(err); setIsAnalyzing(false); },
+          onResult: (result) => { finalResult = result; },
+          onError: (err) => {
+            failed = true;
+            setError(err);
+            setIsAnalyzing(false);
+          },
         },
       );
     } catch (err) {
+      failed = true;
       setError(String(err));
       setIsAnalyzing(false);
+      return;
     }
+
+    if (failed || !finalResult) {
+      if (!failed) {
+        setError("Kombin analizi tamamlanamadi. Lutfen tekrar dene.");
+        setIsAnalyzing(false);
+      }
+      return;
+    }
+
+    const remaining = Math.max(0, MIN_ANALYSIS_VIEW_MS - (Date.now() - startedAt));
+    if (remaining > 0) await sleep(remaining);
+    setAnalysisResult(finalResult);
+    nextStep();
   }
 
   // ── Layout ───────────────────────────────────────────────────────────────
@@ -360,7 +407,7 @@ export function Step2Place({ fullscreen = false }: { fullscreen?: boolean }) {
 
             {/* Live scores during analysis */}
             <AnimatePresence>
-              {isAnalyzing && liveScores && (
+              {isAnalyzing && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -378,21 +425,47 @@ export function Step2Place({ fullscreen = false }: { fullscreen?: boolean }) {
                       </motion.span>
                       {activeAgent ? (AGENT_LABELS[activeAgent] ?? activeAgent) : "Analiz"} yapılıyor...
                     </p>
-                    <span className="text-2xl font-black text-[#adff41]">{liveScores.overall}</span>
+                    {liveScores && <span className="text-2xl font-black text-[#adff41]">{liveScores.overall}</span>}
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { label: "İhtiyaç", val: liveScores.needFit },
-                      { label: "Parça", val: liveScores.partFit },
-                      { label: "Bütçe", val: liveScores.budgetBalance },
-                      { label: "Risk", val: liveScores.risk },
-                    ].map(({ label, val }) => (
-                      <div key={label} className="text-center">
-                        <p className="text-xs text-muted-foreground">{label}</p>
-                        <p className="text-sm font-bold text-foreground">{val}</p>
-                      </div>
-                    ))}
+                  <div className="mb-3 space-y-2">
+                    {AGENT_ORDER.map((agent) => {
+                      const status = agentStatuses[agent] ?? "idle";
+                      return (
+                        <div key={agent} className="flex items-center gap-2 text-xs">
+                          {status === "done" ? (
+                            <CheckCircle2 className="size-4 text-[#adff41]" />
+                          ) : status === "running" ? (
+                            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                              <Sparkles className="size-4 text-[#adff41]" />
+                            </motion.div>
+                          ) : (
+                            <Circle className="size-4 text-muted-foreground/60" />
+                          )}
+                          <span className={cn("font-semibold", status === "idle" ? "text-muted-foreground" : "text-foreground")}>
+                            {AGENT_LABELS[agent]}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-right text-muted-foreground">
+                            {agentLabels[agent] ?? (status === "idle" ? "Bekliyor" : "Calisiyor")}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
+                  {liveScores && (
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { label: "Ihtiyac", val: liveScores.needFit },
+                        { label: "Parca", val: liveScores.partFit },
+                        { label: "Butce", val: liveScores.budgetBalance },
+                        { label: "Risk", val: liveScores.risk },
+                      ].map(({ label, val }) => (
+                        <div key={label} className="text-center">
+                          <p className="text-xs text-muted-foreground">{label}</p>
+                          <p className="text-sm font-bold text-foreground">{val}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

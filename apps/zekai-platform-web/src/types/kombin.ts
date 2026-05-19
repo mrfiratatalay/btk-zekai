@@ -44,6 +44,8 @@ export type KombinSuggestion = {
 };
 
 export type KombinAnalysisResult = {
+  decision?: "al" | "dusun" | "alma";
+  cached?: boolean;
   scores: KombinScores;
   headline: string;
   summary: string;

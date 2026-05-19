@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Target, ChevronRight, Sparkles } from "lucide-react";
+import { Target, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKombinStore } from "@/lib/kombin-store";
 import type { KombinGoal } from "@/types/kombin";
@@ -172,14 +172,6 @@ export function Step1Goal() {
         selected={local.style}
         onChange={(v) => update("style", v)}
       />
-
-      {/* AI info footer */}
-      <div className="flex items-center gap-2.5 rounded-xl border border-[#adff41]/20 bg-[#adff41]/5 px-4 py-3">
-        <Sparkles className="size-4 shrink-0 text-[#adff41]" />
-        <p className="text-xs text-muted-foreground">
-          <span className="font-semibold text-[#adff41]">ZekAI</span> bu bilgilere göre kombinini 5 farklı ajanla analiz edecek.
-        </p>
-      </div>
 
       {/* CTA */}
       <button

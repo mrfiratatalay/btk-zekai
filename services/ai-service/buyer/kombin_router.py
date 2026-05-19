@@ -1,33 +1,38 @@
 """
-ZekAI Kombin Danışmanı — 5-Agent Native Gemini SDK + SSE Streaming
+ZekAI Kombin Advisor - cost-aware Gemini workflow.
 
-Agent flow:
-  1. Goal Parser    (LLM) → hedef analizi, ihtiyaç listesi
-  2. Product Fit    (LLM) → her ürün için hedefe uyum skoru   ┐ parallel
-  3. Synergy        (LLM) → ürünler arası uyum/sinerji analizi │
-  4. Budget         (LLM) → bütçe dengesi, öncelik sırası      ┘
-  5. Synthesizer    (LLM) → final kombin skoru + öneriler
+Default path:
+  1. Local planner validates and normalizes the selected products.
+  2. One structured Gemini advisor call evaluates fit, synergy, and missing pieces.
+  3. Deterministic decision engine computes budget balance, order, and final scores.
+
+The old implementation made five Gemini calls per request. This keeps the SSE
+experience but only spends tokens where judgement is actually needed.
 """
 
 import asyncio
+import hashlib
 import json
 import os
-import re
-from typing import AsyncGenerator
+import time
+from typing import Any, AsyncGenerator, Literal
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from google import genai
 from google.genai import errors as genai_errors
-from pydantic import BaseModel, Field
-
-from mock.responses import is_mockable_gemini_error
+from google.genai import types as genai_types
+from pydantic import BaseModel, Field, ValidationError
 
 router = APIRouter()
-MODEL = "gemini-2.5-flash"
 
+ADVISOR_MODEL = os.getenv("KOMBIN_ADVISOR_MODEL", "gemini-2.5-flash-lite")
+ADVISOR_TIMEOUT_SECONDS = int(os.getenv("KOMBIN_ADVISOR_TIMEOUT_SECONDS", "45"))
+CACHE_TTL_SECONDS = int(os.getenv("KOMBIN_CACHE_TTL_SECONDS", "86400"))
+MAX_CACHE_ITEMS = int(os.getenv("KOMBIN_MAX_CACHE_ITEMS", "256"))
 
-# ── Models ─────────────────────────────────────────────────────────────────────
+_ANALYSIS_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+
 
 class KombinProductInput(BaseModel):
     id: str = Field(min_length=1, max_length=200)
@@ -40,23 +45,75 @@ class KombinProductInput(BaseModel):
 class KombinAnalyzeRequest(BaseModel):
     goal: str = Field(min_length=1, max_length=1000)
     budget: float = Field(ge=0)
-    use_cases: list[str] = Field(default=[])
-    priorities: list[str] = Field(default=[])
-    style: list[str] = Field(default=[])
+    use_cases: list[str] = Field(default=[], max_length=12)
+    priorities: list[str] = Field(default=[], max_length=12)
+    style: list[str] = Field(default=[], max_length=12)
     products: list[KombinProductInput] = Field(min_length=1, max_length=20)
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# ── Gemini response schema models (no constraints — Gemini rejects too many) ──
+class _GeminiProductResult(BaseModel):
+    product_id: str = ""
+    role: str = "tamamlayici"
+    fit_score: int = 50
+    risk_score: int = 50
+    ai_comment: str = ""
+    pairs_well_with: list[str] = Field(default_factory=list)
+
+
+class _GeminiSuggestion(BaseModel):
+    title: str = ""
+    reason: str = ""
+
+
+class _GeminiAdvisorReport(BaseModel):
+    need_fit_score: int = 50
+    part_fit_score: int = 50
+    risk_score: int = 50
+    headline: str = ""
+    summary: str = ""
+    missing_piece: str = ""
+    warning_item: str = ""
+    suggestions: list[_GeminiSuggestion] = Field(default_factory=list)
+    product_results: list[_GeminiProductResult] = Field(default_factory=list)
+
+
+# ── Application-level models (used after parsing for downstream logic) ────────
+class ProductAdvisorResult(BaseModel):
+    product_id: str
+    role: Literal["ana", "tamamlayici", "opsiyonel"] = "tamamlayici"
+    fit_score: int = Field(ge=0, le=100)
+    risk_score: int = Field(ge=0, le=100)
+    ai_comment: str = ""
+    pairs_well_with: list[str] = Field(default_factory=list)
+
+
+class KombinSuggestion(BaseModel):
+    title: str = ""
+    reason: str = ""
+
+
+class KombinAdvisorReport(BaseModel):
+    need_fit_score: int
+    part_fit_score: int
+    risk_score: int
+    headline: str
+    summary: str
+    missing_piece: str | None = None
+    warning_item: str | None = None
+    suggestions: list[KombinSuggestion] = Field(default_factory=list)
+    product_results: list[ProductAdvisorResult] = Field(default_factory=list)
+
 
 def _get_client() -> genai.Client:
     api_key = os.getenv("GOOGLE_API_KEY", "").strip()
     if not api_key or api_key == "your_google_api_key_here":
-        raise ValueError("GOOGLE_API_KEY tanımlı değil.")
+        raise ValueError("GOOGLE_API_KEY tanimli degil.")
     return genai.Client(api_key=api_key)
 
 
-def _sse(author: str, text: str = "", state_key: str | None = None, state_value=None) -> str:
-    payload: dict = {"author": author}
+def _sse(author: str, text: str = "", state_key: str | None = None, state_value: Any = None) -> str:
+    payload: dict[str, Any] = {"author": author}
     if text:
         payload["content"] = {"parts": [{"text": text}]}
     if state_key and state_value is not None:
@@ -64,469 +121,365 @@ def _sse(author: str, text: str = "", state_key: str | None = None, state_value=
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
-def _extract_json(text: str) -> dict:
-    text = text.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    try:
-        return json.loads(text)
-    except Exception:
-        m = re.search(r"\{.*\}", text, re.DOTALL)
-        if m:
-            try:
-                return json.loads(m.group())
-            except Exception:
-                pass
-        return {}
+def _error_sse(message: str) -> str:
+    return f"data: {json.dumps({'type': 'error', 'message': message}, ensure_ascii=False)}\n\n"
+
+
+def _stage_sse(agent: str, status: Literal["running", "done"], label: str) -> str:
+    return _sse(
+        agent,
+        label,
+        "kombin_stage",
+        {"agent": agent, "status": status, "label": label},
+    )
 
 
 def _product_list_text(req: KombinAnalyzeRequest) -> str:
     return "\n".join(
-        f"- {p.title} ({p.category or 'Kategori yok'}) — ₺{p.price:.0f}"
+        f"- id: \"{p.id}\", urun: \"{p.title}\", kategori: \"{p.category or 'Belirtilmemis'}\", fiyat: {p.price:.2f} TRY"
         for p in req.products
     )
 
 
-# ── Agent 1: Goal Parser ───────────────────────────────────────────────────────
+def _cache_key(req: KombinAnalyzeRequest) -> str:
+    payload = {
+        "goal": req.goal.strip().lower(),
+        "budget": round(req.budget, 2),
+        "use_cases": sorted(item.strip().lower() for item in req.use_cases),
+        "priorities": sorted(item.strip().lower() for item in req.priorities),
+        "style": sorted(item.strip().lower() for item in req.style),
+        "products": sorted(
+            [
+                {
+                    "id": p.id,
+                    "title": p.title.strip().lower(),
+                    "category": p.category.strip().lower(),
+                    "price": round(p.price, 2),
+                }
+                for p in req.products
+            ],
+            key=lambda item: (item["id"], item["title"], item["price"]),
+        ),
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
-def _run_goal_parser_sync(client: genai.Client, req: KombinAnalyzeRequest) -> dict:
-    prompt = f"""Bir kombin danışmanısın. Kullanıcının hedef metnini ve bütçesini analiz et.
 
-Hedef: {req.goal}
-Bütçe: ₺{req.budget:.0f}
-Kullanım Amacı: {", ".join(req.use_cases) or "Belirtilmemiş"}
-Öncelikler: {", ".join(req.priorities) or "Belirtilmemiş"}
-Tarz: {", ".join(req.style) or "Belirtilmemiş"}
+def _get_cached_result(key: str) -> dict[str, Any] | None:
+    cached = _ANALYSIS_CACHE.get(key)
+    if not cached:
+        return None
+    created_at, result = cached
+    if time.time() - created_at > CACHE_TTL_SECONDS:
+        _ANALYSIS_CACHE.pop(key, None)
+        return None
+    return {**result, "cached": True}
 
-Ürünler:
-{_product_list_text(req)}
 
-Sadece JSON döndür:
-{{
-  "core_needs": ["..."],
-  "missing_categories": ["..."],
-  "use_context": "kısa kullanım bağlamı",
-  "budget_pressure": "low|medium|high",
-  "summary": "2 cümle hedef özeti"
-}}"""
-    try:
-        resp = client.models.generate_content(
-            model=MODEL,
-            contents=prompt,
-            config={"response_mime_type": "application/json"},
+def _save_cached_result(key: str, result: dict[str, Any]) -> None:
+    if len(_ANALYSIS_CACHE) >= MAX_CACHE_ITEMS:
+        oldest_key = min(_ANALYSIS_CACHE.items(), key=lambda item: item[1][0])[0]
+        _ANALYSIS_CACHE.pop(oldest_key, None)
+    _ANALYSIS_CACHE[key] = (time.time(), {**result, "cached": False})
+
+
+def _budget_balance_score(total: float, budget: float) -> int:
+    if budget <= 0:
+        return 55 if total <= 0 else 30
+    ratio = total / budget
+    if ratio <= 0.75:
+        return 92
+    if ratio <= 0.95:
+        return 84
+    if ratio <= 1.0:
+        return 76
+    if ratio <= 1.15:
+        return 58
+    if ratio <= 1.35:
+        return 42
+    return 25
+
+
+def _budget_warning(total: float, budget: float) -> str | None:
+    if budget <= 0:
+        return "Butce belirtilmedigi icin fiyat dengesini sinirli yorumladim."
+    if total > budget:
+        return f"Secilen urunler butceyi yaklasik {total - budget:.0f} TL asiyor."
+    if total > budget * 0.9:
+        return "Butcenin buyuk kismi kullaniliyor; opsiyonel parcalari sona birakmak daha mantikli."
+    return None
+
+
+def _deterministic_purchase_order(req: KombinAnalyzeRequest, advisor: KombinAdvisorReport) -> list[str]:
+    role_weight = {"ana": 0, "tamamlayici": 1, "opsiyonel": 2}
+    by_id = {item.product_id: item for item in advisor.product_results}
+    return [
+        product.id
+        for product in sorted(
+            req.products,
+            key=lambda p: (
+                role_weight.get(by_id.get(p.id).role if by_id.get(p.id) else "tamamlayici", 1),
+                -(by_id.get(p.id).fit_score if by_id.get(p.id) else 70),
+                p.price,
+            ),
         )
-        return _extract_json(resp.text) or {"summary": req.goal, "missing_categories": []}
-    except Exception as exc:
-        return {"summary": req.goal, "missing_categories": [], "error": str(exc)[:100]}
+    ]
 
 
-# ── Agent 2: Product Fit ───────────────────────────────────────────────────────
-
-def _run_product_fit_sync(client: genai.Client, req: KombinAnalyzeRequest) -> dict:
-    product_lines = "\n".join(
-        f'- id: "{p.id}", ürün: "{p.title}", kategori: "{p.category}", fiyat: ₺{p.price:.0f}'
-        for p in req.products
-    )
-    prompt = f"""Her ürünün hedefe uyumunu değerlendir.
-
-Hedef: {req.goal}
-Bütçe: ₺{req.budget:.0f}
-Öncelikler: {", ".join(req.priorities) or "-"}
-
-Ürünler:
-{product_lines}
-
-Her ürün için fit_score (0-100), risk_score (0-100) ve kısa ai_comment döndür.
-Sadece JSON döndür:
-{{
-  "products": [
-    {{
-      "product_id": "...",
-      "fit_score": 0-100,
-      "risk_score": 0-100,
-      "role": "ana|tamamlayici|opsiyonel",
-      "ai_comment": "kısa Türkçe yorum",
-      "pairs_well_with": []
-    }}
-  ]
-}}"""
-    try:
-        resp = client.models.generate_content(
-            model=MODEL,
-            contents=prompt,
-            config={"response_mime_type": "application/json"},
-        )
-        return _extract_json(resp.text) or {"products": []}
-    except Exception as exc:
-        return {"products": [], "error": str(exc)[:100]}
-
-
-# ── Agent 3: Synergy ───────────────────────────────────────────────────────────
-
-def _run_synergy_sync(client: genai.Client, req: KombinAnalyzeRequest) -> dict:
-    prompt = f"""Bu ürün kombinasyonunu bir bütün olarak değerlendir.
-
-Hedef: {req.goal}
-Ürünler:
-{_product_list_text(req)}
-
-Kombinasyonun uyumunu, tekrarları ve eksiklikleri analiz et.
-Sadece JSON döndür:
-{{
-  "part_fit_score": 0-100,
-  "has_redundancy": true/false,
-  "redundancy_note": "veya boş string",
-  "missing_piece": "eksik parça önerisi veya boş string",
-  "synergy_comment": "kısa uyum yorumu"
-}}"""
-    try:
-        resp = client.models.generate_content(
-            model=MODEL,
-            contents=prompt,
-            config={"response_mime_type": "application/json"},
-        )
-        return _extract_json(resp.text) or {"part_fit_score": 70}
-    except Exception as exc:
-        return {"part_fit_score": 70, "error": str(exc)[:100]}
-
-
-# ── Agent 4: Budget ────────────────────────────────────────────────────────────
-
-def _run_budget_sync(client: genai.Client, req: KombinAnalyzeRequest) -> dict:
-    total = sum(p.price for p in req.products)
-    product_lines = "\n".join(
-        f"- {p.title}: ₺{p.price:.0f}"
-        for p in req.products
-    )
-    prompt = f"""Bütçe analizi yap.
-
-Toplam bütçe: ₺{req.budget:.0f}
-Toplam ürün bedeli: ₺{total:.0f}
-Fark: ₺{req.budget - total:.0f}
-
-Ürün fiyatları:
-{product_lines}
-
-Bütçe dengesini değerlendir ve öncelikli satın alma sırasını belirle.
-Sadece JSON döndür:
-{{
-  "budget_balance_score": 0-100,
-  "warning_item": "bütçeyi en çok zorlayan ürün adı veya boş",
-  "purchase_order": ["product_id_1", "product_id_2", ...],
-  "budget_comment": "kısa bütçe yorumu"
-}}"""
-    try:
-        resp = client.models.generate_content(
-            model=MODEL,
-            contents=prompt,
-            config={"response_mime_type": "application/json"},
-        )
-        return _extract_json(resp.text) or {"budget_balance_score": 70, "purchase_order": []}
-    except Exception as exc:
-        return {"budget_balance_score": 70, "purchase_order": [], "error": str(exc)[:100]}
-
-
-# ── Agent 5: Synthesizer ───────────────────────────────────────────────────────
-
-def _run_synthesizer_sync(
-    client: genai.Client,
+def _normalize_product_results(
     req: KombinAnalyzeRequest,
-    goal_out: dict,
-    fit_out: dict,
-    synergy_out: dict,
-    budget_out: dict,
-) -> dict:
-    # Derive overall scores
-    product_scores = fit_out.get("products", [])
-    avg_fit = (
-        sum(p.get("fit_score", 70) for p in product_scores) / len(product_scores)
-        if product_scores else 70
-    )
-    part_fit = synergy_out.get("part_fit_score", 70)
-    budget_balance = budget_out.get("budget_balance_score", 70)
+    advisor: KombinAdvisorReport,
+) -> list[dict[str, Any]]:
+    advisor_by_id = {item.product_id: item for item in advisor.product_results}
+    normalized: list[dict[str, Any]] = []
 
-    prompt = f"""Tüm analiz sonuçlarını birleştirip final kombin değerlendirmesini yap.
+    for index, product in enumerate(req.products):
+        item = advisor_by_id.get(product.id)
+        if item:
+            normalized.append(
+                {
+                    "productId": product.id,
+                    "role": item.role,
+                    "fitScore": item.fit_score,
+                    "riskScore": item.risk_score,
+                    "aiComment": item.ai_comment,
+                    "pairsWellWith": [pid for pid in item.pairs_well_with if pid != product.id],
+                }
+            )
+            continue
 
-HEDEF: {req.goal}
-BÜTÇE: ₺{req.budget:.0f}
-
-HEDEF ANALİZİ: {json.dumps(goal_out, ensure_ascii=False)}
-ÜRÜN UYUMU: {json.dumps(fit_out, ensure_ascii=False)}
-SİNERJİ: {json.dumps(synergy_out, ensure_ascii=False)}
-BÜTÇE: {json.dumps(budget_out, ensure_ascii=False)}
-
-Genel kombin skoru hesapla (ihtiyaç uyumu, parça uyumu, bütçe dengesi, risk faktörü).
-Türkçe, samimi bir değerlendirme yap. Sadece JSON döndür:
-{{
-  "overall_score": 0-100,
-  "need_fit_score": 0-100,
-  "part_fit_score": 0-100,
-  "budget_balance_score": 0-100,
-  "risk_score": 0-100,
-  "headline": "İyi bir kombin! veya kısa başlık",
-  "summary": "2-3 cümle genel değerlendirme (Türkçe)",
-  "missing_piece": "eksik parça önerisi veya null",
-  "warning_item": "dikkat edilmesi gereken ürün/durum veya null",
-  "purchase_order": ["product_id_1", ...],
-  "suggestions": [
-    {{"title": "Öneri ürün adı", "price": 0, "reason": "neden iyi gider"}}
-  ],
-  "product_results": [
-    {{
-      "product_id": "...",
-      "role": "ana|tamamlayici|opsiyonel",
-      "fit_score": 0-100,
-      "risk_score": 0-100,
-      "ai_comment": "...",
-      "pairs_well_with": []
-    }}
-  ]
-}}"""
-    try:
-        resp = client.models.generate_content(
-            model=MODEL,
-            contents=prompt,
-            config={"response_mime_type": "application/json"},
-        )
-        result = _extract_json(resp.text)
-        if result:
-            return result
-    except Exception:
-        pass
-
-    # Fallback
-    return {
-        "overall_score": int(avg_fit * 0.45 + part_fit * 0.3 + budget_balance * 0.25),
-        "need_fit_score": int(avg_fit),
-        "part_fit_score": int(part_fit),
-        "budget_balance_score": int(budget_balance),
-        "risk_score": max(0, 100 - int(avg_fit)),
-        "headline": "Analiz tamamlandı.",
-        "summary": "Kombin analizi tamamlandı. Satın alma önceliğini göz önünde bulundur.",
-        "missing_piece": synergy_out.get("missing_piece"),
-        "warning_item": budget_out.get("warning_item"),
-        "purchase_order": budget_out.get("purchase_order", [p.id for p in req.products]),
-        "suggestions": [],
-        "product_results": [
+        normalized.append(
             {
-                "product_id": p.get("product_id"),
-                "role": p.get("role", "tamamlayici"),
-                "fit_score": p.get("fit_score", 70),
-                "risk_score": p.get("risk_score", 25),
-                "ai_comment": p.get("ai_comment", ""),
-                "pairs_well_with": [],
+                "productId": product.id,
+                "role": "ana" if index == 0 else "tamamlayici",
+                "fitScore": 70,
+                "riskScore": 30,
+                "aiComment": "Bu parca kombin icinde temel sinyallere gore uygun gorunuyor.",
+                "pairsWellWith": [],
             }
-            for p in product_scores
+        )
+
+    return normalized
+
+
+def _build_live_scores(req: KombinAnalyzeRequest, advisor: KombinAdvisorReport | None = None) -> dict[str, int]:
+    total = sum(product.price for product in req.products)
+    budget = _budget_balance_score(total, req.budget)
+    if advisor is None:
+        return {
+            "overall": 25,
+            "need_fit": 0,
+            "part_fit": 0,
+            "budget_balance": budget,
+            "risk": 0,
+        }
+
+    overall = round(
+        advisor.need_fit_score * 0.42
+        + advisor.part_fit_score * 0.34
+        + budget * 0.18
+        + (100 - advisor.risk_score) * 0.06
+    )
+    return {
+        "overall": max(0, min(100, overall)),
+        "need_fit": advisor.need_fit_score,
+        "part_fit": advisor.part_fit_score,
+        "budget_balance": budget,
+        "risk": advisor.risk_score,
+    }
+
+
+def _advisor_prompt(req: KombinAnalyzeRequest) -> str:
+    total = sum(product.price for product in req.products)
+    return f"""
+Sen ZekAI icin Turkce konusan bir kombin danismanisin.
+Gorevin: secilen urunlerin kullanicinin amacina birlikte uyup uymadigini degerlendirmek.
+
+DIL KURALLARI (cok onemli):
+- Her cumle kisa ve net olsun. Kullanici yorulmasin.
+- ai_comment icin maksimum 1 cumle yaz. "Bu urun..." diye basla, ne ise yaradigini soyله.
+- headline: 4-6 kelime, direkt. Ornek: "Kampus icin Dengeli Kombin"
+- summary: 2 cumle max. Ne iyi, ne eksik — hepsi bu.
+- Teknik kelime, metrik, skor aciklamasi yazma.
+- Turkce yaz, samimi ol.
+
+ROL KURALLARI:
+- "ana": kombinin olmaz olmazi, hedef buna gore sekilleniyor (sadece 1 urun)
+- "tamamlayici": ana urunu destekleyen, gerekli parcalar
+- "opsiyonel": olsa guzel ama olmasa da olur
+
+SKOR KURALLARI:
+- Emin degilsen 65-75 bandinda kal.
+- Eksik parca sadece gercekten onemli bir sey yoksa yaz.
+- Her urun icin product_id mutlaka verilen id ile TAM AYNI olsun.
+- Satin alma sirasi verme.
+
+Hedef: {req.goal}
+Butce: {req.budget:.2f} TRY
+Toplam urun bedeli: {total:.2f} TRY
+Kullanim amaci: {", ".join(req.use_cases) or "Belirtilmemis"}
+Oncelikler: {", ".join(req.priorities) or "Belirtilmemis"}
+Tarz: {", ".join(req.style) or "Belirtilmemis"}
+
+Urunler:
+{_product_list_text(req)}
+""".strip()
+
+
+def _run_advisor_sync(client: genai.Client, req: KombinAnalyzeRequest) -> KombinAdvisorReport:
+    config = genai_types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=_GeminiAdvisorReport,
+        temperature=0.25,
+    )
+    response = client.models.generate_content(
+        model=ADVISOR_MODEL,
+        contents=_advisor_prompt(req),
+        config=config,
+    )
+    raw = _GeminiAdvisorReport.model_validate_json(response.text or "{}")
+    return KombinAdvisorReport(
+        need_fit_score=max(0, min(100, raw.need_fit_score)),
+        part_fit_score=max(0, min(100, raw.part_fit_score)),
+        risk_score=max(0, min(100, raw.risk_score)),
+        headline=raw.headline[:80] if raw.headline else "Kombin Analizi",
+        summary=raw.summary[:420] if raw.summary else "",
+        missing_piece=raw.missing_piece[:180] if raw.missing_piece else None,
+        warning_item=raw.warning_item[:180] if raw.warning_item else None,
+        suggestions=[KombinSuggestion(title=s.title[:120], reason=s.reason[:200]) for s in raw.suggestions[:2]],
+        product_results=[
+            ProductAdvisorResult(
+                product_id=p.product_id,
+                role=p.role if p.role in ("ana", "tamamlayici", "opsiyonel") else "tamamlayici",
+                fit_score=max(0, min(100, p.fit_score)),
+                risk_score=max(0, min(100, p.risk_score)),
+                ai_comment=p.ai_comment[:220] if p.ai_comment else "",
+                pairs_well_with=p.pairs_well_with[:5],
+            )
+            for p in raw.product_results[:20]
+        ],
+    )
+
+
+def _build_final_result(req: KombinAnalyzeRequest, advisor: KombinAdvisorReport) -> dict[str, Any]:
+    live = _build_live_scores(req, advisor)
+    total = sum(product.price for product in req.products)
+    budget_warning = _budget_warning(total, req.budget)
+    product_results = _normalize_product_results(req, advisor)
+
+    result = {
+        "model": ADVISOR_MODEL,
+        "cached": False,
+        "scores": {
+            "overall": live["overall"],
+            "needFit": live["need_fit"],
+            "partFit": live["part_fit"],
+            "budgetBalance": live["budget_balance"],
+            "risk": live["risk"],
+        },
+        "headline": advisor.headline,
+        "summary": advisor.summary,
+        "productResults": product_results,
+        "missingPiece": advisor.missing_piece,
+        "warningItem": advisor.warning_item or budget_warning,
+        "purchaseOrder": _deterministic_purchase_order(req, advisor),
+        "suggestions": [
+            {
+                "title": item.title[:120],
+                "reason": item.reason[:220],
+            }
+            for item in advisor.suggestions[:2]
+            if item.title
         ],
     }
 
+    if live["overall"] >= 78:
+        result["decision"] = "al"
+    elif live["overall"] >= 60:
+        result["decision"] = "dusun"
+    else:
+        result["decision"] = "alma"
 
-# ── Mock stream ────────────────────────────────────────────────────────────────
-
-async def _mock_kombin_stream(req: KombinAnalyzeRequest) -> AsyncGenerator[str, None]:
-    yield f"data: {json.dumps({'type': 'mock_notice'}, ensure_ascii=False)}\n\n"
-    await asyncio.sleep(0.2)
-
-    total = sum(p.price for p in req.products)
-    over_budget = total > req.budget
-
-    for agent, label in [
-        ("goal_parser", "Hedef analiz ediliyor... (demo mod)"),
-        ("product_fit", "Ürün uyumu değerlendiriliyor... (demo mod)"),
-        ("synergy", "Sinerji analizi yapılıyor... (demo mod)"),
-        ("budget", "Bütçe dengesi hesaplanıyor... (demo mod)"),
-    ]:
-        yield _sse(agent, label)
-        await asyncio.sleep(0.5)
-
-    mock_product_results = [
-        {
-            "product_id": p.id,
-            "role": "ana" if i == 0 else ("tamamlayici" if i == 1 else "opsiyonel"),
-            "fit_score": 85 - i * 5,
-            "risk_score": 20 + i * 3,
-            "ai_comment": f"{p.title} bu kombinasyon için uygun.",
-            "pairs_well_with": [],
-        }
-        for i, p in enumerate(req.products)
-    ]
-
-    purchase_order = [p.id for p in req.products]
-
-    kombin_result = {
-        "scores": {
-            "overall": 78,
-            "needFit": 85,
-            "partFit": 80,
-            "budgetBalance": 65 if over_budget else 80,
-            "risk": 25,
-        },
-        "headline": "İyi bir kombin! (Demo Mod)",
-        "summary": f"Demo modunda çalışıyor. Bütçe: ₺{req.budget:.0f}, Toplam: ₺{total:.0f}.",
-        "productResults": mock_product_results,
-        "missingPiece": "Küçük bir aksesuar kombinasyonu tamamlayabilir.",
-        "warningItem": "Bütçeniz biraz zorlanabilir." if over_budget else None,
-        "purchaseOrder": purchase_order,
-        "suggestions": [],
-    }
-
-    yield _sse(
-        "synthesizer",
-        json.dumps(kombin_result, ensure_ascii=False),
-        "kombin_result",
-        kombin_result,
-    )
+    return result
 
 
-# ── Endpoint ───────────────────────────────────────────────────────────────────
+def _is_retryable_gemini_error(exc: BaseException) -> bool:
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
+        return True
+    if not isinstance(exc, genai_errors.APIError):
+        return False
+    code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    return code in (408, 429, 500, 502, 503, 504)
+
 
 @router.post("/kombin-analyze")
 async def kombin_analyze(req: KombinAnalyzeRequest):
     async def event_stream() -> AsyncGenerator[str, None]:
+        cache_key = _cache_key(req)
+        cached_result = _get_cached_result(cache_key)
+        if cached_result:
+            yield _stage_sse("cache", "done", "Ayni kombin daha once analiz edilmis; kayitli sonuc kullaniliyor.")
+            yield _sse("decision_engine", "", "partial_scores", {
+                "overall": cached_result["scores"]["overall"],
+                "need_fit": cached_result["scores"]["needFit"],
+                "part_fit": cached_result["scores"]["partFit"],
+                "budget_balance": cached_result["scores"]["budgetBalance"],
+                "risk": cached_result["scores"]["risk"],
+            })
+            yield _sse(
+                "decision_engine",
+                json.dumps(cached_result, ensure_ascii=False),
+                "kombin_result",
+                cached_result,
+            )
+            return
+
         try:
             client = _get_client()
         except ValueError as exc:
-            yield _sse("error", str(exc))
+            yield _error_sse(str(exc))
             return
 
-        # Agent 1: Goal Parser
-        yield _sse("goal_parser", "Hedef analiz ediliyor...")
+        yield _stage_sse("kombin_planner", "running", "Urunler ve butce hazirlaniyor...")
+        initial_scores = _build_live_scores(req)
+        yield _sse("kombin_planner", "", "partial_scores", initial_scores)
+        yield _stage_sse("kombin_planner", "done", "Urun listesi ve butce hazirlandi.")
+
+        yield _stage_sse("fit_advisor", "running", "Kombinin ihtiyaca ve tarza uyumu degerlendiriliyor...")
         try:
-            goal_out = await asyncio.wait_for(
-                asyncio.to_thread(_run_goal_parser_sync, client, req),
-                timeout=45,
+            advisor = await asyncio.wait_for(
+                asyncio.to_thread(_run_advisor_sync, client, req),
+                timeout=ADVISOR_TIMEOUT_SECONDS,
             )
-        except asyncio.TimeoutError:
-            goal_out = {"summary": req.goal, "missing_categories": []}
-        except genai_errors.APIError as exc:
-            if is_mockable_gemini_error(exc):
-                async for event in _mock_kombin_stream(req):
-                    yield event
-                return
-            yield _sse("error", f"API hatası: {str(exc)[:120]}")
+        except (ValidationError, json.JSONDecodeError):
+            yield _error_sse("Gemini beklenen kombin raporunu uretmedi. Lutfen tekrar deneyin.")
+            return
+        except Exception as exc:
+            msg = "Gemini gecici olarak yanit veremedi." if _is_retryable_gemini_error(exc) else "Kombin analizi olusturulamadi."
+            yield _error_sse(f"{msg} {str(exc)[:120]}")
             return
 
+        yield _stage_sse("fit_advisor", "done", "Kombin uyumu degerlendirildi.")
         yield _sse(
-            "goal_parser",
-            json.dumps(goal_out, ensure_ascii=False),
-            "goal_analysis",
-            goal_out,
+            "fit_advisor",
+            json.dumps(advisor.model_dump(), ensure_ascii=False),
+            "kombin_advisor",
+            advisor.model_dump(),
         )
 
-        # Partial live scores after goal parser
-        partial_scores = {
-            "partial_scores": {
-                "overall": 30,
-                "need_fit": goal_out.get("budget_pressure") == "low" and 75 or 60,
-                "part_fit": 0,
-                "budget_balance": 0,
-                "risk": 0,
-            }
-        }
-        yield _sse("goal_parser", "", "partial_scores", partial_scores["partial_scores"])
+        live_scores = _build_live_scores(req, advisor)
+        yield _stage_sse("decision_engine", "running", "Butce, risk ve satin alma sirasi hesaplaniyor...")
+        yield _sse("decision_engine", "", "partial_scores", live_scores)
 
-        # Agents 2-4: Parallel
-        yield _sse("product_fit", "Ürün uyumu değerlendiriliyor...")
-        yield _sse("synergy", "Sinerji analizi yapılıyor...")
-        yield _sse("budget", "Bütçe dengesi hesaplanıyor...")
+        final_result = _build_final_result(req, advisor)
+        _save_cached_result(cache_key, final_result)
 
-        fit_task = asyncio.wait_for(asyncio.to_thread(_run_product_fit_sync, client, req), timeout=45)
-        synergy_task = asyncio.wait_for(asyncio.to_thread(_run_synergy_sync, client, req), timeout=45)
-        budget_task = asyncio.wait_for(asyncio.to_thread(_run_budget_sync, client, req), timeout=45)
-
-        results = await asyncio.gather(fit_task, synergy_task, budget_task, return_exceptions=True)
-
-        fit_out = results[0] if not isinstance(results[0], Exception) else {"products": []}
-        synergy_out = results[1] if not isinstance(results[1], Exception) else {"part_fit_score": 70}
-        budget_out = results[2] if not isinstance(results[2], Exception) else {"budget_balance_score": 70, "purchase_order": []}
-
-        yield _sse("product_fit", json.dumps(fit_out, ensure_ascii=False), "product_fit", fit_out)
-        yield _sse("synergy", json.dumps(synergy_out, ensure_ascii=False), "synergy", synergy_out)
-        yield _sse("budget", json.dumps(budget_out, ensure_ascii=False), "budget", budget_out)
-
-        # Live scores update
-        product_scores = fit_out.get("products", [])
-        avg_fit = (
-            sum(p.get("fit_score", 70) for p in product_scores) / len(product_scores)
-            if product_scores else 70
-        )
-        live = {
-            "overall": int(avg_fit * 0.5 + synergy_out.get("part_fit_score", 70) * 0.3 + budget_out.get("budget_balance_score", 70) * 0.2),
-            "need_fit": int(avg_fit),
-            "part_fit": synergy_out.get("part_fit_score", 70),
-            "budget_balance": budget_out.get("budget_balance_score", 70),
-            "risk": max(0, 100 - int(avg_fit)),
-        }
-        yield _sse("synergy", "", "partial_scores", live)
-
-        # Agent 5: Synthesizer
-        yield _sse("synthesizer", "Nihai kombin değerlendirmesi yapılıyor...")
-
-        try:
-            synth = await asyncio.wait_for(
-                asyncio.to_thread(
-                    _run_synthesizer_sync,
-                    client,
-                    req,
-                    goal_out,
-                    fit_out,
-                    synergy_out,
-                    budget_out,
-                ),
-                timeout=60,
-            )
-        except asyncio.TimeoutError:
-            synth = {
-                "overall_score": live["overall"],
-                "need_fit_score": live["need_fit"],
-                "part_fit_score": live["part_fit"],
-                "budget_balance_score": live["budget_balance"],
-                "risk_score": live["risk"],
-                "headline": "Analiz tamamlandı.",
-                "summary": "Kombinin genel uyumu iyi görünüyor.",
-                "missing_piece": synergy_out.get("missing_piece"),
-                "warning_item": budget_out.get("warning_item"),
-                "purchase_order": budget_out.get("purchase_order", [p.id for p in req.products]),
-                "suggestions": [],
-                "product_results": [
-                    {"product_id": p.id, "role": "tamamlayici", "fit_score": 70, "risk_score": 25, "ai_comment": "", "pairs_well_with": []}
-                    for p in req.products
-                ],
-            }
-
-        # Map synthesizer output to frontend KombinAnalysisResult shape
-        kombin_result = {
-            "scores": {
-                "overall": synth.get("overall_score", live["overall"]),
-                "needFit": synth.get("need_fit_score", live["need_fit"]),
-                "partFit": synth.get("part_fit_score", live["part_fit"]),
-                "budgetBalance": synth.get("budget_balance_score", live["budget_balance"]),
-                "risk": synth.get("risk_score", live["risk"]),
-            },
-            "headline": synth.get("headline", "Analiz tamamlandı."),
-            "summary": synth.get("summary", ""),
-            "productResults": [
-                {
-                    "productId": pr.get("product_id", ""),
-                    "role": pr.get("role", "tamamlayici"),
-                    "fitScore": pr.get("fit_score", 70),
-                    "riskScore": pr.get("risk_score", 25),
-                    "aiComment": pr.get("ai_comment", ""),
-                    "pairsWellWith": pr.get("pairs_well_with", []),
-                }
-                for pr in synth.get("product_results", [])
-            ],
-            "missingPiece": synth.get("missing_piece"),
-            "warningItem": synth.get("warning_item"),
-            "purchaseOrder": synth.get("purchase_order", [p.id for p in req.products]),
-            "suggestions": synth.get("suggestions", []),
-        }
-
+        yield _stage_sse("decision_engine", "done", "Kombin raporu hazir.")
         yield _sse(
-            "synthesizer",
-            json.dumps(kombin_result, ensure_ascii=False),
+            "decision_engine",
+            json.dumps(final_result, ensure_ascii=False),
             "kombin_result",
-            kombin_result,
+            final_result,
         )
 
     return StreamingResponse(

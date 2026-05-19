@@ -11,14 +11,23 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export type KombinSseEvent = {
+  type?: string;
+  message?: string;
   author?: string;
   actions?: { state_delta?: Record<string, unknown> };
   content?: { parts?: Array<{ text?: string }> };
 };
 
+export type KombinStageEvent = {
+  agent: string;
+  status: "running" | "done";
+  label: string;
+};
+
 export type KombinStreamCallbacks = {
   onLiveScores?: (scores: KombinScores) => void;
   onResult?: (result: KombinAnalysisResult) => void;
+  onStage?: (stage: KombinStageEvent) => void;
   onAgentStep?: (author: string) => void;
   onError?: (err: string) => void;
 };
@@ -46,6 +55,17 @@ function buildLiveScores(delta: Record<string, unknown>): KombinScores | null {
     partFit: Number(partial.part_fit ?? 0),
     budgetBalance: Number(partial.budget_balance ?? 0),
     risk: Number(partial.risk ?? 0),
+  };
+}
+
+function buildStage(delta: Record<string, unknown>): KombinStageEvent | null {
+  const raw = delta.kombin_stage as Record<string, unknown> | undefined;
+  if (!raw) return null;
+  const status = raw.status === "done" ? "done" : "running";
+  return {
+    agent: String(raw.agent ?? ""),
+    status,
+    label: String(raw.label ?? ""),
   };
 }
 
@@ -101,6 +121,11 @@ export async function runKombinAnalyzeStream(
 
       if (!event || typeof event !== "object") continue;
 
+      if (event.type === "error") {
+        callbacks.onError?.(event.message ?? "Kombin analizi olusturulamadi.");
+        continue;
+      }
+
       const author = event.author;
       if (author) callbacks.onAgentStep?.(author);
 
@@ -109,6 +134,9 @@ export async function runKombinAnalyzeStream(
 
       const live = buildLiveScores(delta);
       if (live) callbacks.onLiveScores?.(live);
+
+      const stage = buildStage(delta);
+      if (stage) callbacks.onStage?.(stage);
 
       if (delta.kombin_result) {
         const raw = parseMaybeJson(delta.kombin_result);
