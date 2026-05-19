@@ -178,7 +178,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       if (result.whatIImproved) setAiImprovementNote(result.whatIImproved);
       setAiApplied(true);
       setIsDraft(true);
-      toast.success(simulationInsight ? "Simülasyon itirazları baz alınarak AI içerik üretildi" : "AI içerik üretildi — taslak olarak kaydedebilirsin");
+      toast.success(result._cached ? "Kayıtlı AI içerik taslağı kullanıldı" : "AI içerik üretildi ve otomatik taslaklara kaydedildi");
     } catch {
       toast.error("İçerik üretilemedi. Lütfen tekrar dene.");
     } finally {
@@ -193,7 +193,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       const img = await generateProductImage(product.id, style);
       setGeneratedImages((prev) => [...prev.filter((p) => p.type !== style), img]);
       setSelectedImageType(style);
-      toast.success(`${IMAGE_STYLE_LABELS[style]} görseli üretildi — uygula ile kaydet`);
+      toast.success(img._cached ? `${IMAGE_STYLE_LABELS[style]} kayıtlı görseli kullanıldı` : `${IMAGE_STYLE_LABELS[style]} görseli üretildi ve Taslaklarım'a kaydedildi`);
     } catch {
       toast.error("Görsel üretilemedi. Lütfen tekrar dene.");
     } finally {
@@ -338,9 +338,9 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
               {imageGenerating ? (
                 <div className="flex h-full flex-col items-center justify-center gap-3">
                   <div className="relative flex size-12 items-center justify-center">
-                    <span className="absolute inset-0 animate-ping rounded-full bg-violet-400/20" />
-                    <div className="relative flex size-12 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-500/15">
-                      <Wand2 className="size-5 text-violet-500" />
+                    <span className="absolute inset-0 animate-ping rounded-full bg-green-400/20" />
+                    <div className="relative flex size-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/15">
+                      <Wand2 className="size-5 text-green-500" />
                     </div>
                   </div>
                   <p className="text-xs text-gray-400">Görsel üretiliyor...</p>
@@ -360,7 +360,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                 </div>
               )}
               {selectedImage && (
-                <span className="absolute bottom-3 left-3 rounded-full bg-violet-600/90 px-2.5 py-0.5 text-[10px] font-bold text-white">
+                <span className="absolute bottom-3 left-3 rounded-full bg-green-600/90 px-2.5 py-0.5 text-[10px] font-bold text-white">
                   {selectedImage.label}
                 </span>
               )}
@@ -385,10 +385,10 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                 ) : null}
               </button>
               {generatedImages.map((img) => (
-                <button key={img.type} onClick={() => setSelectedImageType(img.type)} className={`relative size-14 cursor-pointer overflow-hidden rounded-xl border bg-gray-50 transition-opacity hover:opacity-80 dark:bg-white/5 ${selectedImageType === img.type ? "border-2 border-violet-400" : "border-gray-100 dark:border-white/8"}`}>
+                <button key={img.type} onClick={() => setSelectedImageType(img.type)} className={`relative size-14 cursor-pointer overflow-hidden rounded-xl border bg-gray-50 transition-opacity hover:opacity-80 dark:bg-white/5 ${selectedImageType === img.type ? "border-2 border-green-400" : "border-gray-100 dark:border-white/8"}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`data:${img.mimeType};base64,${img.imageBase64}`} alt={img.label} className="size-full object-contain p-1" />
-                  <span className="absolute bottom-0 left-0 right-0 bg-violet-600/80 py-0.5 text-center text-[7px] font-bold text-white leading-tight">{img.label}</span>
+                  <span className="absolute bottom-0 left-0 right-0 bg-green-600/80 py-0.5 text-center text-[7px] font-bold text-white leading-tight">{img.label}</span>
                 </button>
               ))}
               {generatedImages.length === 0 && !imageGenerating && (
@@ -405,7 +405,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                     key={st}
                     onClick={() => handleGenerateImage(st)}
                     disabled={imageGenerating || applyingImage}
-                    className="flex cursor-pointer flex-col items-center justify-center gap-1 py-3 text-xs font-semibold text-violet-600 transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-400 dark:hover:bg-violet-500/8"
+                    className="flex cursor-pointer flex-col items-center justify-center gap-1 py-3 text-xs font-semibold text-green-600 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-green-400 dark:hover:bg-green-500/8"
                   >
                     {generatingStyle === st ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
                     {IMAGE_STYLE_LABELS[st]}

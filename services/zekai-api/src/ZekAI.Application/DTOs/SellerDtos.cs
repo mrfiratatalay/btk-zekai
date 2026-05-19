@@ -16,6 +16,19 @@ public record StoreConnectionDto(
 public record PublishRequest(bool Published);
 public record UpdateProductImageRequest(string ImageBase64, string MimeType);
 public record BundleRecommendationRequest(bool Force = false);
+public record AiArtifactDto(
+    Guid Id,
+    string CommerceProductId,
+    string ArtifactType,
+    string Label,
+    System.Text.Json.JsonElement Payload,
+    string AiModel,
+    string Source,
+    string Status,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    DateTime? LastUsedAt
+);
 
 // Payload passed to ai-service for simulation stream
 public record SimulationInsightDto(
@@ -76,6 +89,33 @@ public record ProductDraftDto(
     string CargoText,
     int CategoryId,
     List<DraftImageDto> Images,
+    string Source,
+    string? AiModel,
+    DateTime CreatedAt
+);
+
+// ── Sosyal Medya Taslakları (markete gitmez; varyasyon saklama) ──────────
+
+public class SaveSocialDraftRequest
+{
+    public string Label { get; set; } = "";
+    public string Tone { get; set; } = "";
+    public string Purpose { get; set; } = "";
+    public List<string> Platforms { get; set; } = new();
+    public System.Text.Json.JsonElement Content { get; set; }
+}
+
+public record SocialDraftDto(
+    Guid Id,
+    string CommerceProductId,
+    string Label,
+    string Tone,
+    string Purpose,
+    List<string> Platforms,
+    System.Text.Json.JsonElement Content,
+    bool IsActive,
+    string Source,
+    string? AiModel,
     DateTime CreatedAt
 );
 

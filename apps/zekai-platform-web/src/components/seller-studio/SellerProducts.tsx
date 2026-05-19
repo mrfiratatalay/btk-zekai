@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { FileStack, Package, Search, Settings, Store, Tag } from "lucide-react";
-import { getSellerProducts, getStoreConnections, getAllDrafts, type SellerProduct, type StoreConnection } from "@/lib/api/seller";
+import { getSellerProducts, getStoreConnections, getAllDrafts, getAllSocialDrafts, getAllAiArtifacts, type SellerProduct, type StoreConnection } from "@/lib/api/seller";
 import { resolveCommerceImage } from "@/lib/utils";
 
 function formatPrice(value: number) {
@@ -31,9 +31,15 @@ export function SellerProducts() {
         if (conn) {
           const prods = await getSellerProducts();
           setProducts(prods);
-          const drafts = await getAllDrafts().catch(() => []);
+          const [drafts, socialDrafts, artifacts] = await Promise.all([
+            getAllDrafts().catch(() => []),
+            getAllSocialDrafts().catch(() => []),
+            getAllAiArtifacts().catch(() => []),
+          ]);
           const counts: Record<string, number> = {};
           for (const d of drafts) counts[d.commerceProductId] = (counts[d.commerceProductId] ?? 0) + 1;
+          for (const d of socialDrafts) counts[d.commerceProductId] = (counts[d.commerceProductId] ?? 0) + 1;
+          for (const a of artifacts) counts[a.commerceProductId] = (counts[a.commerceProductId] ?? 0) + 1;
           setDraftCounts(counts);
         }
       } catch (e) {
@@ -126,7 +132,7 @@ export function SellerProducts() {
               <div className="flex items-start gap-2">
                 <h3 className="line-clamp-2 text-[15px] font-bold leading-snug text-foreground">{product.title}</h3>
                 {draftCounts[product.id] > 0 && (
-                  <span className="mt-0.5 flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
+                  <span className="mt-0.5 flex shrink-0 items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-500/15 dark:text-green-400">
                     <FileStack className="size-3" /> {draftCounts[product.id]}
                   </span>
                 )}

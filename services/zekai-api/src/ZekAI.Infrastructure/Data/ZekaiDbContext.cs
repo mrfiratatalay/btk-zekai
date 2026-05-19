@@ -15,6 +15,8 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
     public DbSet<ShoppingProjectAnalysis> ShoppingProjectAnalyses => Set<ShoppingProjectAnalysis>();
     public DbSet<SavedKombin> SavedKombins => Set<SavedKombin>();
     public DbSet<SellerProductDraft> SellerProductDrafts => Set<SellerProductDraft>();
+    public DbSet<SellerSocialDraft> SellerSocialDrafts => Set<SellerSocialDraft>();
+    public DbSet<SellerAiArtifact> SellerAiArtifacts => Set<SellerAiArtifact>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -87,8 +89,28 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
         mb.Entity<SellerProductDraft>()
             .HasIndex(d => new { d.UserId, d.CommerceProductId });
         mb.Entity<SellerProductDraft>()
+            .HasIndex(d => new { d.UserId, d.CommerceProductId, d.InputHash });
+        mb.Entity<SellerProductDraft>()
             .Property(d => d.Price).HasColumnType("numeric(12,2)");
         mb.Entity<SellerProductDraft>()
             .Property(d => d.OriginalPrice).HasColumnType("numeric(12,2)");
+
+        mb.Entity<SellerSocialDraft>()
+            .HasOne(d => d.User)
+            .WithMany()
+            .HasForeignKey(d => d.UserId);
+        mb.Entity<SellerSocialDraft>()
+            .HasIndex(d => new { d.UserId, d.CommerceProductId });
+        mb.Entity<SellerSocialDraft>()
+            .HasIndex(d => new { d.UserId, d.CommerceProductId, d.InputHash });
+
+        mb.Entity<SellerAiArtifact>()
+            .HasOne(a => a.User)
+            .WithMany()
+            .HasForeignKey(a => a.UserId);
+        mb.Entity<SellerAiArtifact>()
+            .HasIndex(a => new { a.UserId, a.CommerceProductId });
+        mb.Entity<SellerAiArtifact>()
+            .HasIndex(a => new { a.UserId, a.CommerceProductId, a.ArtifactType, a.InputHash });
     }
 }

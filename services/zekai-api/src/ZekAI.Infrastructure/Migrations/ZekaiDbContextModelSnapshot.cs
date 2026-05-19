@@ -224,11 +224,74 @@ namespace ZekAI.Infrastructure.Migrations
                     b.ToTable("SavedKombins");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.SellerAiArtifact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AiModel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ArtifactType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CommerceProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InputHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CommerceProductId");
+
+                    b.HasIndex("UserId", "CommerceProductId", "ArtifactType", "InputHash");
+
+                    b.ToTable("SellerAiArtifacts");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.SellerProductDraft", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("AiModel")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Brand")
                         .IsRequired()
@@ -260,6 +323,10 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("InputHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Label")
                         .IsRequired()
                         .HasColumnType("text");
@@ -274,12 +341,19 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<int>("Stock")
                         .HasColumnType("integer");
 
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -288,7 +362,72 @@ namespace ZekAI.Infrastructure.Migrations
 
                     b.HasIndex("UserId", "CommerceProductId");
 
+                    b.HasIndex("UserId", "CommerceProductId", "InputHash");
+
                     b.ToTable("SellerProductDrafts");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.SellerSocialDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AiModel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CommerceProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InputHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlatformsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Tone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CommerceProductId");
+
+                    b.HasIndex("UserId", "CommerceProductId", "InputHash");
+
+                    b.ToTable("SellerSocialDrafts");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.SellerStoreConnection", b =>
@@ -488,7 +627,29 @@ namespace ZekAI.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.SellerAiArtifact", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.SellerProductDraft", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.SellerSocialDraft", b =>
                 {
                     b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
                         .WithMany()

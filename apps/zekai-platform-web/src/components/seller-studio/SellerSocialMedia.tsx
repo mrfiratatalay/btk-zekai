@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Bookmark,
   Briefcase,
   Camera,
@@ -31,6 +32,11 @@ import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 import {
   generateSocialContent,
+  saveSocialDraft,
+  getProductSocialDrafts,
+  deleteSocialDraft,
+  activateSocialDraft,
+  type SocialDraft,
   type SocialInstagramContent,
   type SocialMediaContent,
   type SocialPlatform,
@@ -39,93 +45,6 @@ import {
   type SocialTone,
   type SocialTwitterContent,
 } from "@/lib/api/seller";
-
-// ─── Draft types & helpers ────────────────────────────────────────────────────
-
-interface SocialDraft {
-  id: string;
-  productId: string;
-  content: SocialMediaContent;
-  savedAt: string;
-}
-
-function loadDraftsFromStorage(productId: string): SocialDraft[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem("zekai_social_drafts");
-    const all: SocialDraft[] = raw ? JSON.parse(raw) : [];
-    return all
-      .filter((d) => d.productId === productId)
-      .map((draft) => ({ ...draft, content: stripMockFlag(draft.content) }))
-      .slice(0, 10);
-  } catch {
-    return [];
-  }
-}
-
-function persistDrafts(productDrafts: SocialDraft[], productId: string) {
-  try {
-    const raw = localStorage.getItem("zekai_social_drafts");
-    const all: SocialDraft[] = raw ? JSON.parse(raw) : [];
-    const other = all.filter((d) => d.productId !== productId);
-    localStorage.setItem(
-      "zekai_social_drafts",
-      JSON.stringify([...productDrafts, ...other]),
-    );
-  } catch {
-    // ignore
-  }
-}
-
-function stripMockFlag(content: SocialMediaContent): SocialMediaContent {
-  const { _mock, ...cleanContent } = content;
-  void _mock;
-  return cleanContent;
-}
-
-function socialCacheKey(
-  productId: string,
-  tone: SocialTone,
-  purpose: SocialPurpose,
-  platforms: SocialPlatform[],
-) {
-  const normalizedPlatforms = [...platforms].sort().join(",");
-  return `zekai_social_content:${productId}:${tone}:${purpose}:${normalizedPlatforms}`;
-}
-
-function loadCachedContent(
-  productId: string,
-  tone: SocialTone,
-  purpose: SocialPurpose,
-  platforms: SocialPlatform[],
-): SocialMediaContent | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(socialCacheKey(productId, tone, purpose, platforms));
-    if (!raw) return null;
-    return stripMockFlag(JSON.parse(raw) as SocialMediaContent);
-  } catch {
-    return null;
-  }
-}
-
-function saveCachedContent(
-  productId: string,
-  tone: SocialTone,
-  purpose: SocialPurpose,
-  platforms: SocialPlatform[],
-  content: SocialMediaContent,
-) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(
-      socialCacheKey(productId, tone, purpose, platforms),
-      JSON.stringify(stripMockFlag(content)),
-    );
-  } catch {
-    // ignore
-  }
-}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -297,9 +216,9 @@ function ContentRow({ icon, label, value }: { icon: React.ReactNode; label: stri
 
 function ProductSummary({ product }: { product: SellerProductPerformance }) {
   return (
-    <div className="flex flex-col gap-4 border-b border-border/80 px-6 py-5 md:flex-row md:items-center md:justify-between">
-      <div className="flex min-w-0 items-center gap-4">
-        <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl bg-muted">
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center gap-4">
+        <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
           {product.image ? (
             <Image src={product.image} alt={product.title} fill className="object-cover" />
           ) : (
@@ -309,16 +228,13 @@ function ProductSummary({ product }: { product: SellerProductPerformance }) {
           )}
         </div>
         <div className="min-w-0">
-          <h2 className="truncate text-base font-bold text-foreground">{product.title}</h2>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <h2 className="truncate text-sm font-bold text-foreground">{product.title}</h2>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span>{product.category}</span>
             <span className="font-semibold text-foreground">{formatSellerPrice(product.price)}</span>
             <span>Stok: <span className="font-semibold text-green-600">{product.stock}</span></span>
           </div>
         </div>
-      </div>
-      <div className="w-fit rounded-full bg-green-500/10 px-3 py-1 text-xs font-bold text-green-700 dark:text-green-400">
-        Tek istekle seçili platformlar için üretim
       </div>
     </div>
   );
@@ -346,35 +262,34 @@ function SettingsPanel({
   onGenerate: () => void;
 }) {
   return (
-    <div className="px-6 py-6">
-      <div className="mb-5">
-        <h2 className="text-base font-bold text-foreground">İçerik Üretimi</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ton, amaç ve platformları seç; içerik paketi tek üretim isteğiyle hazırlansın.
-        </p>
-      </div>
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <h2 className="text-base font-bold text-foreground">İçerik Ayarları</h2>
 
-      <div className="grid gap-4 xl:grid-cols-[0.9fr_1fr_1.35fr]">
-        <section className="rounded-2xl border border-border/80 bg-background/60 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ton</p>
+      <div className="mt-5 grid gap-5">
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ton</p>
           <div className="flex flex-wrap gap-2">
             {TONES.map(({ key, label, Icon }) => (
               <OptionButton key={key} active={tone === key} onClick={() => onToneChange(key)} Icon={Icon} label={label} />
             ))}
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-2xl border border-border/80 bg-background/60 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amaç</p>
+        <div className="h-px bg-border" />
+
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amaç</p>
           <div className="flex flex-wrap gap-2">
             {PURPOSES.map(({ key, label, Icon }) => (
               <OptionButton key={key} active={purpose === key} onClick={() => onPurposeChange(key)} Icon={Icon} label={label} />
             ))}
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-2xl border border-border/80 bg-background/60 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Platformlar</p>
+        <div className="h-px bg-border" />
+
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Platformlar</p>
           <div className="flex flex-wrap gap-4">
             {PLATFORMS.map(({ key, label, Icon }) => {
               const checked = selectedPlatforms.includes(key);
@@ -399,15 +314,13 @@ function SettingsPanel({
               );
             })}
           </div>
-        </section>
-      </div>
+        </div>
 
-      <div className="mt-6 flex justify-end">
         <button
           type="button"
           onClick={onGenerate}
           disabled={generating || selectedPlatforms.length === 0}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto md:min-w-[260px]"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {generating ? (
             <>
@@ -489,28 +402,6 @@ function EditableFields({
   );
 }
 
-function PhoneFrame({
-  children,
-  dark = false,
-}: {
-  children: React.ReactNode;
-  dark?: boolean;
-}) {
-  return (
-    <div className="mx-auto w-full max-w-[340px] rounded-[2.25rem] border border-border bg-zinc-950 p-3 shadow-sm">
-      <div
-        className={cn(
-          "relative aspect-[9/19.5] overflow-hidden rounded-[1.65rem]",
-          dark ? "bg-neutral-950 text-white" : "bg-white text-slate-950",
-        )}
-      >
-        <div className="absolute left-1/2 top-2 z-20 h-5 w-24 -translate-x-1/2 rounded-full bg-black" />
-        <div className="relative z-10 flex h-full flex-col">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 // ─── InstagramPreview ─────────────────────────────────────────────────────────
 
 function InstagramPreview({
@@ -523,49 +414,40 @@ function InstagramPreview({
   onChange: (content: SocialInstagramContent) => void;
 }) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-      <PhoneFrame>
-        <div className="flex h-10 items-center justify-between border-b border-slate-200 px-4 pt-2 text-[11px] font-bold">
-          <span>9:41</span>
-          <span>Instagram</span>
-          <Camera className="size-4" />
+    <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <div className="rounded-2xl border border-border bg-background p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-full bg-green-600 text-xs font-black text-white">ME</div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-foreground">Mehmet Elektronik</p>
+          </div>
+          <span className="text-xl leading-none text-muted-foreground">...</span>
         </div>
-        <div className="flex-1 overflow-hidden bg-white">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <div className="flex size-9 items-center justify-center rounded-full bg-green-600 text-[11px] font-black text-white">ME</div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold">Mehmet Elektronik</p>
+        <div className="relative mt-4 aspect-square overflow-hidden rounded-xl bg-muted">
+          {product.image ? (
+            <Image src={product.image} alt={product.title} fill className="object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Package className="size-10 text-muted-foreground" />
             </div>
-            <span className="text-xl leading-none text-slate-500">...</span>
-          </div>
-          <div className="relative aspect-square bg-slate-100">
-            {product.image ? (
-              <Image src={product.image} alt={product.title} fill className="object-cover" />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <Package className="size-10 text-slate-400" />
-              </div>
-            )}
-            {content.overlayText && (
-              <div className="absolute inset-x-4 bottom-4 rounded-lg bg-black/60 px-3 py-2 text-center text-sm font-bold text-white">
-                {content.overlayText}
-              </div>
-            )}
-          </div>
-          <div className="px-4 pb-4 pt-3">
-            <div className="flex items-center justify-between">
-              <div className="flex gap-4">
-                <Heart className="size-6" />
-                <MessageCircle className="size-6" />
-                <Camera className="size-6" />
-              </div>
-              <Bookmark className="size-6" />
+          )}
+          {content.overlayText && (
+            <div className="absolute inset-x-4 bottom-4 rounded-lg bg-black/55 px-3 py-2 text-center text-sm font-bold text-white">
+              {content.overlayText}
             </div>
-            <p className="mt-3 line-clamp-5 whitespace-pre-line text-xs leading-5">{content.caption}</p>
-            <p className="mt-2 line-clamp-2 text-xs leading-5 text-green-700">{formatTags(content.hashtags)}</p>
-          </div>
+          )}
         </div>
-      </PhoneFrame>
+        <div className="mt-4 flex items-center justify-between text-foreground">
+          <div className="flex gap-4">
+            <Heart className="size-6" />
+            <MessageCircle className="size-6" />
+            <Camera className="size-6" />
+          </div>
+          <Bookmark className="size-6" />
+        </div>
+        <p className="mt-4 whitespace-pre-line text-sm leading-6 text-foreground">{content.caption}</p>
+        <p className="mt-2 text-sm leading-6 text-green-700 dark:text-green-400">{formatTags(content.hashtags)}</p>
+      </div>
 
       <EditableFields
         fields={[
@@ -613,8 +495,8 @@ function TiktokPreview({
 }) {
   return (
     <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-      <PhoneFrame dark>
-        <div className="relative h-full overflow-hidden bg-neutral-900">
+      <div className="mx-auto w-full max-w-[330px] rounded-[2rem] border border-border bg-black p-3 shadow-sm">
+        <div className="relative aspect-[9/16] overflow-hidden rounded-[1.55rem] bg-neutral-900">
           {product.image ? (
             <Image src={product.image} alt={product.title} fill className="object-cover opacity-70" />
           ) : null}
@@ -631,7 +513,7 @@ function TiktokPreview({
             <Bookmark className="size-7" />
           </div>
         </div>
-      </PhoneFrame>
+      </div>
 
       <div className="rounded-2xl border border-border bg-background p-5">
         <h3 className="text-base font-bold text-foreground">Reels Video Fikri</h3>
@@ -678,46 +560,32 @@ function TiktokPreview({
 
 function TwitterPreview({
   content,
+  generatedContent,
   onChange,
 }: {
   content: SocialTwitterContent;
+  generatedContent: SocialMediaContent;
   onChange: (content: SocialTwitterContent) => void;
 }) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-      <PhoneFrame>
-        <div className="flex h-10 items-center justify-between border-b border-slate-200 px-4 pt-2 text-[11px] font-bold">
-          <span>9:41</span>
-          <span>X</span>
-          <MessageCircle className="size-4" />
-        </div>
-        <div className="flex-1 overflow-hidden bg-white px-4 py-4">
-          <div className="flex items-start gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-black text-lg font-black text-white">X</div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-2">
-                <p className="font-bold">Mehmet Elektronik</p>
-                <p className="text-sm text-slate-500">@mehmetelektronik</p>
-              </div>
-              <p className="mt-3 whitespace-pre-line text-[15px] leading-7">{content.post}</p>
-              <p className="mt-3 text-sm leading-6 text-green-700">{formatTags(content.hashtags)}</p>
-              <div className="mt-5 flex items-center justify-between text-xs text-slate-500">
-                <span>128 yanıt</span>
-                <span>2.4B görüntülenme</span>
-              </div>
-              <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3 text-slate-500">
-                <MessageCircle className="size-5" />
-                <RefreshCw className="size-5" />
-                <Heart className="size-5" />
-                <Bookmark className="size-5" />
-              </div>
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="rounded-2xl border border-border bg-background p-5">
+        <div className="flex items-start gap-3">
+          <div className="flex size-11 items-center justify-center rounded-full bg-black text-lg font-black text-white">X</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-foreground">Mehmet Elektronik</p>
+              <p className="text-sm text-muted-foreground">@mehmetelektronik</p>
+            </div>
+            <p className="mt-3 whitespace-pre-line text-lg leading-8 text-foreground">{content.post}</p>
+            <p className="mt-3 text-sm text-green-700 dark:text-green-400">{formatTags(content.hashtags)}</p>
+            <div className="mt-5 flex items-center gap-8 text-sm text-muted-foreground">
+              <span>128 yanıt</span>
+              <span>2.4B görüntülenme</span>
+              <span>486 beğeni</span>
             </div>
           </div>
         </div>
-      </PhoneFrame>
-
-      <div className="rounded-2xl border border-border bg-background p-5">
-        <h3 className="text-base font-bold text-foreground">X Post İçeriği</h3>
         <div className="mt-6 grid gap-4">
           <LabeledTextarea label="Post" value={content.post} onChange={(value) => onChange({ ...content, post: value })} />
           <LabeledInput
@@ -726,6 +594,30 @@ function TwitterPreview({
             onChange={(value) => onChange({ ...content, hashtags: splitTags(value) })}
           />
           <LabeledInput label="CTA" value={content.cta} onChange={(value) => onChange({ ...content, cta: value })} />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-background p-5">
+        <h3 className="text-base font-bold text-foreground">İçerik Paketi Özeti</h3>
+        <div className="mt-5 space-y-3">
+          {PLATFORMS.map(({ key, label, Icon }) => (
+            <div key={key} className="flex items-center justify-between rounded-xl border border-border px-3 py-3">
+              <div className="flex items-center gap-3">
+                <Icon className="size-5 text-muted-foreground" />
+                <span className="text-sm font-semibold text-foreground">{label}</span>
+              </div>
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-bold",
+                  platformIsReady(generatedContent, key)
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {platformIsReady(generatedContent, key) ? "Hazır" : "Seçilmedi"}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -762,8 +654,8 @@ function GeneratedPanel({
   }, [activePlatform, content]);
 
   return (
-    <div className="overflow-hidden rounded-[1.75rem] border border-border/80 bg-card shadow-sm">
-      <div className="flex flex-col gap-4 border-b border-border/70 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+    <div className="rounded-2xl border border-border bg-card shadow-sm">
+      <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-bold text-foreground">Üretilen İçerikler</h2>
           <div className="mt-4 flex flex-wrap gap-1 border-b border-border">
@@ -799,7 +691,7 @@ function GeneratedPanel({
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-5">
         {activePlatform === "instagram" && content.instagram && (
           <InstagramPreview
             product={product}
@@ -813,6 +705,7 @@ function GeneratedPanel({
         {activePlatform === "twitter" && content.twitter && (
           <TwitterPreview
             content={content.twitter}
+            generatedContent={content}
             onChange={(twitter) => onUpdateContent({ ...content, twitter })}
           />
         )}
@@ -846,98 +739,89 @@ function GeneratedPanel({
   );
 }
 
-// ─── DraftsMenu ───────────────────────────────────────────────────────────────
+// ─── DraftsSection ────────────────────────────────────────────────────────────
 
-function DraftsMenu({
-  drafts,
-  open,
-  onOpenChange,
-}: {
-  drafts: SocialDraft[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onOpenChange(!open)}
-      className={cn(
-        "inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold text-foreground shadow-sm transition-colors hover:bg-muted",
-        open && "border-green-300 bg-green-500/10 text-green-700 dark:text-green-400",
-      )}
-    >
-      <FileText className="size-4" />
-      Taslaklar
-      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-green-600 px-1.5 text-[11px] font-black text-white">
-        {drafts.length}
-      </span>
-    </button>
-  );
-}
-
-function DraftsView({
+function DraftsSection({
   drafts,
   onLoadDraft,
   onDeleteDraft,
+  onActivateDraft,
 }: {
   drafts: SocialDraft[];
   onLoadDraft: (draft: SocialDraft) => void;
   onDeleteDraft: (id: string) => void;
+  onActivateDraft: (id: string) => void;
 }) {
   return (
-    <div className="rounded-[1.75rem] border border-border bg-card p-6 shadow-sm">
-      <div className="flex items-center gap-3 border-b border-border pb-5">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-green-500/10 text-green-700 dark:text-green-400">
-          <FileText className="size-5" />
-        </div>
+    <div className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <FileText className="size-5 text-muted-foreground" />
         <div>
-          <h2 className="text-lg font-black text-foreground">Kaydedilen Taslaklar</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">Kaydettiğin içerik paketlerini buradan yükle.</p>
+          <h2 className="text-base font-bold text-foreground">Taslaklar</h2>
+          <p className="text-xs text-muted-foreground">DB&apos;de saklanan içerik varyasyonların — biri &ldquo;Aktif&rdquo;</p>
         </div>
       </div>
 
-      {drafts.length === 0 ? (
-        <div className="py-16 text-center">
-          <FileText className="mx-auto size-9 text-muted-foreground/60" />
-          <p className="mt-4 text-sm font-semibold text-foreground">Henüz taslak yok</p>
-          <p className="mt-1 text-sm text-muted-foreground">İçeriği kaydedince burada görünecek.</p>
-        </div>
-      ) : (
-        <div className="mt-5 divide-y divide-border">
-          {drafts.map((draft) => {
-            const platformNames = (draft.content.platforms ?? [])
-              .map((p) => platformLabel(p as SocialPlatform))
-              .join(", ");
-            const date = new Date(draft.savedAt).toLocaleString("tr-TR", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-            return (
-              <div key={draft.id} className="flex items-center justify-between gap-4 py-4">
+      <div className="mt-5 space-y-3">
+        {drafts.map((draft) => {
+          const platformNames = (draft.platforms ?? [])
+            .map((p) => platformLabel(p as SocialPlatform))
+            .join(", ");
+          const date = new Date(draft.createdAt).toLocaleString("tr-TR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return (
+            <div
+              key={draft.id}
+              className={cn(
+                "flex items-center justify-between gap-4 rounded-xl border px-4 py-3",
+                draft.isActive ? "border-green-500 bg-green-500/5" : "border-border",
+              )}
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-semibold text-foreground">{draft.label}</p>
+                  {draft.isActive && (
+                    <span className="shrink-0 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:text-green-400">
+                      Aktif
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">{platformNames || "—"} · {date}</p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                {!draft.isActive && (
+                  <button
+                    type="button"
+                    onClick={() => onActivateDraft(draft.id)}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-green-500 px-3 text-xs font-bold text-green-700 transition-colors hover:bg-green-500/10 dark:text-green-400"
+                  >
+                    Aktif Et
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onLoadDraft(draft)}
-                  className="min-w-0 flex-1 text-left"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-green-600 px-3 text-xs font-bold text-white transition-colors hover:bg-green-700"
                 >
-                  <p className="truncate text-base font-bold text-foreground">{platformNames || "Taslak"}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{date}</p>
+                  Yükle
                 </button>
                 <button
                   type="button"
                   onClick={() => onDeleteDraft(draft.id)}
-                  className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
-                  aria-label="Taslağı sil"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
                 >
-                  <Trash2 className="size-4" />
+                  <Trash2 className="size-3.5" />
                 </button>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -952,32 +836,13 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
   const [generating, setGenerating] = useState(false);
   const [regeneratingPlatform, setRegeneratingPlatform] = useState<SocialPlatform | null>(null);
   const [content, setContent] = useState<SocialMediaContent | null>(null);
-  const [contentSource, setContentSource] = useState<"generated" | "draft" | null>(null);
-  const [drafts, setDrafts] = useState<SocialDraft[]>(() => loadDraftsFromStorage(product.id));
-  const [draftsOpen, setDraftsOpen] = useState(false);
+  const [drafts, setDrafts] = useState<SocialDraft[]>([]);
 
   useEffect(() => {
-    function handlePopState() {
-      setDraftsOpen(false);
-    }
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
-  function handleDraftsOpenChange(open: boolean) {
-    if (open && !draftsOpen) {
-      window.history.pushState({ ...(window.history.state ?? {}), zekaiSocialDraftsOpen: true }, "", window.location.href);
-      setDraftsOpen(true);
-      return;
-    }
-    if (!open && draftsOpen && window.history.state?.zekaiSocialDraftsOpen) {
-      setDraftsOpen(false);
-      window.history.back();
-      return;
-    }
-    setDraftsOpen(open);
-  }
+    getProductSocialDrafts(product.id)
+      .then(setDrafts)
+      .catch(() => setDrafts([]));
+  }, [product.id]);
 
   function togglePlatform(platform: SocialPlatform) {
     setSelectedPlatforms((current) =>
@@ -988,179 +853,160 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
   }
 
   async function handleGenerate() {
-    const cached = loadCachedContent(product.id, tone, purpose, selectedPlatforms);
-    if (cached) {
-      setContent(cached);
-      setContentSource("generated");
-      setDraftsOpen(false);
-      setActivePlatform(selectedPlatforms[0] ?? "instagram");
-      toast.success("Kaydedilen içerik kullanıldı. Gemini'ye yeni istek atılmadı.");
-      return;
-    }
-
     setGenerating(true);
     try {
       const result = await generateSocialContent(product.id, { tone, purpose, platforms: selectedPlatforms });
-      const cleanResult = stripMockFlag(result);
-      saveCachedContent(product.id, tone, purpose, selectedPlatforms, cleanResult);
-      setContent(cleanResult);
-      setContentSource("generated");
-      setDraftsOpen(false);
+      setContent(result);
       setActivePlatform(selectedPlatforms[0] ?? "instagram");
-      toast.success(`${selectedPlatforms.length} platform için içerik üretildi.`);
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : "";
-      toast.error("Gemini API key/limit sorunu nedeniyle içerik üretilemedi.", {
-        description: detail || "Mock içerik gösterilmedi. Daha önce kaydettiğin taslakları kullanabilirsin.",
-      });
+      getProductSocialDrafts(product.id).then(setDrafts).catch(() => undefined);
+      toast.success(result._cached ? "Kayıtlı sosyal medya taslağı kullanıldı." : `${selectedPlatforms.length} platform için içerik üretildi ve otomatik kaydedildi.`);
+    } catch {
+      toast.error("İçerik üretilemedi, lütfen tekrar dene.");
     } finally {
       setGenerating(false);
     }
   }
 
   async function handleRegeneratePlatform(platform: SocialPlatform) {
-    const cached = loadCachedContent(product.id, tone, purpose, [platform]);
-    if (cached?.[platform]) {
-      setContent((current) => {
-        if (!current) return cached;
-        return {
-          ...current,
-          [platform]: cached[platform],
-          generatedAt: cached.generatedAt,
-          platforms: Array.from(new Set([...current.platforms, platform])) as SocialPlatform[],
-        };
-      });
-      toast.success(`${platformLabel(platform)} için kaydedilen içerik kullanıldı.`);
-      return;
-    }
-
     setRegeneratingPlatform(platform);
     try {
       const result = await generateSocialContent(product.id, { tone, purpose, platforms: [platform] });
-      const cleanResult = stripMockFlag(result);
-      saveCachedContent(product.id, tone, purpose, [platform], cleanResult);
       setContent((current) => {
-        if (!current) return cleanResult;
+        if (!current) return result;
         return {
           ...current,
-          [platform]: cleanResult[platform],
-          generatedAt: cleanResult.generatedAt,
+          [platform]: result[platform],
+          generatedAt: result.generatedAt,
           platforms: Array.from(new Set([...current.platforms, platform])) as SocialPlatform[],
+          _mock: result._mock ?? current._mock,
         };
       });
-      toast.success(`${platformLabel(platform)} yeniden üretildi.`);
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : "";
-      toast.error("Gemini API key/limit sorunu nedeniyle yeniden üretilemedi.", {
-        description: detail || "Mock içerik gösterilmedi.",
-      });
+      getProductSocialDrafts(product.id).then(setDrafts).catch(() => undefined);
+      toast.success(result._cached ? `${platformLabel(platform)} kayıtlı taslaktan yüklendi.` : `${platformLabel(platform)} yeniden üretildi ve otomatik kaydedildi.`);
+    } catch {
+      toast.error("Platform içeriği yeniden üretilemedi.");
     } finally {
       setRegeneratingPlatform(null);
     }
   }
 
-  function handleSaveDraft() {
+  async function handleSaveDraft() {
     if (!content) return;
-    const newDraft: SocialDraft = {
-      id: Date.now().toString(),
-      productId: product.id,
-      content: stripMockFlag(content),
-      savedAt: new Date().toISOString(),
-    };
-    setDrafts((current) => {
-      const updated = [newDraft, ...current].slice(0, 10);
-      persistDrafts(updated, product.id);
-      return updated;
-    });
-    toast.success("Taslak kaydedildi.");
+    try {
+      const saved = await saveSocialDraft(product.id, {
+        tone,
+        purpose,
+        platforms: content.platforms,
+        content,
+      });
+      setDrafts((current) => [saved, ...current]);
+      toast.success("Taslak DB'ye kaydedildi — Taslaklarım'dan da görebilirsin");
+    } catch {
+      toast.error("Taslak kaydedilemedi.");
+    }
   }
 
   function handleLoadDraft(draft: SocialDraft) {
-    setContent(stripMockFlag(draft.content));
-    setContentSource("draft");
-    setActivePlatform(draft.content.platforms[0] ?? "instagram");
-    setDraftsOpen(false);
-    if (window.history.state?.zekaiSocialDraftsOpen) {
-      window.history.back();
-    }
+    setContent(draft.content);
+    setActivePlatform(draft.content.platforms?.[0] ?? "instagram");
     toast.success("Taslak yüklendi.");
   }
 
-  function handleDeleteDraft(draftId: string) {
-    setDrafts((current) => {
-      const updated = current.filter((d) => d.id !== draftId);
-      persistDrafts(updated, product.id);
-      return updated;
-    });
+  async function handleDeleteDraft(draftId: string) {
+    try {
+      await deleteSocialDraft(draftId);
+      setDrafts((current) => current.filter((d) => d.id !== draftId));
+      toast.success("Taslak silindi.");
+    } catch {
+      toast.error("Silinemedi.");
+    }
+  }
+
+  async function handleActivateDraft(draftId: string) {
+    try {
+      await activateSocialDraft(draftId);
+      setDrafts((current) => current.map((d) => ({ ...d, isActive: d.id === draftId })));
+      toast.success("Aktif içerik güncellendi.");
+    } catch {
+      toast.error("İşlem başarısız.");
+    }
   }
 
   return (
     <div className="pb-16">
-      {/* Breadcrumb */}
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Link href="/seller/products" className="transition-colors hover:text-foreground">
-              Ürünlerim
-            </Link>
-            <ChevronRight className="size-3.5" />
-            <Link href={`/seller/product/${product.id}`} className="max-w-[220px] truncate transition-colors hover:text-foreground">
-              {product.title}
-            </Link>
-            <ChevronRight className="size-3.5" />
-            <span className="font-semibold text-foreground">Sosyal Medya İçeriği</span>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Seçili platformlar için tek istekle pazarlama içeriği oluştur.
+      {/* Mock alert */}
+      {content?._mock && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-400">
+          <AlertTriangle className="size-4 shrink-0" />
+          Demo mod aktif. Bu içerik gerçek AI çıktısı olmayabilir.
+        </div>
+      )}
+
+      {/* Breadcrumb + title (full width, sticky at top of scroll area) */}
+      <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-background/95 px-4 pt-4 pb-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8 lg:pt-8 border-b border-border mb-6">
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Link href="/seller/products" className="transition-colors hover:text-foreground">
+            Ürünlerim
+          </Link>
+          <ChevronRight className="size-3.5" />
+          <Link href={`/seller/product/${product.id}`} className="max-w-[220px] truncate transition-colors hover:text-foreground">
+            {product.title}
+          </Link>
+          <ChevronRight className="size-3.5" />
+          <span className="text-foreground">Sosyal Medya İçeriği</span>
+        </div>
+        <div className="mt-3">
+          <h1 className="text-2xl font-black tracking-tight text-foreground">Sosyal Medya İçeriği</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ürünün için seçili platformlara uygun pazarlama içeriği oluştur.
           </p>
         </div>
-        <DraftsMenu
-          drafts={drafts}
-          open={draftsOpen}
-          onOpenChange={handleDraftsOpenChange}
-        />
       </div>
 
-      {draftsOpen ? (
-        <DraftsView
+      {/* Two-column layout: sticky settings (left) + content (right) */}
+      <div className="grid gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
+        {/* Left sticky column */}
+        <div className="space-y-4 lg:sticky lg:top-0 lg:self-start">
+          <ProductSummary product={product} />
+          <SettingsPanel
+            tone={tone}
+            purpose={purpose}
+            selectedPlatforms={selectedPlatforms}
+            generating={generating}
+            onToneChange={setTone}
+            onPurposeChange={setPurpose}
+            onTogglePlatform={togglePlatform}
+            onGenerate={handleGenerate}
+          />
+        </div>
+
+        {/* Right column */}
+        <div>
+          {content ? (
+            <GeneratedPanel
+              product={product}
+              content={content}
+              activePlatform={activePlatform}
+              regeneratingPlatform={regeneratingPlatform}
+              onActivePlatformChange={setActivePlatform}
+              onUpdateContent={(nextContent) => setContent(nextContent)}
+              onRegeneratePlatform={handleRegeneratePlatform}
+              onSaveDraft={handleSaveDraft}
+            />
+          ) : (
+            <EmptyContentState />
+          )}
+        </div>
+      </div>
+
+      {/* Drafts section */}
+      {drafts.length > 0 && (
+        <DraftsSection
           drafts={drafts}
           onLoadDraft={handleLoadDraft}
           onDeleteDraft={handleDeleteDraft}
+          onActivateDraft={handleActivateDraft}
         />
-      ) : !content ? (
-        <div className="w-full">
-          <div className="overflow-hidden rounded-[1.75rem] border border-border/80 bg-card shadow-sm">
-            <ProductSummary product={product} />
-            <SettingsPanel
-              tone={tone}
-              purpose={purpose}
-              selectedPlatforms={selectedPlatforms}
-              generating={generating}
-              onToneChange={setTone}
-              onPurposeChange={setPurpose}
-              onTogglePlatform={togglePlatform}
-              onGenerate={handleGenerate}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {contentSource === "draft" && (
-            <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800 dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-300">
-              Taslak içerik yüklendi. Düzenleyebilir, kopyalayabilir veya platform bazlı yeniden üretebilirsin.
-            </div>
-          )}
-          <GeneratedPanel
-            product={product}
-            content={content}
-            activePlatform={activePlatform}
-            regeneratingPlatform={regeneratingPlatform}
-            onActivePlatformChange={setActivePlatform}
-            onUpdateContent={(nextContent) => setContent(nextContent)}
-            onRegeneratePlatform={handleRegeneratePlatform}
-            onSaveDraft={handleSaveDraft}
-          />
-        </div>
       )}
     </div>
   );

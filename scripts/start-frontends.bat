@@ -4,6 +4,7 @@ title ZekAI - Frontendler (Yerel)
 
 set "MARKET_DIR=%~dp0..\apps\akilli-market-web"
 set "PLATFORM_DIR=%~dp0..\apps\zekai-platform-web"
+set "LOG_DIR=%~dp0logs"
 set "MARKET_PORT=3000"
 set "PLATFORM_PORT=3001"
 
@@ -47,6 +48,8 @@ if not exist "%PLATFORM_DIR%\package.json" (
   exit /b 1
 )
 
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >nul 2>nul
+
 call :ensure_env "%MARKET_DIR%" "akilli-market-web"
 if errorlevel 1 exit /b 1
 
@@ -61,16 +64,26 @@ if errorlevel 1 exit /b 1
 
 echo.
 echo [1/2] Akilli Market Web baslatiliyor (port %MARKET_PORT%)...
-start "Akilli Market (%MARKET_PORT%)" cmd /k "cd /d ""%MARKET_DIR%"" && npm run dev"
+call :start_frontend "%MARKET_DIR%" "akilli-market-web" "%MARKET_PORT%"
+if errorlevel 1 exit /b 1
 
 timeout /t 2 /nobreak >nul
 
 echo [2/2] ZekAI Platform baslatiliyor (port %PLATFORM_PORT%)...
-start "ZekAI Platform (%PLATFORM_PORT%)" cmd /k "cd /d ""%PLATFORM_DIR%"" && npm run dev -- --port %PLATFORM_PORT%"
+call :start_frontend "%PLATFORM_DIR%" "zekai-platform-web" "%PLATFORM_PORT%"
+if errorlevel 1 exit /b 1
 
 echo.
-echo Her iki frontend yeni pencerelerde baslatildi.
-echo Bu pencereyi kapatabilirsiniz; frontendler calismaya devam eder.
+echo Frontendler arka planda baslatildi. Yeni terminal penceresi acilmayacak.
+echo.
+echo Loglar:
+echo   scripts\logs\akilli-market-web.out.log
+echo   scripts\logs\akilli-market-web.err.log
+echo   scripts\logs\zekai-platform-web.out.log
+echo   scripts\logs\zekai-platform-web.err.log
+echo.
+echo Durdurmak icin:
+echo   scripts\stop-frontends.bat
 echo.
 pause
 exit /b 0
@@ -123,4 +136,39 @@ if not exist "%APP_DIR%\node_modules\.bin\next.cmd" (
 )
 
 echo [OK] %APP_NAME% bagimliliklari kuruldu.
+exit /b 0
+
+:start_frontend
+set "APP_DIR=%~1"
+set "APP_NAME=%~2"
+set "APP_PORT=%~3"
+set "OUT_LOG=%LOG_DIR%\%APP_NAME%.out.log"
+set "ERR_LOG=%LOG_DIR%\%APP_NAME%.err.log"
+set "PID_FILE=%LOG_DIR%\%APP_NAME%.pid"
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if ((Test-NetConnection -ComputerName 127.0.0.1 -Port %APP_PORT% -InformationLevel Quiet)) { exit 0 } else { exit 1 }" >nul 2>nul
+if "%ERRORLEVEL%"=="0" (
+  echo [OK] %APP_NAME% zaten calisiyor: http://localhost:%APP_PORT%
+  exit /b 0
+)
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = Start-Process -FilePath 'npm.cmd' -ArgumentList @('run','dev','--','--port','%APP_PORT%') -WorkingDirectory '%APP_DIR%' -WindowStyle Hidden -RedirectStandardOutput '%OUT_LOG%' -RedirectStandardError '%ERR_LOG%' -PassThru; Set-Content -Path '%PID_FILE%' -Value $p.Id"
+if errorlevel 1 (
+  echo [HATA] %APP_NAME% baslatilamadi. Loglari kontrol edin:
+  echo   %OUT_LOG%
+  echo   %ERR_LOG%
+  pause
+  exit /b 1
+)
+
+timeout /t 3 /nobreak >nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if ((Test-NetConnection -ComputerName 127.0.0.1 -Port %APP_PORT% -InformationLevel Quiet)) { exit 0 } else { exit 1 }" >nul 2>nul
+if "%ERRORLEVEL%"=="0" (
+  echo [OK] %APP_NAME% hazir: http://localhost:%APP_PORT%
+  exit /b 0
+)
+
+echo [UYARI] %APP_NAME% baslatildi ama port henuz cevap vermiyor. Biraz bekleyin veya loglara bakin:
+echo   %OUT_LOG%
+echo   %ERR_LOG%
 exit /b 0

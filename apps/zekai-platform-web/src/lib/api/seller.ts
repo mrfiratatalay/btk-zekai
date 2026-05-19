@@ -90,6 +90,9 @@ export interface SocialMediaContent {
   tiktok: SocialTiktokContent | null;
   twitter: SocialTwitterContent | null;
   generatedAt: string;
+  draftId?: string;
+  artifactId?: string;
+  _cached?: boolean;
   _mock?: boolean;
 }
 
@@ -160,6 +163,7 @@ export interface MissingBundleOpportunity {
 export interface BundleRecommendationResponse {
   recommendations: BundleRecommendation[];
   missingOpportunity: MissingBundleOpportunity | null;
+  artifactId?: string;
   _mock?: boolean;
   _cached?: boolean;
 }
@@ -223,6 +227,10 @@ export interface AiGeneratedContent {
   description: string;
   features: string[];
   whatIImproved: string;
+  draftId?: string;
+  artifactId?: string;
+  _cached?: boolean;
+  _mock?: boolean;
 }
 
 /** AI features (string[]) → Record<string,string> (indexed bullets) */
@@ -265,6 +273,9 @@ export interface SimulatedPersona {
 
 export interface SimulationResult {
   personas: SimulatedPersona[];
+  artifactId?: string;
+  _cached?: boolean;
+  _mock?: boolean;
 }
 
 export const simulateProduct = (productId: string) =>
@@ -275,7 +286,7 @@ export const simulateProduct = (productId: string) =>
 export type SimulationStreamEvent =
   | { type: "step"; message: string }
   | { type: "persona"; persona: SimulatedPersona }
-  | { type: "done" }
+  | { type: "done"; artifactId?: string; _cached?: boolean }
   | { type: "error"; message: string };
 
 import { useMockStore } from "@/lib/store/mock-store";
@@ -345,6 +356,9 @@ export interface GeneratedProductImage {
   imageBase64: string;
   mimeType: string;
   description: string;
+  artifactId?: string;
+  _cached?: boolean;
+  _mock?: boolean;
 }
 
 export interface GeneratedProductImageItem {
@@ -352,10 +366,15 @@ export interface GeneratedProductImageItem {
   label: string;
   imageBase64: string;
   mimeType: string;
+  artifactId?: string;
+  _cached?: boolean;
 }
 
 export interface GeneratedProductImagesResponse {
   images: GeneratedProductImageItem[];
+  artifactId?: string;
+  _cached?: boolean;
+  _mock?: boolean;
 }
 
 export type ProductImageStyle = "studio" | "unboxing" | "lifestyle";
@@ -380,6 +399,8 @@ export const generateProductImage = async (
     label: IMAGE_STYLE_LABELS[style],
     imageBase64: res.imageBase64,
     mimeType: res.mimeType,
+    artifactId: res.artifactId,
+    _cached: res._cached,
   };
 };
 
@@ -464,6 +485,8 @@ export interface ProductDraft {
   cargoText: string;
   categoryId: number;
   images: DraftImage[];
+  source?: string;
+  aiModel?: string | null;
   createdAt: string;
 }
 
@@ -517,4 +540,71 @@ export const publishDraft = async (
   }
   return result;
 };
+
+// ── Sosyal Medya Taslakları (markete gitmez; DB'de varyasyon saklama) ────────
+
+export interface SocialDraft {
+  id: string;
+  commerceProductId: string;
+  label: string;
+  tone: string;
+  purpose: string;
+  platforms: string[];
+  content: SocialMediaContent;
+  isActive: boolean;
+  source?: string;
+  aiModel?: string | null;
+  createdAt: string;
+}
+
+export interface SaveSocialDraftInput {
+  label?: string;
+  tone: string;
+  purpose: string;
+  platforms: string[];
+  content: SocialMediaContent;
+}
+
+export const saveSocialDraft = (productId: string, input: SaveSocialDraftInput) =>
+  apiFetch<SocialDraft>(`/api/seller/products/${productId}/social-drafts`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export const getProductSocialDrafts = (productId: string) =>
+  apiFetch<SocialDraft[]>(`/api/seller/products/${productId}/social-drafts`);
+
+export const getAllSocialDrafts = () =>
+  apiFetch<SocialDraft[]>(`/api/seller/social-drafts`);
+
+export const deleteSocialDraft = (draftId: string) =>
+  apiFetch<{ message: string }>(`/api/seller/social-drafts/${draftId}`, { method: "DELETE" });
+
+export const activateSocialDraft = (draftId: string) =>
+  apiFetch<{ message: string }>(`/api/seller/social-drafts/${draftId}/activate`, { method: "POST" });
+
+export type SellerAiArtifactType = "simulation" | "bundle_recommendation" | "image_generation";
+
+export interface SellerAiArtifact {
+  id: string;
+  commerceProductId: string;
+  artifactType: SellerAiArtifactType;
+  label: string;
+  payload: unknown;
+  aiModel: string;
+  source: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string | null;
+}
+
+export const getAllAiArtifacts = () =>
+  apiFetch<SellerAiArtifact[]>("/api/seller/ai-artifacts");
+
+export const getProductAiArtifacts = (productId: string) =>
+  apiFetch<SellerAiArtifact[]>(`/api/seller/products/${productId}/ai-artifacts`);
+
+export const deleteAiArtifact = (artifactId: string) =>
+  apiFetch<{ message: string }>(`/api/seller/ai-artifacts/${artifactId}`, { method: "DELETE" });
 

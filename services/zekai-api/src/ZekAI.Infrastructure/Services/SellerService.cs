@@ -15,6 +15,11 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
     private static readonly TimeSpan BundleRecommendationCacheTtl = TimeSpan.FromDays(7);
     private const decimal BundleRecommendationDiscountPercent = 5m;
     private const string BundleRecommendationDiscountPolicyVersion = "backend-fixed-5-v1";
+    private const string ContentModel = "gemini-2.5-flash-lite";
+    private const string SocialModel = "gemini-2.5-flash-lite";
+    private const string SimulationModel = "gemini-2.5-flash-lite";
+    private const string BundleModel = "gemini-2.5-flash-lite";
+    private const string ImageModel = "gemini-3.1-flash-image-preview";
 
     public async Task<List<StoreConnectionDto>> GetConnectionsAsync(Guid userId)
     {
@@ -135,6 +140,35 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
     private static readonly JsonSerializerOptions DraftJsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
+    public async Task<List<AiArtifactDto>> GetAllAiArtifactsAsync(Guid userId)
+    {
+        var artifacts = await db.SellerAiArtifacts
+            .Where(a => a.UserId == userId && a.Status == "ready")
+            .OrderByDescending(a => a.UpdatedAt)
+            .ToListAsync();
+        return artifacts.Select(ToArtifactDto).ToList();
+    }
+
+    public async Task<List<AiArtifactDto>> GetProductAiArtifactsAsync(Guid userId, string productId)
+    {
+        var artifacts = await db.SellerAiArtifacts
+            .Where(a => a.UserId == userId && a.CommerceProductId == productId && a.Status == "ready")
+            .OrderByDescending(a => a.UpdatedAt)
+            .ToListAsync();
+        return artifacts.Select(ToArtifactDto).ToList();
+    }
+
+    public async Task<bool> DeleteAiArtifactAsync(Guid userId, Guid artifactId)
+    {
+        var artifact = await db.SellerAiArtifacts
+            .FirstOrDefaultAsync(a => a.Id == artifactId && a.UserId == userId);
+        if (artifact is null) return false;
+        artifact.Status = "archived";
+        artifact.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<ProductDraftDto> SaveDraftAsync(Guid userId, string productId, SaveProductDraftRequest req)
     {
         var conn = await GetActiveConnectionAsync(userId);
@@ -178,6 +212,8 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             CargoText = req.CargoText,
             CategoryId = req.CategoryId,
             ImagesJson = JsonSerializer.Serialize(images, DraftJsonOpts),
+            Source = "manual",
+            UpdatedAt = DateTime.UtcNow,
         };
 
         db.SellerProductDrafts.Add(draft);
@@ -265,6 +301,93 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         d.CargoText,
         d.CategoryId,
         JsonSerializer.Deserialize<List<DraftImageDto>>(d.ImagesJson, DraftJsonOpts) ?? new(),
+        d.Source,
+        string.IsNullOrWhiteSpace(d.AiModel) ? null : d.AiModel,
+        d.CreatedAt
+    );
+
+    // ── Sosyal Medya Taslakları ───────────────────────────────────────────
+    // Markete gitmez; localStorage yerine DB'de saklanan varyasyonlar.
+
+    public async Task<SocialDraftDto> SaveSocialDraftAsync(Guid userId, string productId, SaveSocialDraftRequest req)
+    {
+        await GetActiveConnectionAsync(userId);
+
+        var draft = new SellerSocialDraft
+        {
+            UserId = userId,
+            CommerceProductId = productId,
+            Label = string.IsNullOrWhiteSpace(req.Label)
+                ? $"Sosyal · {DateTime.UtcNow:dd.MM HH:mm}"
+                : req.Label.Trim(),
+            Tone = req.Tone,
+            Purpose = req.Purpose,
+            PlatformsJson = JsonSerializer.Serialize(req.Platforms, DraftJsonOpts),
+            ContentJson = req.Content.ValueKind == JsonValueKind.Undefined ? "{}" : req.Content.GetRawText(),
+            Source = "manual",
+            UpdatedAt = DateTime.UtcNow,
+        };
+
+        db.SellerSocialDrafts.Add(draft);
+        await db.SaveChangesAsync();
+        return ToSocialDto(draft);
+    }
+
+    public async Task<List<SocialDraftDto>> GetProductSocialDraftsAsync(Guid userId, string productId)
+    {
+        var drafts = await db.SellerSocialDrafts
+            .Where(d => d.UserId == userId && d.CommerceProductId == productId)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
+        return drafts.Select(ToSocialDto).ToList();
+    }
+
+    public async Task<List<SocialDraftDto>> GetAllSocialDraftsAsync(Guid userId)
+    {
+        var drafts = await db.SellerSocialDrafts
+            .Where(d => d.UserId == userId)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
+        return drafts.Select(ToSocialDto).ToList();
+    }
+
+    public async Task<bool> DeleteSocialDraftAsync(Guid userId, Guid draftId)
+    {
+        var draft = await db.SellerSocialDrafts
+            .FirstOrDefaultAsync(d => d.Id == draftId && d.UserId == userId);
+        if (draft is null) return false;
+        db.SellerSocialDrafts.Remove(draft);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>Bir varyasyonu ürün için "Aktif" işaretler (diğerlerini pasifleştirir).</summary>
+    public async Task<bool> SetActiveSocialDraftAsync(Guid userId, Guid draftId)
+    {
+        var draft = await db.SellerSocialDrafts
+            .FirstOrDefaultAsync(d => d.Id == draftId && d.UserId == userId);
+        if (draft is null) return false;
+
+        var siblings = await db.SellerSocialDrafts
+            .Where(d => d.UserId == userId && d.CommerceProductId == draft.CommerceProductId)
+            .ToListAsync();
+        foreach (var s in siblings) s.IsActive = s.Id == draftId;
+
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    private static SocialDraftDto ToSocialDto(SellerSocialDraft d) => new(
+        d.Id,
+        d.CommerceProductId,
+        d.Label,
+        d.Tone,
+        d.Purpose,
+        JsonSerializer.Deserialize<List<string>>(d.PlatformsJson, DraftJsonOpts) ?? new(),
+        JsonDocument.Parse(string.IsNullOrWhiteSpace(d.ContentJson) ? "{}" : d.ContentJson).RootElement.Clone(),
+        d.IsActive,
+        d.Source,
+        string.IsNullOrWhiteSpace(d.AiModel) ? null : d.AiModel,
         d.CreatedAt
     );
 
@@ -322,6 +445,25 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         }
 
         // AI servisinden içerik üret
+        var inputHash = BuildHash(new
+        {
+            type = "social_content",
+            product = ProductSignature(pd),
+            tone,
+            purpose,
+            platforms = platforms.OrderBy(p => p).ToList(),
+        });
+        var cachedDraft = await db.SellerSocialDrafts
+            .Where(d => d.UserId == userId && d.CommerceProductId == productId && d.InputHash == inputHash)
+            .OrderByDescending(d => d.UpdatedAt)
+            .FirstOrDefaultAsync();
+        if (cachedDraft is not null)
+        {
+            cachedDraft.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return AddMetadataToJson(cachedDraft.ContentJson, cachedDraft.Id, cached: true);
+        }
+
         var aiResult = await aiService.GenerateSocialContentAsync(
             pd.Title, pd.Category, pd.Price, pd.Description, features, tone, purpose, platforms);
 
@@ -340,7 +482,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         var saved = await commerce.ProxyPostAsync(conn.CommerceAccessToken, $"/api/seller/products/{productId}/save-social-content", savePayload);
         if (aiResult.Mock)
         {
-            return new
+            var mockPayload = new
             {
                 tone,
                 purpose,
@@ -351,9 +493,24 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
                 generatedAt = DateTime.UtcNow,
                 _mock = true,
             };
+            var mockDraft = await SaveGeneratedSocialDraftAsync(userId, productId, tone, purpose, platforms, mockPayload, inputHash, "mock");
+            return AddMetadataToJson(JsonSerializer.Serialize(mockPayload, DraftJsonOpts), mockDraft.Id, cached: false);
         }
 
-        return saved?.RootElement;
+        var contentJson = saved?.RootElement.GetRawText()
+            ?? JsonSerializer.Serialize(new
+            {
+                tone,
+                purpose,
+                platforms,
+                instagram = aiResult.Instagram,
+                tiktok = aiResult.Tiktok,
+                twitter = aiResult.Twitter,
+                generatedAt = DateTime.UtcNow,
+                _mock = false,
+            }, DraftJsonOpts);
+        var draft = await SaveGeneratedSocialDraftAsync(userId, productId, tone, purpose, platforms, contentJson, inputHash, "gemini");
+        return AddMetadataToJson(contentJson, draft.Id, cached: false);
     }
 
     public async Task<object?> GenerateAiContentAsync(Guid userId, string productId, SimulationInsightDto? simulationInsight = null)
@@ -365,11 +522,52 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
         var features = pd.Features?.Values.ToList() ?? [];
         var imageUrl = pd.Images?.FirstOrDefault();
+        var inputHash = BuildHash(new
+        {
+            type = "product_content",
+            product = ProductSignature(pd),
+            imageUrl,
+            simulationInsight,
+        });
+        var cachedDraft = await db.SellerProductDrafts
+            .Where(d => d.UserId == userId && d.CommerceProductId == productId && d.InputHash == inputHash)
+            .OrderByDescending(d => d.UpdatedAt)
+            .FirstOrDefaultAsync();
+        if (cachedDraft is not null)
+        {
+            cachedDraft.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            var cachedFeatures = JsonSerializer.Deserialize<Dictionary<string, string>>(cachedDraft.FeaturesJson, DraftJsonOpts) ?? new();
+            return new
+            {
+                title = cachedDraft.Title,
+                shortDescription = cachedDraft.ShortDescription,
+                description = cachedDraft.Description,
+                features = cachedFeatures.Values.ToList(),
+                whatIImproved = "Kayıtlı AI taslağı tekrar kullanıldı.",
+                _mock = false,
+                _cached = true,
+                draftId = cachedDraft.Id,
+            };
+        }
 
         var aiResult = await aiService.GenerateProductContentAsync(
             pd.Title, pd.Category, pd.Price, pd.Description, features, imageUrl, simulationInsight);
 
-        return aiResult;
+        if (aiResult is null) return null;
+
+        var draft = await SaveGeneratedProductDraftAsync(userId, productId, pd, aiResult, inputHash);
+        return new
+        {
+            aiResult.Title,
+            aiResult.ShortDescription,
+            aiResult.Description,
+            aiResult.Features,
+            aiResult.WhatIImproved,
+            _mock = aiResult.Mock,
+            _cached = false,
+            draftId = draft.Id,
+        };
     }
 
     public async Task<object?> SimulateProductAsync(Guid userId, string productId)
@@ -381,7 +579,15 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
         var features = pd.Features?.Values.ToList() ?? [];
 
-        return await aiService.SimulateProductAsync(pd.Title, pd.Category, pd.Price, pd.Description, features);
+        var inputHash = BuildHash(new { type = "simulation", product = ProductSignature(pd) });
+        var cached = await GetReadyArtifactAsync(userId, productId, "simulation", inputHash);
+        if (cached is not null) return await MarkArtifactUsedAsync(cached, cached: true);
+
+        var result = await aiService.SimulateProductAsync(pd.Title, pd.Category, pd.Price, pd.Description, features);
+        if (result is null) return null;
+        var artifact = await SaveAiArtifactAsync(
+            userId, productId, "simulation", "Müşteri Simülasyonu", inputHash, result, SimulationModel, result.Mock ? "mock" : "gemini");
+        return await MarkArtifactUsedAsync(artifact, cached: false);
     }
 
     public async Task<SimulationProductPayload> GetSimulationPayloadAsync(Guid userId, string productId)
@@ -396,6 +602,31 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         return new SimulationProductPayload(pd.Title, pd.Category, pd.Price, pd.Description, features);
     }
 
+    public async Task<AiArtifactDto?> GetCachedSimulationArtifactAsync(Guid userId, string productId)
+    {
+        await GetActiveConnectionAsync(userId);
+        var pd = await commerce.GetProductDetailAsync(productId)
+            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+        var inputHash = BuildHash(new { type = "simulation", product = ProductSignature(pd) });
+        var cached = await GetReadyArtifactAsync(userId, productId, "simulation", inputHash);
+        if (cached is null) return null;
+        cached.LastUsedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return ToArtifactDto(cached);
+    }
+
+    public async Task<AiArtifactDto> SaveSimulationArtifactAsync(Guid userId, string productId, object payload)
+    {
+        await GetActiveConnectionAsync(userId);
+        var pd = await commerce.GetProductDetailAsync(productId)
+            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+        var inputHash = BuildHash(new { type = "simulation", product = ProductSignature(pd) });
+        var source = PayloadIsMock(payload) ? "mock" : "gemini";
+        var artifact = await SaveAiArtifactAsync(
+            userId, productId, "simulation", "Müşteri Simülasyonu", inputHash, payload, SimulationModel, source);
+        return ToArtifactDto(artifact);
+    }
+
     public async Task<object?> GenerateProductImageAsync(Guid userId, string productId, string style)
     {
         await GetActiveConnectionAsync(userId);
@@ -403,7 +634,16 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         var pd = await commerce.GetProductDetailAsync(productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
-        return await aiService.GenerateProductImageAsync(pd.Title, pd.Category, pd.Description, style);
+        var normalizedStyle = string.IsNullOrWhiteSpace(style) ? "studio" : style.Trim().ToLowerInvariant();
+        var inputHash = BuildHash(new { type = "image_generation", product = ProductSignature(pd), style = normalizedStyle });
+        var cached = await GetReadyArtifactAsync(userId, productId, "image_generation", inputHash);
+        if (cached is not null) return await MarkArtifactUsedAsync(cached, cached: true);
+
+        var result = await aiService.GenerateProductImageAsync(pd.Title, pd.Category, pd.Description, normalizedStyle);
+        if (result is null) return null;
+        var artifact = await SaveAiArtifactAsync(
+            userId, productId, "image_generation", $"AI Görsel · {normalizedStyle}", inputHash, result, ImageModel, result.Mock ? "mock" : "gemini");
+        return await MarkArtifactUsedAsync(artifact, cached: false);
     }
 
     public async Task<object?> GenerateProductImagesAsync(Guid userId, string productId)
@@ -413,7 +653,15 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         var pd = await commerce.GetProductDetailAsync(productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
-        return await aiService.GenerateProductImagesAsync(pd.Title, pd.Category, pd.Description);
+        var inputHash = BuildHash(new { type = "image_generation", product = ProductSignature(pd), style = "all" });
+        var cached = await GetReadyArtifactAsync(userId, productId, "image_generation", inputHash);
+        if (cached is not null) return await MarkArtifactUsedAsync(cached, cached: true);
+
+        var result = await aiService.GenerateProductImagesAsync(pd.Title, pd.Category, pd.Description);
+        if (result is null) return null;
+        var artifact = await SaveAiArtifactAsync(
+            userId, productId, "image_generation", "AI Görsel Seti", inputHash, result, ImageModel, result.Mock ? "mock" : "gemini");
+        return await MarkArtifactUsedAsync(artifact, cached: false);
     }
 
     public async Task<object?> GetProductBundlesAsync(Guid userId, string productId)
@@ -471,6 +719,9 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
         if (!forceRegenerate)
         {
+            var artifact = await GetReadyArtifactAsync(userId, productId, "bundle_recommendation", productListHash);
+            if (artifact is not null) return await MarkArtifactUsedAsync(artifact, cached: true);
+
             var cached = await db.BundleRecommendationCaches
                 .FirstOrDefaultAsync(c =>
                     c.SellerKey == sellerKey &&
@@ -485,7 +736,12 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
                 var cachedNode = JsonNode.Parse(cached.ResponseJson) ?? new JsonObject();
                 if (cachedNode is JsonObject cachedObject)
+                {
                     cachedObject["_cached"] = true;
+                    var cacheArtifact = await SaveAiArtifactAsync(
+                        userId, productId, "bundle_recommendation", "Bundle Önerisi", productListHash, cachedObject, BundleModel, "cache");
+                    cachedObject["artifactId"] = cacheArtifact.Id;
+                }
                 return cachedNode;
             }
         }
@@ -548,7 +804,10 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         if (!aiResult.Mock)
             await SaveBundleRecommendationCacheAsync(sellerKey, productId, productListHash, response);
 
-        return response;
+        var savedArtifact = await SaveAiArtifactAsync(
+            userId, productId, "bundle_recommendation", "Bundle Önerisi", productListHash, response, BundleModel, aiResult.Mock ? "mock" : "gemini");
+        return AddMetadataToJson(JsonSerializer.Serialize(response, DraftJsonOpts), savedArtifact.Id, cached: false);
+
     }
 
     public async Task<object?> CreateProductBundleAsync(Guid userId, string productId, object body)
@@ -653,5 +912,212 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         }
 
         await db.SaveChangesAsync();
+    }
+
+    private async Task<SellerProductDraft> SaveGeneratedProductDraftAsync(
+        Guid userId,
+        string productId,
+        CommerceProductDetailDto pd,
+        AiContentResult aiResult,
+        string inputHash)
+    {
+        var now = DateTime.UtcNow;
+        var existing = await db.SellerProductDrafts
+            .FirstOrDefaultAsync(d => d.UserId == userId && d.CommerceProductId == productId && d.InputHash == inputHash);
+
+        var featureRecord = aiResult.Features
+            .Select((value, index) => new { key = index.ToString(), value })
+            .ToDictionary(x => x.key, x => x.value);
+        var images = (pd.Images ?? [])
+            .Take(1)
+            .Select(url => new DraftImageDto("current", "Mevcut", url))
+            .ToList();
+
+        var draft = existing ?? new SellerProductDraft
+        {
+            UserId = userId,
+            CommerceProductId = productId,
+            InputHash = inputHash,
+            CreatedAt = now,
+        };
+
+        draft.Label = $"AI İçerik · {now:dd.MM HH:mm}";
+        draft.Title = aiResult.Title;
+        draft.ShortDescription = aiResult.ShortDescription;
+        draft.Description = aiResult.Description;
+        draft.FeaturesJson = JsonSerializer.Serialize(featureRecord, DraftJsonOpts);
+        draft.Price = pd.Price;
+        draft.OriginalPrice = pd.OriginalPrice;
+        draft.Stock = pd.Stock;
+        draft.Brand = pd.Brand;
+        draft.CargoText = pd.CargoText ?? "";
+        draft.CategoryId = CategoryIdFromName(pd.Category);
+        draft.ImagesJson = JsonSerializer.Serialize(images, DraftJsonOpts);
+        draft.AiModel = ContentModel;
+        draft.Source = aiResult.Mock ? "mock" : "gemini";
+        draft.UpdatedAt = now;
+
+        if (existing is null) db.SellerProductDrafts.Add(draft);
+        await db.SaveChangesAsync();
+        return draft;
+    }
+
+    private async Task<SellerSocialDraft> SaveGeneratedSocialDraftAsync(
+        Guid userId,
+        string productId,
+        string tone,
+        string purpose,
+        List<string> platforms,
+        object content,
+        string inputHash,
+        string source)
+    {
+        var now = DateTime.UtcNow;
+        var contentJson = content is string s ? s : JsonSerializer.Serialize(content, DraftJsonOpts);
+        var existing = await db.SellerSocialDrafts
+            .FirstOrDefaultAsync(d => d.UserId == userId && d.CommerceProductId == productId && d.InputHash == inputHash);
+        var draft = existing ?? new SellerSocialDraft
+        {
+            UserId = userId,
+            CommerceProductId = productId,
+            InputHash = inputHash,
+            CreatedAt = now,
+        };
+
+        draft.Label = $"Sosyal AI · {now:dd.MM HH:mm}";
+        draft.Tone = tone;
+        draft.Purpose = purpose;
+        draft.PlatformsJson = JsonSerializer.Serialize(platforms, DraftJsonOpts);
+        draft.ContentJson = contentJson;
+        draft.AiModel = SocialModel;
+        draft.Source = source;
+        draft.UpdatedAt = now;
+
+        if (existing is null) db.SellerSocialDrafts.Add(draft);
+        await db.SaveChangesAsync();
+        return draft;
+    }
+
+    private async Task<SellerAiArtifact?> GetReadyArtifactAsync(Guid userId, string productId, string artifactType, string inputHash)
+    {
+        return await db.SellerAiArtifacts
+            .Where(a =>
+                a.UserId == userId &&
+                a.CommerceProductId == productId &&
+                a.ArtifactType == artifactType &&
+                a.InputHash == inputHash &&
+                a.Status == "ready")
+            .OrderByDescending(a => a.UpdatedAt)
+            .FirstOrDefaultAsync();
+    }
+
+    private async Task<SellerAiArtifact> SaveAiArtifactAsync(
+        Guid userId,
+        string productId,
+        string artifactType,
+        string label,
+        string inputHash,
+        object payload,
+        string model,
+        string source)
+    {
+        var now = DateTime.UtcNow;
+        var payloadJson = payload is string s ? s : JsonSerializer.Serialize(payload, DraftJsonOpts);
+        var existing = await db.SellerAiArtifacts.FirstOrDefaultAsync(a =>
+            a.UserId == userId &&
+            a.CommerceProductId == productId &&
+            a.ArtifactType == artifactType &&
+            a.InputHash == inputHash);
+
+        var artifact = existing ?? new SellerAiArtifact
+        {
+            UserId = userId,
+            CommerceProductId = productId,
+            ArtifactType = artifactType,
+            InputHash = inputHash,
+            CreatedAt = now,
+        };
+
+        artifact.Label = label;
+        artifact.PayloadJson = payloadJson;
+        artifact.AiModel = model;
+        artifact.Source = source;
+        artifact.Status = "ready";
+        artifact.UpdatedAt = now;
+        artifact.LastUsedAt = null;
+
+        if (existing is null) db.SellerAiArtifacts.Add(artifact);
+        await db.SaveChangesAsync();
+        return artifact;
+    }
+
+    private async Task<JsonElement> MarkArtifactUsedAsync(SellerAiArtifact artifact, bool cached)
+    {
+        artifact.LastUsedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return AddMetadataToJson(artifact.PayloadJson, artifact.Id, cached);
+    }
+
+    private static JsonElement AddMetadataToJson(string json, Guid id, bool cached)
+    {
+        var node = JsonNode.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json) ?? new JsonObject();
+        if (node is not JsonObject obj) obj = new JsonObject { ["value"] = node.DeepClone() };
+        obj["artifactId"] = id;
+        obj["draftId"] = id;
+        obj["_cached"] = cached;
+        return JsonDocument.Parse(obj.ToJsonString()).RootElement.Clone();
+    }
+
+    private static AiArtifactDto ToArtifactDto(SellerAiArtifact artifact) => new(
+        artifact.Id,
+        artifact.CommerceProductId,
+        artifact.ArtifactType,
+        artifact.Label,
+        JsonDocument.Parse(string.IsNullOrWhiteSpace(artifact.PayloadJson) ? "{}" : artifact.PayloadJson).RootElement.Clone(),
+        artifact.AiModel,
+        artifact.Source,
+        artifact.Status,
+        artifact.CreatedAt,
+        artifact.UpdatedAt,
+        artifact.LastUsedAt
+    );
+
+    private static object ProductSignature(CommerceProductDetailDto pd) => new
+    {
+        pd.Id,
+        pd.Title,
+        pd.Category,
+        pd.Price,
+        pd.OriginalPrice,
+        pd.Stock,
+        pd.Description,
+        features = pd.Features?.OrderBy(kv => kv.Key).ToList(),
+        images = pd.Images?.OrderBy(x => x).ToList(),
+    };
+
+    private static string BuildHash(object value)
+    {
+        var json = JsonSerializer.Serialize(value, DraftJsonOpts);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
+    }
+
+    private static int CategoryIdFromName(string? category) => category?.Trim().ToLowerInvariant() switch
+    {
+        "elektronik" => 1,
+        "spor & outdoor" => 2,
+        "mutfak" => 3,
+        "ev & yaşam" => 4,
+        "ev & yasam" => 4,
+        "aksesuar" => 5,
+        "anne & bebek" => 6,
+        _ => 1,
+    };
+
+    private static bool PayloadIsMock(object payload)
+    {
+        var node = JsonSerializer.SerializeToNode(payload, DraftJsonOpts);
+        return node is JsonObject obj &&
+               obj.TryGetPropertyValue("_mock", out var mockNode) &&
+               mockNode?.GetValue<bool>() == true;
     }
 }

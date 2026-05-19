@@ -203,6 +203,23 @@ public class SellerController(SellerService seller) : ControllerBase
             features = payload.Features,
         };
 
+        var cachedArtifact = await seller.GetCachedSimulationArtifactAsync(UserId, productId);
+        if (cachedArtifact is not null)
+        {
+            Response.ContentType = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["X-Accel-Buffering"] = "no";
+            await WriteSseAsync(new { type = "step", message = "Kayıtlı müşteri simülasyonu kullanılıyor." });
+            if (cachedArtifact.Payload.TryGetProperty("personas", out var cachedPersonas) &&
+                cachedPersonas.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var persona in cachedPersonas.EnumerateArray())
+                    await WriteSseAsync(new { type = "persona", persona });
+            }
+            await WriteSseAsync(new { type = "done", artifactId = cachedArtifact.Id, _cached = true });
+            return;
+        }
+
         var client = httpClientFactory.CreateClient("AiService");
         using var request = new HttpRequestMessage(HttpMethod.Post, "/seller/simulate-stream")
         {
@@ -223,7 +240,43 @@ public class SellerController(SellerService seller) : ControllerBase
         Response.Headers["Cache-Control"] = "no-cache";
         Response.Headers["X-Accel-Buffering"] = "no";
         await using var stream = await response.Content.ReadAsStreamAsync(HttpContext.RequestAborted);
-        await stream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
+        using var reader = new StreamReader(stream);
+        var personas = new List<JsonElement>();
+        var completed = false;
+
+        while (!HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(HttpContext.RequestAborted);
+            if (line is null) break;
+
+            await Response.WriteAsync(line + "\n", HttpContext.RequestAborted);
+            await Response.Body.FlushAsync(HttpContext.RequestAborted);
+
+            if (!line.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) continue;
+            var json = line["data:".Length..].Trim();
+            if (string.IsNullOrWhiteSpace(json)) continue;
+
+            try
+            {
+                using var eventDoc = JsonDocument.Parse(json);
+                var root = eventDoc.RootElement;
+                if (!root.TryGetProperty("type", out var typeEl)) continue;
+                var type = typeEl.GetString();
+                if (type == "persona" && root.TryGetProperty("persona", out var personaEl))
+                    personas.Add(personaEl.Clone());
+                else if (type == "done")
+                    completed = true;
+            }
+            catch
+            {
+                // Stream still reaches the UI; malformed lines are only skipped for persistence.
+            }
+        }
+
+        if (completed && personas.Count > 0 && !HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            await seller.SaveSimulationArtifactAsync(UserId, productId, new { personas, _mock = false });
+        }
     }
 
     [HttpPost("products/{productId}/ai-image")]
@@ -287,6 +340,21 @@ public class SellerController(SellerService seller) : ControllerBase
     public async Task<IActionResult> GetAllDrafts()
         => Ok(await seller.GetAllDraftsAsync(UserId));
 
+    [HttpGet("ai-artifacts")]
+    public async Task<IActionResult> GetAllAiArtifacts()
+        => Ok(await seller.GetAllAiArtifactsAsync(UserId));
+
+    [HttpGet("products/{productId}/ai-artifacts")]
+    public async Task<IActionResult> GetProductAiArtifacts(string productId)
+        => Ok(await seller.GetProductAiArtifactsAsync(UserId, productId));
+
+    [HttpDelete("ai-artifacts/{artifactId:guid}")]
+    public async Task<IActionResult> DeleteAiArtifact(Guid artifactId)
+    {
+        var ok = await seller.DeleteAiArtifactAsync(UserId, artifactId);
+        return ok ? Ok(new { message = "AI çıktısı arşivlendi." }) : NotFound(new { message = "AI çıktısı bulunamadı." });
+    }
+
     [HttpDelete("drafts/{draftId:guid}")]
     public async Task<IActionResult> DeleteDraft(Guid draftId)
     {
@@ -304,6 +372,41 @@ public class SellerController(SellerService seller) : ControllerBase
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ── Social Media Drafts (markete gitmez; varyasyon saklama) ───────────
+
+    [HttpPost("products/{productId}/social-drafts")]
+    public async Task<IActionResult> SaveSocialDraft(string productId, [FromBody] SaveSocialDraftRequest req)
+    {
+        try { return Ok(await seller.SaveSocialDraftAsync(UserId, productId, req)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpGet("products/{productId}/social-drafts")]
+    public async Task<IActionResult> GetProductSocialDrafts(string productId)
+    {
+        try { return Ok(await seller.GetProductSocialDraftsAsync(UserId, productId)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpGet("social-drafts")]
+    public async Task<IActionResult> GetAllSocialDrafts()
+        => Ok(await seller.GetAllSocialDraftsAsync(UserId));
+
+    [HttpDelete("social-drafts/{draftId:guid}")]
+    public async Task<IActionResult> DeleteSocialDraft(Guid draftId)
+    {
+        var ok = await seller.DeleteSocialDraftAsync(UserId, draftId);
+        return ok ? Ok(new { message = "Taslak silindi." }) : NotFound(new { message = "Taslak bulunamadı." });
+    }
+
+    [HttpPost("social-drafts/{draftId:guid}/activate")]
+    public async Task<IActionResult> ActivateSocialDraft(Guid draftId)
+    {
+        var ok = await seller.SetActiveSocialDraftAsync(UserId, draftId);
+        return ok ? Ok(new { message = "Aktif içerik güncellendi." }) : NotFound(new { message = "Taslak bulunamadı." });
     }
 
     // ── Analytics (proxied from commerce-api) ─────────────────────────────
@@ -361,4 +464,9 @@ public class SellerController(SellerService seller) : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    private async Task WriteSseAsync(object payload)
+    {
+        await Response.WriteAsync($"data: {JsonSerializer.Serialize(payload)}\n\n", HttpContext.RequestAborted);
+        await Response.Body.FlushAsync(HttpContext.RequestAborted);
+    }
 }

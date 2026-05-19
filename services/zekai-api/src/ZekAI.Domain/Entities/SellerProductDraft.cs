@@ -35,6 +35,10 @@ public class SellerProductDraft
     /// </summary>
     public string ImagesJson { get; set; } = "[]";
 
+    public string InputHash { get; set; } = "";
+    public string AiModel { get; set; } = "";
+    public string Source { get; set; } = "manual";
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ZekaiUser? User { get; set; }

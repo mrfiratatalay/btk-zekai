@@ -33,8 +33,8 @@ const MODULES = [
     title: "Sosyal Medya İçeriği",
     description: "Instagram, Twitter ve TikTok için içerik üret",
     href: (id: string) => `/seller/product/${id}/social`,
-    iconBg: "bg-violet-500/10",
-    iconColor: "text-violet-600 dark:text-violet-400",
+    iconBg: "bg-green-500/10",
+    iconColor: "text-green-600 dark:text-green-400",
   },
   {
     key: "bundles",

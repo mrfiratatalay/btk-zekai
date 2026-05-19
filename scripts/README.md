@@ -1,16 +1,18 @@
 # Scripts
 
-Bu projede kalici calisma standardi full Docker Compose'tur.
+Bu projede backend servisleri Docker Compose ile, frontendler ise lokal dev server ile calistirilir.
 
 ```bat
-scripts\start-all.bat
+scripts\start-docker.bat
+scripts\start-frontends.bat
 ```
 
-Bu script repo kokunde su komutu calistirir:
+`start-docker.bat` dusuk kaynak kullanimi icin:
 
-```bat
-docker compose up --build
-```
+- Eksik image varsa servisleri sirayla build eder.
+- Image hazirsa tekrar build yapmaz.
+- Servisleri arka planda baslatir.
+- Loglari ekrana surekli basmaz.
 
 Standart adresler:
 
@@ -22,13 +24,24 @@ Standart adresler:
 | zekai-api Swagger | `http://localhost:5002/swagger` |
 | ai-service | `http://localhost:8000` |
 | PostgreSQL | `localhost:5432` |
-| Redis | `localhost:6379` |
+
+Log izlemek icin:
+
+```bat
+docker compose logs -f
+```
+
+Durdurmak icin:
+
+```bat
+docker compose down
+```
 
 Temiz test icin:
 
 ```bat
 docker compose down -v
-docker compose up --build
+scripts\start-docker.bat
 ```
 
 Not: `down -v` veritabanini sifirlar; sadece temiz test icin kullan.

@@ -20,6 +20,7 @@ services:
       retries: 5
 
   commerce-api:
+    image: btk-zekai-commerce-api:latest
     build:
       context: ./services/commerce-api
       dockerfile: Dockerfile
@@ -41,6 +42,7 @@ services:
       - zekai-network
 
   zekai-api:
+    image: btk-zekai-zekai-api:latest
     build:
       context: ./services/zekai-api
       dockerfile: Dockerfile
@@ -68,6 +70,7 @@ services:
       - zekai-network
 
   ai-service:
+    image: btk-zekai-ai-service:latest
     build:
       context: ./services/ai-service
       dockerfile: Dockerfile
