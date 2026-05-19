@@ -17,6 +17,8 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
     public DbSet<SellerProductDraft> SellerProductDrafts => Set<SellerProductDraft>();
     public DbSet<SellerSocialDraft> SellerSocialDrafts => Set<SellerSocialDraft>();
     public DbSet<SellerAiArtifact> SellerAiArtifacts => Set<SellerAiArtifact>();
+    public DbSet<ReviewReplyDraft> ReviewReplyDrafts => Set<ReviewReplyDraft>();
+    public DbSet<FaqDraft> FaqDrafts => Set<FaqDraft>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -112,5 +114,13 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
             .HasIndex(a => new { a.UserId, a.CommerceProductId });
         mb.Entity<SellerAiArtifact>()
             .HasIndex(a => new { a.UserId, a.CommerceProductId, a.ArtifactType, a.InputHash });
+
+        mb.Entity<ReviewReplyDraft>()
+            .HasIndex(d => new { d.ZekaiUserId, d.ProductId });
+        mb.Entity<ReviewReplyDraft>()
+            .HasIndex(d => new { d.ZekaiUserId, d.ProductId, d.ReviewId });
+
+        mb.Entity<FaqDraft>()
+            .HasIndex(d => new { d.ZekaiUserId, d.ProductId });
     }
 }

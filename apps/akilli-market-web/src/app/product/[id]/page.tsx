@@ -9,6 +9,7 @@ import {
   getProduct,
   getProductReviews,
   getProductBundles,
+  getProductFaqs,
   mapProductDetailToProduct,
 } from "@/lib/api/products";
 
@@ -21,9 +22,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     notFound();
   }
 
-  const [reviews, bundles] = await Promise.all([
+  const [reviews, bundles, faqs] = await Promise.all([
     getProductReviews(id),
     getProductBundles(id),
+    getProductFaqs(id),
   ]);
   const product = mapProductDetailToProduct(productDetail);
 
@@ -43,7 +45,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <ProductHeroSection product={product} bundles={bundles} />
       </div>
       <div className="border-t border-slate-100">
-        <ProductDetailTabs product={product} reviews={reviews.map((review) => ({ ...review, id: String(review.id) }))} />
+        <ProductDetailTabs product={product} reviews={reviews.map((review) => ({ ...review, id: String(review.id) }))} faqs={faqs} />
       </div>
     </div>
   );

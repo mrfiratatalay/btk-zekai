@@ -181,6 +181,117 @@ namespace ZekAI.Infrastructure.Migrations
                     b.ToTable("AnalysisCaches");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.FaqDraft", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CategoryTag")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceReviewIdsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ZekaiUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ZekaiUserId", "ProductId");
+
+                    b.ToTable("FaqDrafts");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.ReviewReplyDraft", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IssueType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("NeedsReply")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReviewId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReviewText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Sentiment")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SuggestedReply")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ZekaiUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ZekaiUserId", "ProductId");
+
+                    b.HasIndex("ZekaiUserId", "ProductId", "ReviewId");
+
+                    b.ToTable("ReviewReplyDrafts");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.SavedKombin", b =>
                 {
                     b.Property<Guid>("Id")
