@@ -18,6 +18,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
     private const string ContentModel = "gemini-2.5-flash-lite";
     private const string SocialModel = "gemini-2.5-flash-lite";
     private const string SimulationModel = "gemini-2.5-flash-lite";
+    private const string SimulationInputVersion = "reviews-aware-v3";
     private const string BundleModel = "gemini-2.5-flash-lite";
     private const string ImageModel = "gemini-3.1-flash-image-preview";
 
@@ -124,8 +125,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
     public async Task<object?> GetProductAsync(Guid userId, string productId)
     {
         var conn = await GetActiveConnectionAsync(userId);
-        var doc = await commerce.ProxyGetAsync(conn.CommerceAccessToken, $"/api/seller/products/{productId}");
-        return doc?.RootElement;
+        return await commerce.GetSellerProductDetailAsync(conn.CommerceAccessToken, productId);
     }
 
     public async Task<bool> PublishUpdateAsync(Guid userId, string productId, object updatePayload)
@@ -289,6 +289,50 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         return drafts.Select(ToSocialDto).ToList();
     }
 
+    public async Task<SocialDraftDto> SaveSocialDraftAsync(Guid userId, string productId, SaveSocialDraftRequest req)
+    {
+        await GetOwnedProductDetailAsync(userId, productId);
+
+        var platforms = (req.Platforms ?? [])
+            .Select(p => (p ?? "").Trim().ToLowerInvariant() == "x" ? "twitter" : (p ?? "").Trim().ToLowerInvariant())
+            .Where(p => p is "instagram" or "tiktok" or "twitter")
+            .Distinct()
+            .ToList();
+        if (platforms.Count == 0) platforms = ["instagram"];
+
+        var now = DateTime.UtcNow;
+        var contentJson = JsonSerializer.Serialize(req.Content, DraftJsonOpts);
+        var draft = new SellerSocialDraft
+        {
+            UserId = userId,
+            CommerceProductId = productId,
+            Label = string.IsNullOrWhiteSpace(req.Label) ? $"Onayli sosyal icerik - {now:dd.MM HH:mm}" : req.Label.Trim(),
+            Tone = string.IsNullOrWhiteSpace(req.Tone) ? "samimi" : req.Tone.Trim(),
+            Purpose = string.IsNullOrWhiteSpace(req.Purpose) ? "guven" : req.Purpose.Trim(),
+            PlatformsJson = JsonSerializer.Serialize(platforms, DraftJsonOpts),
+            ContentJson = contentJson,
+            InputHash = $"manual:{Guid.NewGuid():N}",
+            AiModel = "seller-edited",
+            Source = "manual",
+            IsActive = req.Activate,
+            Status = "ready",
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+
+        if (req.Activate)
+        {
+            var siblings = await db.SellerSocialDrafts
+                .Where(d => d.UserId == userId && d.CommerceProductId == productId && d.Status == "ready")
+                .ToListAsync();
+            foreach (var sibling in siblings) sibling.IsActive = false;
+        }
+
+        db.SellerSocialDrafts.Add(draft);
+        await db.SaveChangesAsync();
+        return ToSocialDto(draft);
+    }
+
     public async Task<List<SocialDraftDto>> GetAllSocialDraftsAsync(Guid userId)
     {
         var drafts = await db.SellerSocialDrafts
@@ -371,12 +415,22 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         return doc?.RootElement;
     }
 
+    private async Task<(SellerStoreConnection Conn, CommerceProductDetailDto Product)> GetOwnedProductDetailAsync(
+        Guid userId,
+        string productId)
+    {
+        var conn = await GetActiveConnectionAsync(userId);
+        var product = await commerce.GetSellerProductDetailAsync(conn.CommerceAccessToken, productId)
+            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+        return (conn, product);
+    }
+
     public async Task<object?> GenerateSocialContentAsync(Guid userId, string productId, object body)
     {
         var conn = await GetActiveConnectionAsync(userId);
 
-        // Ürün bilgilerini public endpoint'ten çek (description + features dahil)
-        var pd = await commerce.GetProductDetailAsync(productId)
+        // Seller-owned detail endpoint returns unpublished products too.
+        var pd = await commerce.GetSellerProductDetailAsync(conn.CommerceAccessToken, productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
         var features = pd.Features?.Values.ToList() ?? [];
@@ -388,6 +442,9 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         var purpose = "guven";
         if (body is JsonElement purposeBodyEl && purposeBodyEl.TryGetProperty("purpose", out var purposeEl))
             purpose = purposeEl.GetString() ?? "guven";
+        string? note = null;
+        if (body is JsonElement noteBodyEl && noteBodyEl.TryGetProperty("note", out var noteEl))
+            note = noteEl.GetString()?.Trim();
         var platforms = new List<string> { "instagram", "tiktok", "twitter" };
         if (body is JsonElement platformBodyEl && platformBodyEl.TryGetProperty("platforms", out var platformsEl) &&
             platformsEl.ValueKind == JsonValueKind.Array)
@@ -410,6 +467,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             product = ProductSignature(pd),
             tone,
             purpose,
+            note,
             platforms = platforms.OrderBy(p => p).ToList(),
         });
         var cachedDraft = await db.SellerSocialDrafts
@@ -424,7 +482,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         }
 
         var aiResult = await aiService.GenerateSocialContentAsync(
-            pd.Title, pd.Category, pd.Price, pd.Description, features, tone, purpose, platforms);
+            pd.Title, pd.Category, pd.Price, pd.Description, features, tone, purpose, platforms, note);
 
         if (aiResult is null) return null;
 
@@ -474,10 +532,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
     public async Task<object?> GenerateAiContentAsync(Guid userId, string productId, SimulationInsightDto? simulationInsight = null)
     {
-        await GetActiveConnectionAsync(userId);
-
-        var pd = await commerce.GetProductDetailAsync(productId)
-            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+        var (_, pd) = await GetOwnedProductDetailAsync(userId, productId);
 
         var features = pd.Features?.Values.ToList() ?? [];
         var imageUrl = pd.Images?.FirstOrDefault();
@@ -531,10 +586,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
     public async Task<object?> GenerateSeoAsync(Guid userId, string productId)
     {
-        await GetActiveConnectionAsync(userId);
-
-        var pd = await commerce.GetProductDetailAsync(productId)
-            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+        var (_, pd) = await GetOwnedProductDetailAsync(userId, productId);
 
         var features = pd.Features?.Values.ToList() ?? [];
         var inputHash = BuildHash(new { type = "seo", product = ProductSignature(pd), brand = pd.Brand });
@@ -553,18 +605,16 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
     public async Task<object?> SimulateProductAsync(Guid userId, string productId)
     {
-        await GetActiveConnectionAsync(userId);
-
-        var pd = await commerce.GetProductDetailAsync(productId)
-            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+        var (_, pd) = await GetOwnedProductDetailAsync(userId, productId);
 
         var features = pd.Features?.Values.ToList() ?? [];
+        var reviews = await GetSimulationReviewsAsync(productId);
 
-        var inputHash = BuildHash(new { type = "simulation", product = ProductSignature(pd) });
+        var inputHash = BuildHash(new { type = "simulation", version = SimulationInputVersion, product = ProductSignature(pd), reviews });
         var cached = await GetReadyArtifactAsync(userId, productId, "simulation", inputHash);
         if (cached is not null) return await MarkArtifactUsedAsync(cached, cached: true);
 
-        var result = await aiService.SimulateProductAsync(pd.Title, pd.Category, pd.Price, pd.Description, features);
+        var result = await aiService.SimulateProductAsync(pd.Title, pd.Category, pd.Price, pd.Description, features, reviews);
         if (result is null) return null;
         var artifact = await SaveAiArtifactAsync(
             userId, productId, "simulation", "Müşteri Simülasyonu", inputHash, result, SimulationModel, result.Mock ? "mock" : "gemini");
@@ -573,22 +623,19 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
     public async Task<SimulationProductPayload> GetSimulationPayloadAsync(Guid userId, string productId)
     {
-        await GetActiveConnectionAsync(userId);
-
-        var pd = await commerce.GetProductDetailAsync(productId)
-            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+        var (_, pd) = await GetOwnedProductDetailAsync(userId, productId);
 
         var features = pd.Features?.Values.ToList() ?? [];
+        var reviews = await GetSimulationReviewsAsync(productId);
 
-        return new SimulationProductPayload(pd.Title, pd.Category, pd.Price, pd.Description, features);
+        return new SimulationProductPayload(pd.Title, pd.Category, pd.Price, pd.Description, features, reviews);
     }
 
     public async Task<AiArtifactDto?> GetCachedSimulationArtifactAsync(Guid userId, string productId)
     {
-        await GetActiveConnectionAsync(userId);
-        var pd = await commerce.GetProductDetailAsync(productId)
-            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
-        var inputHash = BuildHash(new { type = "simulation", product = ProductSignature(pd) });
+        var (_, pd) = await GetOwnedProductDetailAsync(userId, productId);
+        var reviews = await GetSimulationReviewsAsync(productId);
+        var inputHash = BuildHash(new { type = "simulation", version = SimulationInputVersion, product = ProductSignature(pd), reviews });
         var cached = await GetReadyArtifactAsync(userId, productId, "simulation", inputHash);
         if (cached is null) return null;
         cached.LastUsedAt = DateTime.UtcNow;
@@ -598,10 +645,9 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
     public async Task<AiArtifactDto> SaveSimulationArtifactAsync(Guid userId, string productId, object payload)
     {
-        await GetActiveConnectionAsync(userId);
-        var pd = await commerce.GetProductDetailAsync(productId)
-            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
-        var inputHash = BuildHash(new { type = "simulation", product = ProductSignature(pd) });
+        var (_, pd) = await GetOwnedProductDetailAsync(userId, productId);
+        var reviews = await GetSimulationReviewsAsync(productId);
+        var inputHash = BuildHash(new { type = "simulation", version = SimulationInputVersion, product = ProductSignature(pd), reviews });
         var source = PayloadIsMock(payload) ? "mock" : "gemini";
         var artifact = await SaveAiArtifactAsync(
             userId, productId, "simulation", "Müşteri Simülasyonu", inputHash, payload, SimulationModel, source);
@@ -610,10 +656,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
     public async Task<object?> GenerateProductImageAsync(Guid userId, string productId, string style)
     {
-        var conn = await GetActiveConnectionAsync(userId);
-
-        var pd = await commerce.GetProductDetailAsync(productId)
-            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+        var (conn, pd) = await GetOwnedProductDetailAsync(userId, productId);
 
         var normalizedStyle = string.IsNullOrWhiteSpace(style) ? "studio" : style.Trim().ToLowerInvariant();
         var inputHash = BuildHash(new { type = "image_generation", product = ProductSignature(pd), style = normalizedStyle });
@@ -670,10 +713,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
     public async Task<object?> GenerateProductImagesAsync(Guid userId, string productId)
     {
-        await GetActiveConnectionAsync(userId);
-
-        var pd = await commerce.GetProductDetailAsync(productId)
-            ?? throw new KeyNotFoundException("Ürün bulunamadı.");
+        var (_, pd) = await GetOwnedProductDetailAsync(userId, productId);
 
         var inputHash = BuildHash(new { type = "image_generation", product = ProductSignature(pd), style = "all" });
         var cached = await GetReadyArtifactAsync(userId, productId, "image_generation", inputHash);
@@ -697,8 +737,8 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
     {
         var conn = await GetActiveConnectionAsync(userId);
 
-        // Fetch primary product and all seller candidates from commerce-api
-        var pd = await commerce.GetProductDetailAsync(productId)
+        // Fetch primary product and all seller candidates from commerce-api.
+        var pd = await commerce.GetSellerProductDetailAsync(conn.CommerceAccessToken, productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
         var allProducts = await commerce.GetSellerProductsAsync(conn.CommerceAccessToken);
@@ -761,7 +801,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
                 {
                     cachedObject["_cached"] = true;
                     var cacheArtifact = await SaveAiArtifactAsync(
-                        userId, productId, "bundle_recommendation", "Bundle Önerisi", productListHash, cachedObject, BundleModel, "cache");
+                        userId, productId, "bundle_recommendation", "Birlikte Sat Kampanyası", productListHash, cachedObject, BundleModel, "cache");
                     cachedObject["artifactId"] = cacheArtifact.Id;
                 }
                 return cachedNode;
@@ -827,7 +867,7 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             await SaveBundleRecommendationCacheAsync(sellerKey, productId, productListHash, response);
 
         var savedArtifact = await SaveAiArtifactAsync(
-            userId, productId, "bundle_recommendation", "Bundle Önerisi", productListHash, response, BundleModel, aiResult.Mock ? "mock" : "gemini");
+            userId, productId, "bundle_recommendation", "Birlikte Sat Kampanyası", productListHash, response, BundleModel, aiResult.Mock ? "mock" : "gemini");
         return AddMetadataToJson(JsonSerializer.Serialize(response, DraftJsonOpts), savedArtifact.Id, cached: false);
 
     }
@@ -1116,6 +1156,23 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
         features = pd.Features?.OrderBy(kv => kv.Key).ToList(),
         images = pd.Images?.OrderBy(x => x).ToList(),
     };
+
+    private async Task<List<SimulationReviewDto>> GetSimulationReviewsAsync(string productId)
+    {
+        var reviews = await commerce.GetProductReviewsAsync(productId);
+        return reviews
+            .OrderByDescending(r => r.VerifiedPurchase)
+            .ThenByDescending(r => r.Rating < 5 ? 1 : 0)
+            .ThenByDescending(r => r.Id)
+            .Take(12)
+            .Select(r => new SimulationReviewDto(
+                r.AuthorName,
+                r.Rating,
+                r.Title,
+                r.Text,
+                r.VerifiedPurchase))
+            .ToList();
+    }
 
     private static string BuildHash(object value)
     {

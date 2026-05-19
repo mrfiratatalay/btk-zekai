@@ -28,7 +28,7 @@ public class AiServiceClient(HttpClient http)
 
     public async Task<AiSocialContentResult?> GenerateSocialContentAsync(
         string productTitle, string category, decimal price,
-        string? description, List<string> features, string tone, string purpose, List<string> platforms)
+        string? description, List<string> features, string tone, string purpose, List<string> platforms, string? note = null)
     {
         var payload = new
         {
@@ -40,6 +40,7 @@ public class AiServiceClient(HttpClient http)
             tone,
             purpose,
             platforms,
+            note,
         };
 
         var response = await http.PostAsJsonAsync("/seller/social-content", payload, JsonOpts);
@@ -81,7 +82,7 @@ public class AiServiceClient(HttpClient http)
 
     public async Task<AiSimulationResult?> SimulateProductAsync(
         string productTitle, string category, decimal price,
-        string? description, List<string> features)
+        string? description, List<string> features, List<SimulationReviewDto>? reviews = null)
     {
         var payload = new
         {
@@ -90,6 +91,14 @@ public class AiServiceClient(HttpClient http)
             price = (double)price,
             description,
             features,
+            reviews = (reviews ?? []).Take(12).Select(r => new
+            {
+                author_name = r.AuthorName,
+                rating = r.Rating,
+                title = r.Title,
+                text = r.Text,
+                verified_purchase = r.VerifiedPurchase,
+            }),
         };
 
         var response = await http.PostAsJsonAsync("/seller/simulate", payload, JsonOpts);
@@ -221,9 +230,9 @@ public record AiPersonaResult(
     List<string> LookedAt,
     string Recommendation,
     string Monologue,
-    string FocusArea = "features",
-    string FocusLabel = "Özellikleri inceliyor",
-    string BubbleText = "Bu özellikler bana yeter mi?"
+    [property: JsonPropertyName("focusArea")] string FocusArea = "features",
+    [property: JsonPropertyName("focusLabel")] string FocusLabel = "Özellikleri inceliyor",
+    [property: JsonPropertyName("bubbleText")] string BubbleText = "Bu özellikler bana yeter mi?"
 );
 
 public record AiSimulationResult(

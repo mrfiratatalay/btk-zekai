@@ -44,12 +44,21 @@ public record AiContentRequest(SimulationInsightDto? SimulationInsight);
 
 public record AiImageRequest(string? Style);
 
+public record SimulationReviewDto(
+    string AuthorName,
+    int Rating,
+    string Title,
+    string Text,
+    bool VerifiedPurchase
+);
+
 public record SimulationProductPayload(
     string ProductTitle,
     string Category,
     decimal Price,
     string? Description,
-    List<string> Features
+    List<string> Features,
+    List<SimulationReviewDto> Reviews
 );
 
 // ── Seller Product Drafts ────────────────────────────────────────────────
@@ -90,6 +99,15 @@ public record SocialDraftDto(
     string Source,
     string? AiModel,
     DateTime CreatedAt
+);
+
+public record SaveSocialDraftRequest(
+    string Label,
+    string Tone,
+    string Purpose,
+    List<string> Platforms,
+    System.Text.Json.JsonElement Content,
+    bool Activate = true
 );
 
 // Mirrors commerce-api's SellerProductDto — must stay in sync

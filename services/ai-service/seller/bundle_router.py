@@ -85,7 +85,7 @@ GÖREV:
    - complementary_product_id: AYNEN adaydaki ID'yi yaz
    - semantic_score: 0-100 uyum puanı
    - why_together: "Bu iki ürünü birlikte alanlar genellikle..." ile başlayan somut gerekçe (1-2 cümle)
-   - bundle_title: dikkat çeken paket adı (ör: "Gaming Starter Pack", "Ev Ofis Seti")
+   - bundle_title: dikkat çeken, seller'ın müşteriye doğrudan gösterebileceği Türkçe kampanya adı (ör: "Oyuncu Başlangıç Seti", "Ev Ofis İkilisi")
    - bundle_short_description: paketin müşteriye faydası, max 100 karakter
    - bundle_campaign_text: sepette gösterilecek kampanya metni, max 80 karakter (ör: "İkisini birlikte al, %10 kazan!")
    - cta_label: çağrı butonu metni (ör: "Paketi Sepete Ekle")
@@ -133,6 +133,6 @@ async def recommend_bundles(req: BundleRecommendRequest):
         return await asyncio.to_thread(_recommend_sync, client, req)
     except genai_errors.APIError as exc:
         if not is_mockable_gemini_error(exc):
-            raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
+            raise HTTPException(status_code=503, detail=f"Öneri servisi hatası: {exc}") from exc
         candidate_ids = [c.id for c in req.candidates]
         return JSONResponse(content=get_mock_bundle_recommendations(req.primary.id, candidate_ids))

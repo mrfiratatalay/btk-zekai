@@ -92,7 +92,7 @@ export function SellerBundles({
       return;
     }
 
-    if (window.confirm("Gemini'ye yeni istek atılacak. Mevcut cache yerine yeniden üretmek istiyor musun?")) {
+    if (window.confirm("Kayıtlı öneri yerine yeni kampanya önerileri üretmek istiyor musun?")) {
       onGenerate(true);
     }
   }
@@ -163,7 +163,7 @@ export function SellerBundles({
               ? "Öneriler üretiliyor..."
               : hasGeneratedRecommendations
               ? "Yeniden Üret"
-              : "Gemini ile Paket Önerisi Üret"}
+              : "Kampanya Önerisi Üret"}
           </button>
         </div>
       </section>
@@ -172,7 +172,7 @@ export function SellerBundles({
         <div className="flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
           <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <p className="text-sm text-amber-700 dark:text-amber-300">
-            AI limiti aşıldı — öneriler demo modda üretildi. Gerçek analiz için API key'ini yenile.
+            Öneri servisi geçici olarak demo modda çalıştı. Gerçek analiz için servis ayarlarını kontrol et.
           </p>
         </div>
       )}

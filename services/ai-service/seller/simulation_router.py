@@ -98,12 +98,21 @@ DEFAULT_SEGMENTS = [
 _SIMULATION_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
+class ReviewInput(BaseModel):
+    author_name: str | None = None
+    rating: int = 0
+    title: str | None = None
+    text: str
+    verified_purchase: bool = False
+
+
 class SimulateRequest(BaseModel):
     product_title: str
     category: str
     price: float
     description: str | None = None
     features: list[str] = []
+    reviews: list[ReviewInput] = []
 
 
 class PersonaResult(BaseModel):
@@ -170,6 +179,15 @@ def _cache_key(req: SimulateRequest) -> str:
         "price": round(req.price, 2),
         "description": (req.description or "").strip().lower()[:2000],
         "features": [item.strip().lower() for item in req.features[:30]],
+        "reviews": [
+            {
+                "rating": review.rating,
+                "title": (review.title or "").strip().lower()[:160],
+                "text": review.text.strip().lower()[:500],
+                "verified_purchase": review.verified_purchase,
+            }
+            for review in req.reviews[:12]
+        ],
     }
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -269,12 +287,60 @@ def _normalize_simulation(raw: _GeminiSimulation, req: SimulateRequest) -> Simul
         fallback.lookedAt = [fallback.focusLabel, "Fiyat", "Ozellikler"]
         personas.append(fallback)
 
+    if req.reviews and all(persona.focusArea != "reviews" for persona in personas):
+        review_persona = next(
+            (
+                persona for persona in personas
+                if "yorum" in persona.reason.lower() or "yorum" in persona.recommendation.lower()
+            ),
+            personas[2],
+        )
+        review_persona.focusArea = "reviews"
+        review_persona.focusLabel = FOCUS_LABELS["reviews"]
+        review_persona.lookedAt = [review_persona.focusLabel, *review_persona.lookedAt[:4]]
+        if "yorum" not in review_persona.reason.lower():
+            review_persona.reason = (
+                "Musteri yorumlarindaki memnuniyet ve tereddutleri okuyarak kararini netlestirmeye calisiyor. "
+                + review_persona.reason
+            )[:360]
+        if "yorum" not in review_persona.recommendation.lower():
+            review_persona.recommendation = (
+                "Yorumlarda tekrar eden guclu faydalari ve sikayetleri urun sayfasinda ozetle."
+            )
+
+    if all(persona.decision == "buy" for persona in personas):
+        cautious = next(
+            (
+                persona for persona in personas
+                if persona.focusArea in {"price", "reviews", "warranty"}
+            ),
+            personas[-1],
+        )
+        cautious.decision = "undecided"
+        cautious.reason = (
+            f"{req.product_title} ilgisini cekti ancak fiyat, yorum veya garanti kaniti netlesmeden "
+            "hemen satin alma kararini erteledi."
+        )
+        cautious.recommendation = (
+            "Kararsiz kullanici icin yorum, garanti ve fiyat avantajini sayfada daha gorunur yap."
+        )
+        cautious.monologue = "Ilgimi cekti ama biraz daha kanit gormeliyim."
+
     return SimulateResponse(personas=personas)
 
 
 def _simulation_prompt(req: SimulateRequest) -> str:
     features = "\n".join(f"- {item}" for item in req.features[:20]) or "- Ozellik verisi yok"
     description = (req.description or "Aciklama yok")[:1800]
+    reviews = "\n".join(
+        (
+            f"- ({review.rating}/5"
+            f"{', dogrulanmis satin alma' if review.verified_purchase else ''}) "
+            f"{(review.title or 'Baslik yok')[:120]}: {review.text[:500]}"
+        )
+        for review in req.reviews[:12]
+        if review.text.strip()
+    ) or "- Yorum verisi yok"
     return f"""
 Sen ZekAI seller studio icin maliyet-bilincine sahip bir e-ticaret musteri simulasyon ajanisin.
 Tek gorevin, bu urun sayfasini inceleyen 5 farkli Turk musteri perspektifini tek JSON ciktisinda uretmek.
@@ -286,9 +352,14 @@ Urun:
 - Aciklama: {description}
 - Ozellikler:
 {features}
+- Musteri yorumlari:
+{reviews}
 
 Kurallar:
 - Sadece bu tek urun sayfasi bilgisine dayan.
+- Yorumlarda tekrar eden memnuniyetleri, sikayetleri ve tereddutleri karar gerekcelerine yansit.
+- En az bir persona yorumlara veya puana bakarak karar versin.
+- Eger yorumlarda eksik bilgi, kalite, beden/uyumluluk, garanti, ses, kargo veya fiyat endisesi varsa bunu saticiya oneride acikca soyle.
 - 5 persona birbirinden farkli olmali.
 - Her persona icin decision sadece buy, skip veya undecided olsun.
 - focusArea sadece su degerlerden biri olsun: {", ".join(FOCUS_AREAS)}.
@@ -297,7 +368,7 @@ Kurallar:
 - recommendation saticiya tek cumlelik uygulanabilir oneridir.
 - bubbleText en fazla 8 kelimelik kisa dusunce veya soru olsun.
 - Son kullanici dili dogal olsun, rapor dili kullanma.
-- Ayni urunde herkes satin almasin; gercekci sekilde bazi kisiler kararsiz veya vazgecmis olabilir.
+- Ayni urunde herkes satin almasin; en az 1 persona skip veya undecided olmali.
 """.strip()
 
 

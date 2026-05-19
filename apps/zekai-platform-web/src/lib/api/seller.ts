@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import type { ProductDetail } from "./products";
 
 export interface SellerProfile {
   id: string;
@@ -21,6 +22,8 @@ export interface SellerProduct {
   isPublished: boolean;
   updatedAt: string;
 }
+
+export type SellerProductDetail = ProductDetail;
 
 
 export interface StoreConnection {
@@ -57,7 +60,7 @@ export const getSellerProducts = (refresh = false) => {
 };
 
 export const getSellerProduct = (id: string) =>
-  apiFetch<SellerProduct>(`/api/seller/products/${id}`);
+  apiFetch<SellerProductDetail>(`/api/seller/products/${id}`);
 
 export type SocialPlatform = "instagram" | "tiktok" | "twitter";
 export type SocialTone = "profesyonel" | "samimi" | "mizahi";
@@ -106,6 +109,7 @@ export interface GenerateSocialContentPayload {
   tone: SocialTone;
   purpose: SocialPurpose;
   platforms: SocialPlatform[];
+  note?: string;
 }
 
 export const generateSocialContent = (productId: string, payload: GenerateSocialContentPayload) =>
@@ -544,6 +548,21 @@ export interface SocialDraft {
 export const getProductSocialDrafts = (productId: string) =>
   apiFetch<SocialDraft[]>(`/api/seller/products/${productId}/social-drafts`);
 
+export interface SaveSocialDraftPayload {
+  label: string;
+  tone: string;
+  purpose: string;
+  platforms: SocialPlatform[];
+  content: SocialMediaContent;
+  activate?: boolean;
+}
+
+export const saveSocialDraft = (productId: string, payload: SaveSocialDraftPayload) =>
+  apiFetch<SocialDraft>(`/api/seller/products/${productId}/social-drafts`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
 export const getAllSocialDrafts = () =>
   apiFetch<SocialDraft[]>(`/api/seller/social-drafts`);
 
@@ -577,4 +596,3 @@ export const getProductAiArtifacts = (productId: string) =>
 
 export const deleteAiArtifact = (artifactId: string) =>
   apiFetch<{ message: string }>(`/api/seller/ai-artifacts/${artifactId}`, { method: "DELETE" });
-

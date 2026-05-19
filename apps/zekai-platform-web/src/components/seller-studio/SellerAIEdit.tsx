@@ -143,6 +143,12 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
     : appliedImageUrl
       ? `${COMMERCE_API}${appliedImageUrl}`
       : product.image || null;
+  const primarySimulationObjection = simulationInsight
+    ? [...simulationInsight.skipperReasons, ...simulationInsight.undecidedConcerns]
+        .map((item) => item.split(": ").slice(1).join(": ") || item)
+        .filter(Boolean)[0] ?? null
+    : null;
+  const primarySimulationRecommendation = simulationInsight?.recommendations.filter(Boolean)[0] ?? null;
 
   function markUnsaved() { setHasUnsavedChanges(true); }
 
@@ -175,7 +181,15 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       if (result.whatIImproved) setAiImprovementNote(result.whatIImproved);
       setAiApplied(true);
       setHasUnsavedChanges(true);
-      toast.success(result._cached ? "Kayıtlı AI içerik kullanıldı" : "AI içerik üretildi ve kaydedildi");
+      toast.success(
+        simulationInsight
+          ? result._cached
+            ? "Simülasyon bazlı kayıtlı AI içerik kullanıldı"
+            : "Simülasyon sonucuna göre AI içerik üretildi"
+          : result._cached
+            ? "Kayıtlı AI içerik kullanıldı"
+            : "AI içerik üretildi ve kaydedildi",
+      );
     } catch {
       toast.error("İçerik üretilemedi. Lütfen tekrar dene.");
     } finally {
@@ -403,10 +417,14 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
             <div className="flex items-start gap-3 border-b border-amber-100 bg-amber-50 px-5 py-3.5 dark:border-amber-500/15 dark:bg-amber-500/8">
               <Sparkles className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300 mb-1">Simülasyon Modu</p>
+                <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300 mb-1">Simülasyona Göre AI Düzenleme Aktif</p>
                 <p className="text-[11px] text-amber-600/80 dark:text-amber-400/70 leading-relaxed">
                   {simulationInsight.buyCount} satın aldı · {simulationInsight.skipCount} vazgeçti · {simulationInsight.undecidedCount} kararsız
-                  {simulationInsight.skipperReasons.length > 0 && <> · İtiraz: &ldquo;{simulationInsight.skipperReasons[0].split(": ")[1]}&rdquo;</>}
+                  {primarySimulationObjection && <> · Öncelikli itiraz: &ldquo;{primarySimulationObjection}&rdquo;</>}
+                  {primarySimulationRecommendation && <> · AI ipucu: &ldquo;{primarySimulationRecommendation}&rdquo;</>}
+                </p>
+                <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                  İçerik üretirken bu itirazlar ve öneriler AI prompt'una gönderilecek.
                 </p>
               </div>
               <button onClick={() => setSimulationInsight(null)} className="cursor-pointer ml-auto shrink-0 text-amber-400 hover:text-amber-600"><X className="size-3.5" /></button>
@@ -458,7 +476,13 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
             <textarea value={description} onChange={(e) => { setDescription(e.target.value); markUnsaved(); }} rows={6} className="mt-2 block w-full resize-none bg-transparent text-sm leading-relaxed text-gray-700 outline-none placeholder-gray-300 dark:text-gray-300" placeholder="Açıklama yazın ya da AI ile otomatik üretin..." />
           </div>
           <button disabled={aiGenerating} onClick={handleGenerateContent} className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-gray-100 py-3 text-sm font-semibold text-green-600 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8">
-            {aiGenerating ? <><Loader2 className="size-4 animate-spin" /> Üretiliyor...</> : <><Sparkles className="size-4" /> AI ile İçerik Üret</>}
+            {aiGenerating ? (
+              <><Loader2 className="size-4 animate-spin" /> Üretiliyor...</>
+            ) : simulationInsight ? (
+              <><Sparkles className="size-4" /> Simülasyona Göre AI ile Düzenle</>
+            ) : (
+              <><Sparkles className="size-4" /> AI ile İçerik Üret</>
+            )}
           </button>
 
           <div className="h-px bg-gray-100 dark:bg-white/8" />

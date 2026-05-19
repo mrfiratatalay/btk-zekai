@@ -101,6 +101,15 @@ public class CommerceApiClient(HttpClient http)
         return JsonDocument.Parse(json);
     }
 
+    public async Task<CommerceProductDetailDto?> GetSellerProductDetailAsync(string commerceToken, string productId)
+    {
+        SetBearerToken(commerceToken);
+        var response = await http.GetAsync($"/api/seller/products/{productId}");
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<CommerceProductDetailDto>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    }
+
     public async Task<JsonDocument?> ProxyPutAsync(string commerceToken, string path, object body)
     {
         SetBearerToken(commerceToken);

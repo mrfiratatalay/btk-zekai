@@ -42,6 +42,7 @@ class SocialContentRequest(BaseModel):
     tone: str
     purpose: str = "guven"
     platforms: list[str] = Field(default_factory=lambda: ["instagram", "tiktok", "twitter"])
+    note: str | None = None
 
 
 class InstagramContent(BaseModel):
@@ -99,12 +100,14 @@ def _normalize_platforms(platforms: list[str]) -> list[str]:
 def _product_context(req: SocialContentRequest) -> str:
     features_text = ", ".join(req.features) if req.features else "belirtilmemiş"
     desc_text = req.description or "belirtilmemiş"
+    note_text = req.note.strip() if req.note and req.note.strip() else "belirtilmemiş"
     return (
         f"Ürün: {req.product_title}\n"
         f"Kategori: {req.category}\n"
         f"Fiyat: ₺{req.price:.0f}\n"
         f"Açıklama: {desc_text}\n"
-        f"Özellikler: {features_text}"
+        f"Özellikler: {features_text}\n"
+        f"Satıcı notu: {note_text}"
     )
 
 
@@ -126,7 +129,9 @@ def _generate_sync(client: genai.Client, req: SocialContentRequest) -> SocialCon
         "- Instagram: caption 300-420 karakter, 5-8 hashtag (#ile), kısa CTA cümlesi, overlay_text max 50 karakter.\n"
         "- TikTok: dikkat çeken hook cümlesi, tam olarak 3 sahne (title+description), caption, 3-5 hashtag.\n"
         "- X: 220 karakteri geçmeyen post, 1-3 hashtag, kısa CTA.\n"
-        "- Türkçe yaz. Satıcının direkt kullanabileceği içerik üret."
+        "- Türkçe yaz. Satıcının direkt kullanabileceği içerik üret.\n"
+        "- Metni pazarlama amacıyla güçlü kur: net fayda, güven unsuru, satın alma motivasyonu ve platforma uygun CTA kullan.\n"
+        "- Satıcı notu verilmişse kampanya, hedef kitle veya özel vurguyu doğal biçimde içeriğe yedir."
     )
 
     response = client.models.generate_content(

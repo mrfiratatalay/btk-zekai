@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  AlertTriangle,
+  ArrowRight,
+  BadgeCheck,
   Bookmark,
   Briefcase,
   Camera,
@@ -12,30 +13,25 @@ import {
   ChevronRight,
   Clapperboard,
   Copy,
-  Edit3,
-  FileText,
   Heart,
+  Info,
   Loader2,
   MessageCircle,
   Package,
-  RefreshCw,
   ShieldCheck,
   Smile,
   Sparkles,
-  Trash2,
+  Tag,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
+import type { SellerProductPerformance } from "@/types/seller";
 import {
   generateSocialContent,
-  getProductSocialDrafts,
-  deleteSocialDraft,
-  activateSocialDraft,
-  type SocialDraft,
+  saveSocialDraft,
   type SocialInstagramContent,
   type SocialMediaContent,
   type SocialPlatform,
@@ -45,46 +41,44 @@ import {
   type SocialTwitterContent,
 } from "@/lib/api/seller";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+type Step = 1 | 2;
 
 const TONES: { key: SocialTone; label: string; Icon: LucideIcon }[] = [
-  { key: "profesyonel", label: "Profesyonel", Icon: Briefcase },
   { key: "samimi", label: "Samimi", Icon: Heart },
-  { key: "mizahi", label: "Mizahi", Icon: Smile },
+  { key: "profesyonel", label: "Profesyonel", Icon: Briefcase },
+  { key: "mizahi", label: "Eğlenceli", Icon: Smile },
 ];
 
 const PURPOSES: { key: SocialPurpose; label: string; Icon: LucideIcon }[] = [
-  { key: "satis", label: "Satışı artır", Icon: TrendingUp },
   { key: "guven", label: "Güven oluştur", Icon: ShieldCheck },
+  { key: "satis", label: "Satışı artır", Icon: TrendingUp },
   { key: "tanitim", label: "Ürün tanıtımı", Icon: Package },
 ];
 
-const PLATFORMS: {
-  key: SocialPlatform;
-  label: string;
-  shortLabel: string;
-  Icon: LucideIcon;
-}[] = [
-  { key: "instagram", label: "Instagram", shortLabel: "Instagram", Icon: Camera },
-  { key: "tiktok", label: "TikTok / Reels", shortLabel: "TikTok / Reels", Icon: Clapperboard },
-  { key: "twitter", label: "X", shortLabel: "X", Icon: MessageCircle },
+const PLATFORMS: { key: SocialPlatform; label: string; Icon: LucideIcon }[] = [
+  { key: "instagram", label: "Instagram", Icon: Camera },
+  { key: "tiktok", label: "TikTok / Reels", Icon: Clapperboard },
+  { key: "twitter", label: "X", Icon: MessageCircle },
 ];
 
 function platformLabel(platform: SocialPlatform) {
   return PLATFORMS.find((item) => item.key === platform)?.label ?? platform;
 }
 
-// ─── Formatters ───────────────────────────────────────────────────────────────
+function toneLabel(tone: string) {
+  return TONES.find((item) => item.key === tone)?.label ?? tone;
+}
 
-function splitTags(tags: string) {
-  return tags
-    .split(/\s+/)
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+function purposeLabel(purpose: string) {
+  return PURPOSES.find((item) => item.key === purpose)?.label ?? purpose;
 }
 
 function formatTags(tags: string[] | null | undefined) {
   return (tags ?? []).join(" ");
+}
+
+function platformIsReady(content: SocialMediaContent | null, platform: SocialPlatform) {
+  return Boolean(content?.[platform]);
 }
 
 function formatInstagram(content: SocialInstagramContent) {
@@ -103,7 +97,7 @@ function formatTiktok(content: SocialTiktokContent) {
 }
 
 function formatTwitter(content: SocialTwitterContent) {
-  return [content.post, formatTags(content.hashtags), content.cta].filter(Boolean).join("\n");
+  return [content.post, formatTags(content.hashtags), content.cta].filter(Boolean).join("\n\n");
 }
 
 function formatAll(content: SocialMediaContent) {
@@ -114,12 +108,6 @@ function formatAll(content: SocialMediaContent) {
   return parts.join("\n\n---\n\n");
 }
 
-function platformIsReady(content: SocialMediaContent | null, platform: SocialPlatform) {
-  return Boolean(content?.[platform]);
-}
-
-// ─── Small reusable components ────────────────────────────────────────────────
-
 function CopyButton({ text, label = "Kopyala", className }: { text: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -127,859 +115,543 @@ function CopyButton({ text, label = "Kopyala", className }: { text: string; labe
     await navigator.clipboard.writeText(text);
     setCopied(true);
     toast.success("Kopyalandı.");
-    setTimeout(() => setCopied(false), 1600);
+    setTimeout(() => setCopied(false), 1500);
   }
 
   return (
     <button
       type="button"
       onClick={handleCopy}
+      disabled={!text}
       className={cn(
-        "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+        "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
     >
-      {copied ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
+      {copied ? <Check className="size-4 text-emerald-600" /> : <Copy className="size-4" />}
       {copied ? "Kopyalandı" : label}
     </button>
   );
 }
 
-function OptionButton({
+function ProductSummary({ product, compact = false }: { product: SellerProductPerformance; compact?: boolean }) {
+  return (
+    <section className={cn("border-y border-slate-200 bg-white", compact ? "rounded-2xl border p-3" : "py-4")}>
+      <div className="flex items-center gap-4">
+        <div className="relative size-20 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+          {product.image ? (
+            <Image src={product.image} alt={product.title} fill className="object-cover" />
+          ) : (
+            <div className="flex size-full items-center justify-center">
+              <Package className="size-7 text-slate-400" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-base font-black text-slate-950">{product.title}</h2>
+          <p className="mt-1 text-sm font-medium text-slate-500">{product.category || "Kategori yok"}</p>
+        </div>
+        <div className="hidden min-w-24 items-center gap-3 sm:flex">
+          <Tag className="size-5 text-slate-500" />
+          <div>
+            <p className="text-xs text-slate-500">Fiyat</p>
+            <p className="font-black text-slate-950">{formatSellerPrice(product.price)}</p>
+          </div>
+        </div>
+        <div className="hidden min-w-20 items-center gap-3 sm:flex">
+          <Package className="size-5 text-slate-500" />
+          <div>
+            <p className="text-xs text-slate-500">Stok</p>
+            <p className="font-black text-slate-950">{product.stock}</p>
+          </div>
+        </div>
+        <span className="hidden rounded-full bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700 sm:inline-flex">Aktif</span>
+      </div>
+    </section>
+  );
+}
+
+function ChoiceButton({
   active,
-  onClick,
-  Icon,
   label,
+  Icon,
+  onClick,
 }: {
   active: boolean;
-  onClick: () => void;
-  Icon: LucideIcon;
   label: string;
+  Icon: LucideIcon;
+  onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-all",
+        "flex h-14 min-w-40 items-center justify-between gap-3 rounded-2xl border px-5 text-sm font-black transition",
         active
-          ? "border-green-500 bg-green-500/10 text-green-700 shadow-[0_0_0_1px_rgba(34,197,94,0.18)] dark:text-green-400"
-          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+          ? "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-[0_0_0_1px_rgba(16,185,129,0.16)]"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
       )}
     >
-      <Icon className="size-4" />
-      {label}
+      <span className="flex items-center gap-3">
+        <Icon className="size-5" />
+        {label}
+      </span>
+      {active && <Check className="size-5 rounded-full bg-emerald-600 p-1 text-white" />}
     </button>
   );
 }
 
-function LabeledInput({ label, value, onChange }: { label: string; value: string | null | undefined; onChange: (value: string) => void }) {
-  return (
-    <label className="grid gap-2">
-      <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
-      <input
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 rounded-lg border border-border bg-card px-3 text-sm outline-none transition-colors focus:border-green-500"
-      />
-    </label>
-  );
-}
-
-function LabeledTextarea({ label, value, onChange }: { label: string; value: string | null | undefined; onChange: (value: string) => void }) {
-  return (
-    <label className="grid gap-2">
-      <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
-      <textarea
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value)}
-        className="min-h-20 resize-none rounded-lg border border-border bg-card px-3 py-3 text-sm leading-6 outline-none transition-colors focus:border-green-500"
-      />
-    </label>
-  );
-}
-
-function ContentRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[220px_1fr]">
-      <div className="flex items-center gap-3 text-sm font-bold text-foreground">
-        {icon}
-        {label}
-      </div>
-      <p className="text-sm leading-6 text-muted-foreground">{value}</p>
-    </div>
-  );
-}
-
-// ─── ProductSummary ───────────────────────────────────────────────────────────
-
-function ProductSummary({ product }: { product: SellerProductPerformance }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center gap-4">
-        <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
-          {product.image ? (
-            <Image src={product.image} alt={product.title} fill className="object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <Package className="size-5 text-muted-foreground" />
-            </div>
-          )}
-        </div>
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-bold text-foreground">{product.title}</h2>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>{product.category}</span>
-            <span className="font-semibold text-foreground">{formatSellerPrice(product.price)}</span>
-            <span>Stok: <span className="font-semibold text-green-600">{product.stock}</span></span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── SettingsPanel ────────────────────────────────────────────────────────────
-
-function SettingsPanel({
+function SettingsStep({
   tone,
   purpose,
   selectedPlatforms,
+  note,
   generating,
   onToneChange,
   onPurposeChange,
   onTogglePlatform,
-  onGenerate,
+  onNoteChange,
+  onNext,
 }: {
   tone: SocialTone;
   purpose: SocialPurpose;
   selectedPlatforms: SocialPlatform[];
+  note: string;
   generating: boolean;
   onToneChange: (tone: SocialTone) => void;
   onPurposeChange: (purpose: SocialPurpose) => void;
   onTogglePlatform: (platform: SocialPlatform) => void;
-  onGenerate: () => void;
+  onNoteChange: (note: string) => void;
+  onNext: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <h2 className="text-base font-bold text-foreground">İçerik Ayarları</h2>
-
-      <div className="mt-5 grid gap-5">
-        <div>
-          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ton</p>
-          <div className="flex flex-wrap gap-2">
+    <div className="grid min-h-[560px] gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="space-y-8">
+        <section>
+          <h3 className="text-xl font-black text-slate-950">1. Ton</h3>
+          <div className="mt-4 flex flex-wrap gap-4">
             {TONES.map(({ key, label, Icon }) => (
-              <OptionButton key={key} active={tone === key} onClick={() => onToneChange(key)} Icon={Icon} label={label} />
+              <ChoiceButton key={key} active={tone === key} label={label} Icon={Icon} onClick={() => onToneChange(key)} />
             ))}
           </div>
-        </div>
+        </section>
 
-        <div className="h-px bg-border" />
-
-        <div>
-          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amaç</p>
-          <div className="flex flex-wrap gap-2">
+        <section>
+          <h3 className="text-xl font-black text-slate-950">2. Amaç</h3>
+          <div className="mt-4 flex flex-wrap gap-4">
             {PURPOSES.map(({ key, label, Icon }) => (
-              <OptionButton key={key} active={purpose === key} onClick={() => onPurposeChange(key)} Icon={Icon} label={label} />
+              <ChoiceButton key={key} active={purpose === key} label={label} Icon={Icon} onClick={() => onPurposeChange(key)} />
             ))}
           </div>
-        </div>
+        </section>
 
-        <div className="h-px bg-border" />
+        <section>
+          <h3 className="text-xl font-black text-slate-950">3. Platform</h3>
+          <div className="mt-4 flex flex-wrap gap-4">
+            {PLATFORMS.map(({ key, label, Icon }) => (
+              <ChoiceButton
+                key={key}
+                active={selectedPlatforms.includes(key)}
+                label={label}
+                Icon={Icon}
+                onClick={() => onTogglePlatform(key)}
+              />
+            ))}
+          </div>
+        </section>
 
-        <div>
-          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Platformlar</p>
-          <div className="flex flex-wrap gap-4">
-            {PLATFORMS.map(({ key, label, Icon }) => {
-              const checked = selectedPlatforms.includes(key);
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => onTogglePlatform(key)}
-                  className="inline-flex items-center gap-2.5 text-sm font-bold text-foreground"
-                >
-                  <span
-                    className={cn(
-                      "flex size-5 items-center justify-center rounded-md border transition-colors",
-                      checked ? "border-green-500 bg-green-500 text-white" : "border-border bg-background text-transparent",
-                    )}
-                  >
-                    <Check className="size-3.5" />
-                  </span>
-                  <Icon className={cn("size-5", checked ? "text-foreground" : "text-muted-foreground")} />
-                  {label}
-                </button>
-              );
-            })}
+        <label className="block">
+          <span className="text-sm font-bold text-slate-600">Ek not (isteğe bağlı)</span>
+          <textarea
+            value={note}
+            onChange={(event) => onNoteChange(event.target.value.slice(0, 500))}
+            placeholder="Kampanya, hedef kitle, vurgulanacak özellikler veya özel isteklerinizi yazabilirsiniz..."
+            className="mt-3 min-h-28 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-800 outline-none transition focus:border-emerald-500"
+          />
+          <span className="mt-1 block text-right text-xs font-semibold text-slate-400">{note.length} / 500</span>
+        </label>
+      </div>
+
+      <aside className="hidden border-l border-slate-200 pl-10 xl:flex xl:flex-col xl:items-center xl:justify-center">
+        <div className="flex size-64 items-center justify-center rounded-full bg-emerald-50">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Sparkles className="mb-4 ml-auto size-7 text-emerald-600" />
+            <div className="h-20 w-36 rounded-xl bg-slate-100" />
+            <div className="mt-4 h-2 w-32 rounded-full bg-slate-200" />
+            <div className="mt-3 h-2 w-24 rounded-full bg-emerald-500" />
+            <div className="mt-3 h-2 w-16 rounded-full bg-emerald-200" />
           </div>
         </div>
+        <h3 className="mt-8 text-center text-xl font-black text-slate-950">Sonraki adımda ne olacak?</h3>
+        <p className="mt-3 max-w-xs text-center text-sm leading-6 text-slate-500">
+          AI seçtiğiniz ton, amaç ve platformlara göre içerik üretir. Sonraki ekranda önizleyip son dokunuşu yapabilirsiniz.
+        </p>
+        <div className="mt-10 flex gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <Info className="size-9 shrink-0 rounded-full bg-emerald-50 p-2 text-emerald-700" />
+          <p className="text-sm leading-6 text-slate-500">
+            Net bir ton ve amaç seçmek, daha isabetli caption ve hashtag üretir.
+          </p>
+        </div>
+      </aside>
 
+      <div className="xl:hidden">
         <button
           type="button"
-          onClick={onGenerate}
+          onClick={onNext}
           disabled={generating || selectedPlatforms.length === 0}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-6 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {generating ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Üretiliyor...
-            </>
-          ) : (
-            <>
-              <Sparkles className="size-4" />
-              {selectedPlatforms.length === 0
-                ? "Platform Seç"
-                : `${selectedPlatforms.length} Platform İçin Üret`}
-            </>
-          )}
+          {generating ? <Loader2 className="size-5 animate-spin" /> : <Sparkles className="size-5" />}
+          İçerik Oluştur
         </button>
       </div>
     </div>
   );
 }
 
-// ─── EmptyContentState ────────────────────────────────────────────────────────
-
-function EmptyContentState() {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 py-20 text-center">
-      <Sparkles className="size-10 text-muted-foreground" />
-      <h3 className="mt-4 text-base font-bold text-foreground">İçerik henüz üretilmedi</h3>
-      <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-        Sol panelden ton, amaç ve platformları seçip "Üret" butonuna bas.
-      </p>
-    </div>
-  );
-}
-
-// ─── EditableFields ───────────────────────────────────────────────────────────
-
-function EditableFields({
-  fields,
-}: {
-  fields: {
-    label: string;
-    value: string | null | undefined;
-    max: number;
-    multiline?: boolean;
-    onChange: (value: string) => void;
-  }[];
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-background p-5">
-      <div className="grid gap-4">
-        {fields.map((field) => {
-          const safeValue = field.value ?? "";
-          return (
-            <div key={field.label} className="grid gap-2 md:grid-cols-[130px_1fr]">
-              <label className="pt-3 text-sm font-semibold text-foreground">{field.label}</label>
-              <div>
-                {field.multiline ? (
-                  <textarea
-                    value={safeValue}
-                    onChange={(event) => field.onChange(event.target.value)}
-                    className="min-h-36 w-full resize-none rounded-lg border border-border bg-card px-3 py-3 text-sm leading-6 outline-none transition-colors focus:border-green-500"
-                  />
-                ) : (
-                  <input
-                    value={safeValue}
-                    onChange={(event) => field.onChange(event.target.value)}
-                    className="h-11 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none transition-colors focus:border-green-500"
-                  />
-                )}
-                <p className="mt-1 text-right text-xs text-muted-foreground">
-                  {safeValue.length} / {field.max}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── InstagramPreview ─────────────────────────────────────────────────────────
-
-function InstagramPreview({
-  product,
+function PlatformTabs({
   content,
-  onChange,
+  activePlatform,
+  onActivePlatformChange,
 }: {
-  product: SellerProductPerformance;
-  content: SocialInstagramContent;
-  onChange: (content: SocialInstagramContent) => void;
+  content: SocialMediaContent | null;
+  activePlatform: SocialPlatform;
+  onActivePlatformChange: (platform: SocialPlatform) => void;
 }) {
+  const readyPlatforms = PLATFORMS.filter(({ key }) => content?.platforms?.includes(key) && platformIsReady(content, key));
+
+  if (readyPlatforms.length <= 1) return null;
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
-      <div className="rounded-2xl border border-border bg-background p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-full bg-green-600 text-xs font-black text-white">ME</div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-foreground">Mehmet Elektronik</p>
-          </div>
-          <span className="text-xl leading-none text-muted-foreground">...</span>
-        </div>
-        <div className="relative mt-4 aspect-square overflow-hidden rounded-xl bg-muted">
-          {product.image ? (
-            <Image src={product.image} alt={product.title} fill className="object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <Package className="size-10 text-muted-foreground" />
-            </div>
+    <div className="flex justify-center border-b border-slate-200">
+      {readyPlatforms.map(({ key, label, Icon }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onActivePlatformChange(key)}
+          className={cn(
+            "flex h-12 min-w-40 items-center justify-center gap-2 border-b-2 px-4 text-sm font-black transition",
+            activePlatform === key ? "border-emerald-500 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-900",
           )}
-          {content.overlayText && (
-            <div className="absolute inset-x-4 bottom-4 rounded-lg bg-black/55 px-3 py-2 text-center text-sm font-bold text-white">
-              {content.overlayText}
-            </div>
-          )}
-        </div>
-        <div className="mt-4 flex items-center justify-between text-foreground">
-          <div className="flex gap-4">
-            <Heart className="size-6" />
-            <MessageCircle className="size-6" />
-            <Camera className="size-6" />
-          </div>
-          <Bookmark className="size-6" />
-        </div>
-        <p className="mt-4 whitespace-pre-line text-sm leading-6 text-foreground">{content.caption}</p>
-        <p className="mt-2 text-sm leading-6 text-green-700 dark:text-green-400">{formatTags(content.hashtags)}</p>
-      </div>
-
-      <EditableFields
-        fields={[
-          {
-            label: "Caption",
-            value: content.caption,
-            max: 2200,
-            multiline: true,
-            onChange: (value) => onChange({ ...content, caption: value }),
-          },
-          {
-            label: "Hashtagler",
-            value: formatTags(content.hashtags),
-            max: 500,
-            onChange: (value) => onChange({ ...content, hashtags: splitTags(value) }),
-          },
-          {
-            label: "CTA",
-            value: content.cta,
-            max: 150,
-            onChange: (value) => onChange({ ...content, cta: value }),
-          },
-          {
-            label: "Görsel Üstü Yazı",
-            value: content.overlayText,
-            max: 80,
-            onChange: (value) => onChange({ ...content, overlayText: value }),
-          },
-        ]}
-      />
+        >
+          <Icon className="size-5" />
+          {label}
+        </button>
+      ))}
     </div>
   );
 }
 
-// ─── TiktokPreview ────────────────────────────────────────────────────────────
-
-function TiktokPreview({
-  product,
-  content,
-  onChange,
-}: {
-  product: SellerProductPerformance;
-  content: SocialTiktokContent;
-  onChange: (content: SocialTiktokContent) => void;
-}) {
-  return (
-    <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
-      <div className="mx-auto w-full max-w-[330px] rounded-[2rem] border border-border bg-black p-3 shadow-sm">
-        <div className="relative aspect-[9/16] overflow-hidden rounded-[1.55rem] bg-neutral-900">
-          {product.image ? (
-            <Image src={product.image} alt={product.title} fill className="object-cover opacity-70" />
-          ) : null}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/70" />
-          <div className="absolute left-5 top-6 text-sm font-bold text-white">9:41</div>
-          <div className="absolute left-6 right-14 top-24 text-2xl font-black leading-tight text-white">{content.hook}</div>
-          <div className="absolute bottom-7 left-6 right-16">
-            <p className="text-sm font-bold text-white">zekai.urunleri</p>
-            <p className="mt-2 line-clamp-2 text-sm text-white">{content.caption}</p>
-          </div>
-          <div className="absolute bottom-20 right-4 grid gap-5 text-center text-xs font-bold text-white">
-            <Heart className="size-7 fill-white" />
-            <MessageCircle className="size-7" />
-            <Bookmark className="size-7" />
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-border bg-background p-5">
-        <h3 className="text-base font-bold text-foreground">Reels Video Fikri</h3>
-        <div className="mt-4 overflow-hidden rounded-xl border border-border">
-          <ContentRow icon={<Sparkles className="size-4 text-green-600" />} label="Hook" value={content.hook} />
-          {(content.scenes ?? []).map((scene, index) => (
-            <ContentRow
-              key={`${scene.title}-${index}`}
-              icon={<Clapperboard className="size-4 text-green-600" />}
-              label={scene.title}
-              value={scene.description}
-            />
-          ))}
-          <ContentRow icon={<Edit3 className="size-4 text-green-600" />} label="Caption" value={content.caption} />
-          <ContentRow icon={<MessageCircle className="size-4 text-green-600" />} label="Hashtagler" value={formatTags(content.hashtags)} />
-        </div>
-        <div className="mt-5 grid gap-4">
-          <LabeledTextarea label="Hook" value={content.hook} onChange={(value) => onChange({ ...content, hook: value })} />
-          {(content.scenes ?? []).map((scene, index) => (
-            <LabeledTextarea
-              key={index}
-              label={scene.title || `Sahne ${index + 1}`}
-              value={scene.description}
-              onChange={(value) => {
-                const scenes = [...(content.scenes ?? [])];
-                scenes[index] = { ...scene, description: value };
-                onChange({ ...content, scenes });
-              }}
-            />
-          ))}
-          <LabeledTextarea label="Caption" value={content.caption} onChange={(value) => onChange({ ...content, caption: value })} />
-          <LabeledInput
-            label="Hashtagler"
-            value={formatTags(content.hashtags)}
-            onChange={(value) => onChange({ ...content, hashtags: splitTags(value) })}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── TwitterPreview ───────────────────────────────────────────────────────────
-
-function TwitterPreview({
-  content,
-  generatedContent,
-  onChange,
-}: {
-  content: SocialTwitterContent;
-  generatedContent: SocialMediaContent;
-  onChange: (content: SocialTwitterContent) => void;
-}) {
-  return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="rounded-2xl border border-border bg-background p-5">
-        <div className="flex items-start gap-3">
-          <div className="flex size-11 items-center justify-center rounded-full bg-black text-lg font-black text-white">X</div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="font-bold text-foreground">Mehmet Elektronik</p>
-              <p className="text-sm text-muted-foreground">@mehmetelektronik</p>
-            </div>
-            <p className="mt-3 whitespace-pre-line text-lg leading-8 text-foreground">{content.post}</p>
-            <p className="mt-3 text-sm text-green-700 dark:text-green-400">{formatTags(content.hashtags)}</p>
-            <div className="mt-5 flex items-center gap-8 text-sm text-muted-foreground">
-              <span>128 yanıt</span>
-              <span>2.4B görüntülenme</span>
-              <span>486 beğeni</span>
-            </div>
-          </div>
-        </div>
-        <div className="mt-6 grid gap-4">
-          <LabeledTextarea label="Post" value={content.post} onChange={(value) => onChange({ ...content, post: value })} />
-          <LabeledInput
-            label="Hashtagler"
-            value={formatTags(content.hashtags)}
-            onChange={(value) => onChange({ ...content, hashtags: splitTags(value) })}
-          />
-          <LabeledInput label="CTA" value={content.cta} onChange={(value) => onChange({ ...content, cta: value })} />
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-border bg-background p-5">
-        <h3 className="text-base font-bold text-foreground">İçerik Paketi Özeti</h3>
-        <div className="mt-5 space-y-3">
-          {PLATFORMS.map(({ key, label, Icon }) => (
-            <div key={key} className="flex items-center justify-between rounded-xl border border-border px-3 py-3">
-              <div className="flex items-center gap-3">
-                <Icon className="size-5 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">{label}</span>
-              </div>
-              <span
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-xs font-bold",
-                  platformIsReady(generatedContent, key)
-                    ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                    : "bg-muted text-muted-foreground",
-                )}
-              >
-                {platformIsReady(generatedContent, key) ? "Hazır" : "Seçilmedi"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── GeneratedPanel ───────────────────────────────────────────────────────────
-
-function GeneratedPanel({
+function SocialPreview({
   product,
   content,
   activePlatform,
-  regeneratingPlatform,
-  onActivePlatformChange,
-  onUpdateContent,
-  onRegeneratePlatform,
 }: {
   product: SellerProductPerformance;
   content: SocialMediaContent;
   activePlatform: SocialPlatform;
-  regeneratingPlatform: SocialPlatform | null;
-  onActivePlatformChange: (platform: SocialPlatform) => void;
-  onUpdateContent: (content: SocialMediaContent) => void;
-  onRegeneratePlatform: (platform: SocialPlatform) => void;
 }) {
-  const readyPlatforms = PLATFORMS.filter(({ key }) => platformIsReady(content, key));
-  const activeText = useMemo(() => {
-    if (activePlatform === "instagram" && content.instagram) return formatInstagram(content.instagram);
-    if (activePlatform === "tiktok" && content.tiktok) return formatTiktok(content.tiktok);
-    if (activePlatform === "twitter" && content.twitter) return formatTwitter(content.twitter);
-    return "";
-  }, [activePlatform, content]);
+  if (activePlatform === "instagram" && content.instagram) {
+    return <InstagramPreview product={product} content={content.instagram} />;
+  }
+  if (activePlatform === "tiktok" && content.tiktok) {
+    return <TiktokPreview product={product} content={content.tiktok} />;
+  }
+  if (activePlatform === "twitter" && content.twitter) {
+    return <TwitterPreview content={content.twitter} />;
+  }
+  return null;
+}
 
+function InstagramPreview({ product, content }: { product: SellerProductPerformance; content: SocialInstagramContent }) {
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm">
-      <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
+    <div className="mx-auto w-full max-w-[520px] overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center gap-3 px-5 py-4">
+        <div className="flex size-10 items-center justify-center rounded-full bg-emerald-50 text-xs font-black text-emerald-700">ZK</div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-bold text-foreground">Üretilen İçerikler</h2>
-          <div className="mt-4 flex flex-wrap gap-1 border-b border-border">
-            {readyPlatforms.map(({ key, label, Icon }) => (
-              <button
-                type="button"
-                key={key}
-                onClick={() => onActivePlatformChange(key)}
-                className={cn(
-                  "inline-flex h-10 items-center gap-2 border-b-2 px-4 text-sm font-bold transition-colors",
-                  activePlatform === key
-                    ? "border-green-500 text-green-700 dark:text-green-400"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon className="size-5" />
-                {label}
-              </button>
-            ))}
-          </div>
+          <p className="font-black text-slate-950">zekai.store</p>
+          <p className="text-xs font-semibold text-slate-400">Sponsorlu içerik</p>
         </div>
+        <span className="text-xl font-black text-slate-400">...</span>
+      </div>
+      <div className="relative aspect-square bg-slate-100">
+        {product.image ? (
+          <Image src={product.image} alt={product.title} fill className="object-cover" />
+        ) : (
+          <div className="flex size-full items-center justify-center">
+            <Package className="size-12 text-slate-400" />
+          </div>
+        )}
+        {content.overlayText && (
+          <div className="absolute left-8 top-8 max-w-[70%] rounded-2xl bg-white/78 px-5 py-4 backdrop-blur">
+            <p className="text-3xl font-black leading-tight text-slate-900">{content.overlayText}</p>
+          </div>
+        )}
+      </div>
+      <div className="px-5 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex gap-4">
+            <Heart className="size-6 fill-red-500 text-red-500" />
+            <MessageCircle className="size-6 text-slate-950" />
+            <Camera className="size-6 text-slate-950" />
+          </div>
+          <Bookmark className="size-6 text-slate-950" />
+        </div>
+        <p className="mt-4 text-sm font-black text-slate-950">1.284 beğenme</p>
+        <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-800">
+          <span className="font-black">zekai.store </span>
+          {content.caption}
+        </p>
+        <p className="mt-2 text-sm leading-6 text-emerald-700">{formatTags(content.hashtags)}</p>
+        <p className="mt-2 text-sm text-slate-400">20 yorumun tümünü gör</p>
+      </div>
+    </div>
+  );
+}
 
-        <div className="flex flex-wrap gap-3">
-          <CopyButton text={formatAll(content)} label="Tümünü Kopyala" />
+function TiktokPreview({ product, content }: { product: SellerProductPerformance; content: SocialTiktokContent }) {
+  return (
+    <div className="mx-auto grid w-full max-w-[860px] gap-6 lg:grid-cols-[330px_1fr]">
+      <div className="relative aspect-[9/16] overflow-hidden rounded-[28px] bg-slate-950 shadow-sm">
+        {product.image ? <Image src={product.image} alt={product.title} fill className="object-cover opacity-80" /> : null}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
+        <div className="absolute inset-x-5 bottom-6">
+          <p className="text-2xl font-black leading-tight text-white">{content.hook}</p>
+          <p className="mt-3 text-sm leading-6 text-white/80">{content.caption}</p>
         </div>
       </div>
-
-      <div className="p-5">
-        {activePlatform === "instagram" && content.instagram && (
-          <InstagramPreview
-            product={product}
-            content={content.instagram}
-            onChange={(instagram) => onUpdateContent({ ...content, instagram })}
-          />
-        )}
-        {activePlatform === "tiktok" && content.tiktok && (
-          <TiktokPreview product={product} content={content.tiktok} onChange={(tiktok) => onUpdateContent({ ...content, tiktok })} />
-        )}
-        {activePlatform === "twitter" && content.twitter && (
-          <TwitterPreview
-            content={content.twitter}
-            generatedContent={content}
-            onChange={(twitter) => onUpdateContent({ ...content, twitter })}
-          />
-        )}
-
-        <div className="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_260px]">
-          <CopyButton text={activeText} />
-          <button
-            type="button"
-            onClick={() => toast.info("Alanları doğrudan düzenleyebilirsin.")}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Edit3 className="size-4" />
-            Düzenle
-          </button>
-          <button
-            type="button"
-            onClick={() => onRegeneratePlatform(activePlatform)}
-            disabled={regeneratingPlatform === activePlatform}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-bold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {regeneratingPlatform === activePlatform ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <RefreshCw className="size-4" />
-            )}
-            {platformLabel(activePlatform)}&apos;ı Yeniden Üret
-          </button>
+      <div className="space-y-4">
+        {(content.scenes ?? []).map((scene, index) => (
+          <div key={`${scene.title}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-black uppercase text-emerald-700">Sahne {index + 1}</p>
+            <h4 className="mt-1 font-black text-slate-950">{scene.title}</h4>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{scene.description}</p>
+          </div>
+        ))}
+        <div className="rounded-2xl border border-slate-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-800">
+          {formatTags(content.hashtags)}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── SavedContentSection ──────────────────────────────────────────────────────
+function TwitterPreview({ content }: { content: SocialTwitterContent }) {
+  return (
+    <div className="mx-auto w-full max-w-[620px] rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex gap-4">
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-slate-950 text-lg font-black text-white">X</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-black text-slate-950">ZekAI Store</p>
+            <BadgeCheck className="size-4 fill-emerald-600 text-white" />
+            <p className="text-sm text-slate-500">@zekaistore</p>
+          </div>
+          <p className="mt-4 whitespace-pre-line text-xl leading-8 text-slate-950">{content.post}</p>
+          <p className="mt-4 text-sm font-bold leading-6 text-emerald-700">{formatTags(content.hashtags)}</p>
+          {content.cta && <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm font-black text-slate-800">{content.cta}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-function SavedContentSection({
-  drafts,
-  onLoadDraft,
-  onDeleteDraft,
-  onActivateDraft,
+function FocusedPreviewStep({
+  product,
+  content,
+  activePlatform,
+  onActivePlatformChange,
 }: {
-  drafts: SocialDraft[];
-  onLoadDraft: (draft: SocialDraft) => void;
-  onDeleteDraft: (id: string) => void;
-  onActivateDraft: (id: string) => void;
+  product: SellerProductPerformance;
+  content: SocialMediaContent;
+  activePlatform: SocialPlatform;
+  onActivePlatformChange: (platform: SocialPlatform) => void;
 }) {
   return (
-    <div className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center gap-3">
-        <FileText className="size-5 text-muted-foreground" />
-        <div>
-          <h2 className="text-base font-bold text-foreground">Kayıtlı İçerikler</h2>
-          <p className="text-xs text-muted-foreground">Daha önce üretilen sosyal medya içeriklerini tekrar kullan.</p>
+    <div className="min-h-[560px]">
+      <main className="mx-auto max-w-[940px]">
+        <PlatformTabs content={content} activePlatform={activePlatform} onActivePlatformChange={onActivePlatformChange} />
+        <div className="pt-6">
+          <SocialPreview product={product} content={content} activePlatform={activePlatform} />
         </div>
-      </div>
-
-      <div className="mt-5 space-y-3">
-        {drafts.map((draft) => {
-          const platformNames = (draft.platforms ?? [])
-            .map((p) => platformLabel(p as SocialPlatform))
-            .join(", ");
-          const date = new Date(draft.createdAt).toLocaleString("tr-TR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-          return (
-            <div
-              key={draft.id}
-              className={cn(
-                "flex items-center justify-between gap-4 rounded-xl border px-4 py-3",
-                draft.isActive ? "border-green-500 bg-green-500/5" : "border-border",
-              )}
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-foreground">{draft.label}</p>
-                  {draft.isActive && (
-                    <span className="shrink-0 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-bold text-green-700 dark:text-green-400">
-                      Aktif
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">{platformNames || "—"} · {date}</p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                {!draft.isActive && (
-                  <button
-                    type="button"
-                    onClick={() => onActivateDraft(draft.id)}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-green-500 px-3 text-xs font-bold text-green-700 transition-colors hover:bg-green-500/10 dark:text-green-400"
-                  >
-                    Aktif Et
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onLoadDraft(draft)}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-green-600 px-3 text-xs font-bold text-white transition-colors hover:bg-green-700"
-                >
-                  Yükle
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDeleteDraft(draft.id)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      </main>
     </div>
   );
 }
-
-// ─── Main export ──────────────────────────────────────────────────────────────
 
 export function SellerSocialMedia({ product }: { product: SellerProductPerformance }) {
+  const [step, setStep] = useState<Step>(1);
   const [tone, setTone] = useState<SocialTone>("samimi");
   const [purpose, setPurpose] = useState<SocialPurpose>("guven");
-  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(["instagram"]);
   const [activePlatform, setActivePlatform] = useState<SocialPlatform>("instagram");
+  const [note, setNote] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [regeneratingPlatform, setRegeneratingPlatform] = useState<SocialPlatform | null>(null);
+  const [saving, setSaving] = useState(false);
   const [content, setContent] = useState<SocialMediaContent | null>(null);
-  const [drafts, setDrafts] = useState<SocialDraft[]>([]);
 
-  useEffect(() => {
-    getProductSocialDrafts(product.id)
-      .then(setDrafts)
-      .catch(() => setDrafts([]));
-  }, [product.id]);
+  const readyPlatforms = useMemo(
+    () => selectedPlatforms.filter((key) => platformIsReady(content, key)),
+    [content, selectedPlatforms],
+  );
 
   function togglePlatform(platform: SocialPlatform) {
-    setSelectedPlatforms((current) =>
-      current.includes(platform)
-        ? current.filter((item) => item !== platform)
-        : [...current, platform],
-    );
+    setSelectedPlatforms((current) => {
+      if (current.includes(platform)) return current.filter((item) => item !== platform);
+      return [...current, platform];
+    });
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(targetStep: Step = 2) {
+    if (selectedPlatforms.length === 0) {
+      toast.error("En az bir platform seçin.");
+      return;
+    }
     setGenerating(true);
     try {
-      const result = await generateSocialContent(product.id, { tone, purpose, platforms: selectedPlatforms });
+      const result = await generateSocialContent(product.id, { tone, purpose, platforms: selectedPlatforms, note: note.trim() || undefined });
       setContent(result);
       setActivePlatform(selectedPlatforms[0] ?? "instagram");
-      getProductSocialDrafts(product.id).then(setDrafts).catch(() => undefined);
-      toast.success(result._cached ? "Kayıtlı sosyal medya içeriği kullanıldı." : `${selectedPlatforms.length} platform için içerik üretildi ve kaydedildi.`);
+      setStep(targetStep);
+      toast.success(result._cached ? "Sosyal medya içeriği hazır." : "Sosyal medya içeriği üretildi.");
     } catch {
-      toast.error("İçerik üretilemedi, lütfen tekrar dene.");
+      toast.error("İçerik üretilemedi, lütfen tekrar deneyin.");
     } finally {
       setGenerating(false);
     }
   }
 
-  async function handleRegeneratePlatform(platform: SocialPlatform) {
-    setRegeneratingPlatform(platform);
+  async function handleSave() {
+    if (!content) return;
+    setSaving(true);
     try {
-      const result = await generateSocialContent(product.id, { tone, purpose, platforms: [platform] });
-      setContent((current) => {
-        if (!current) return result;
-        return {
-          ...current,
-          [platform]: result[platform],
-          generatedAt: result.generatedAt,
-          platforms: Array.from(new Set([...current.platforms, platform])) as SocialPlatform[],
-          _mock: result._mock ?? current._mock,
-        };
+      const platforms = readyPlatforms.length > 0 ? readyPlatforms : selectedPlatforms;
+      await saveSocialDraft(product.id, {
+        label: `Onaylı sosyal içerik · ${new Date().toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`,
+        tone,
+        purpose,
+        platforms,
+        content: { ...content, tone, purpose, platforms },
+        activate: true,
       });
-      getProductSocialDrafts(product.id).then(setDrafts).catch(() => undefined);
-      toast.success(result._cached ? `${platformLabel(platform)} kayıtlı içerikten yüklendi.` : `${platformLabel(platform)} yeniden üretildi ve kaydedildi.`);
+      toast.success("İçerik kaydedildi.");
     } catch {
-      toast.error("Platform içeriği yeniden üretilemedi.");
+      toast.error("İçerik kaydedilemedi.");
     } finally {
-      setRegeneratingPlatform(null);
+      setSaving(false);
     }
   }
 
-  function handleLoadDraft(draft: SocialDraft) {
-    setContent(draft.content);
-    setActivePlatform(draft.content.platforms?.[0] ?? "instagram");
-    toast.success("Kayıtlı içerik yüklendi.");
-  }
-
-  async function handleDeleteDraft(draftId: string) {
-    try {
-      await deleteSocialDraft(draftId);
-      setDrafts((current) => current.filter((d) => d.id !== draftId));
-      toast.success("Kayıtlı içerik silindi.");
-    } catch {
-      toast.error("Silinemedi.");
-    }
-  }
-
-  async function handleActivateDraft(draftId: string) {
-    try {
-      await activateSocialDraft(draftId);
-      setDrafts((current) => current.map((d) => ({ ...d, isActive: d.id === draftId })));
-      toast.success("Aktif içerik güncellendi.");
-    } catch {
-      toast.error("İşlem başarısız.");
-    }
-  }
+  const selectedSummary = [
+    toneLabel(tone),
+    purposeLabel(purpose),
+    selectedPlatforms.map(platformLabel).join(", "),
+  ].filter(Boolean);
 
   return (
-    <div className="pb-16">
-      {/* Mock alert */}
-      {content?._mock && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-400">
-          <AlertTriangle className="size-4 shrink-0" />
-          Demo mod aktif. Bu içerik gerçek AI çıktısı olmayabilir.
+    <div className="-m-4 min-h-[calc(100vh-56px)] bg-white text-slate-950 sm:-m-6 lg:-m-8">
+      <div className="mx-auto max-w-[1600px] px-6 pb-28 pt-8 sm:px-10">
+        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_520px] xl:items-start">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-500">
+              <Link href="/seller/products" className="hover:text-slate-950">Ürünlerim</Link>
+              <ChevronRight className="size-4" />
+              <Link href={`/seller/product/${product.id}`} className="max-w-[280px] truncate hover:text-slate-950">{product.title}</Link>
+              <ChevronRight className="size-4" />
+              <span className="text-slate-800">Sosyal Medya İçeriği</span>
+            </div>
+            <div className="mt-8">
+              <h1 className="text-4xl font-black text-slate-950">Sosyal Medya İçeriği</h1>
+              <p className="mt-2 text-base font-medium text-slate-500">
+                Seller için hızlı, sade ve kayıtlı yönetilebilir içerik akışı.
+              </p>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Breadcrumb + title (full width, sticky at top of scroll area) */}
-      <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-background/95 px-4 pt-4 pb-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8 lg:pt-8 border-b border-border mb-6">
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Link href="/seller/products" className="transition-colors hover:text-foreground">
-            Ürünlerim
-          </Link>
-          <ChevronRight className="size-3.5" />
-          <Link href={`/seller/product/${product.id}`} className="max-w-[220px] truncate transition-colors hover:text-foreground">
-            {product.title}
-          </Link>
-          <ChevronRight className="size-3.5" />
-          <span className="text-foreground">Sosyal Medya İçeriği</span>
-        </div>
-        <div className="mt-3">
-          <h1 className="text-2xl font-black tracking-tight text-foreground">Sosyal Medya İçeriği</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ürünün için seçili platformlara uygun pazarlama içeriği oluştur.
-          </p>
-        </div>
-      </div>
-
-      {/* Two-column layout: sticky settings (left) + content (right) */}
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
-        {/* Left sticky column */}
-        <div className="space-y-4 lg:sticky lg:top-0 lg:self-start">
+        <div className="mt-8 max-w-[1120px]">
           <ProductSummary product={product} />
-          <SettingsPanel
-            tone={tone}
-            purpose={purpose}
-            selectedPlatforms={selectedPlatforms}
-            generating={generating}
-            onToneChange={setTone}
-            onPurposeChange={setPurpose}
-            onTogglePlatform={togglePlatform}
-            onGenerate={handleGenerate}
-          />
         </div>
 
-        {/* Right column */}
-        <div>
-          {content ? (
-            <GeneratedPanel
+        {content?._mock && (
+          <div className="mt-5 max-w-[1120px] rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+            Demo mod aktif. Bu içerik gerçek AI çıktısı olmayabilir.
+          </div>
+        )}
+
+        <div className="mt-8">
+          {step === 1 && (
+            <SettingsStep
+              tone={tone}
+              purpose={purpose}
+              selectedPlatforms={selectedPlatforms}
+              note={note}
+              generating={generating}
+              onToneChange={setTone}
+              onPurposeChange={setPurpose}
+              onTogglePlatform={togglePlatform}
+              onNoteChange={setNote}
+              onNext={() => handleGenerate(2)}
+            />
+          )}
+
+          {step === 2 && content && (
+            <FocusedPreviewStep
               product={product}
               content={content}
               activePlatform={activePlatform}
-              regeneratingPlatform={regeneratingPlatform}
               onActivePlatformChange={setActivePlatform}
-              onUpdateContent={(nextContent) => setContent(nextContent)}
-              onRegeneratePlatform={handleRegeneratePlatform}
             />
-          ) : (
-            <EmptyContentState />
           )}
         </div>
       </div>
 
-      {/* Saved content section */}
-      {drafts.length > 0 && (
-        <SavedContentSection
-          drafts={drafts}
-          onLoadDraft={handleLoadDraft}
-          onDeleteDraft={handleDeleteDraft}
-          onActivateDraft={handleActivateDraft}
-        />
-      )}
+      <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/92 px-6 py-4 shadow-[0_-12px_30px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3 text-sm text-slate-600">
+            <Check className="size-5 shrink-0 rounded-full border border-emerald-500 p-0.5 text-emerald-600" />
+            <span className="font-black">Seçimleriniz:</span>
+            <span className="truncate">{selectedSummary.join(" · ")}</span>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setStep((current) => (current > 1 ? ((current - 1) as Step) : current))}
+              disabled={step === 1 || generating || saving}
+              className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-8 text-sm font-black text-slate-500 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Geri
+            </button>
+
+            {step === 1 && (
+              <button
+                type="button"
+                onClick={() => handleGenerate(2)}
+                disabled={generating || selectedPlatforms.length === 0}
+                className="inline-flex h-12 min-w-48 items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-8 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {generating ? <Loader2 className="size-5 animate-spin" /> : <ArrowRight className="size-5" />}
+                İleri
+              </button>
+            )}
+            {step === 2 && content && (
+              <>
+                <CopyButton text={formatAll(content)} label="Kopyala" />
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="inline-flex h-12 min-w-40 items-center justify-center gap-3 rounded-2xl bg-emerald-600 px-8 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? <Loader2 className="size-5 animate-spin" /> : <Check className="size-5" />}
+                  Kaydet
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

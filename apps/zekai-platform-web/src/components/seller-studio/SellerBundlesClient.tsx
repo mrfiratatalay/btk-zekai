@@ -2,14 +2,13 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { getProduct } from "@/lib/api/products";
-import { getSellerProductBundles, generateBundleRecommendations } from "@/lib/api/seller";
+import { generateBundleRecommendations, getSellerProduct, getSellerProductBundles } from "@/lib/api/seller";
 import { SellerBundles } from "./SellerBundles";
 
 export function SellerBundlesClient({ productId }: { productId: string }) {
   const productQuery = useQuery({
     queryKey: ["seller-product-detail", productId],
-    queryFn: () => getProduct(productId),
+    queryFn: () => getSellerProduct(productId),
   });
   const bundlesQuery = useQuery({
     queryKey: ["seller-bundles", productId],

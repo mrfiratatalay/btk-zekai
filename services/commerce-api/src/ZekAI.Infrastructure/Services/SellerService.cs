@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using ZekAI.Application.DTOs.Products;
 using ZekAI.Application.DTOs.Seller;
 using ZekAI.Domain.Entities;
 using ZekAI.Domain.Enums;
@@ -84,21 +85,41 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
             )).ToListAsync();
     }
 
-    public async Task<SellerProductDto?> GetProductAsync(Guid userId, string productId)
+    public async Task<ProductDetailDto?> GetProductAsync(Guid userId, string productId)
     {
         var seller = await GetSellerByUserIdAsync(userId);
         var sp = await db.SellerProducts
             .Where(sp => sp.SellerId == seller.Id && sp.ProductId == productId)
             .Include(sp => sp.Product).ThenInclude(p => p!.Images)
             .Include(sp => sp.Product).ThenInclude(p => p!.Category)
+            .Include(sp => sp.Product).ThenInclude(p => p!.Reviews)
             .FirstOrDefaultAsync();
 
         if (sp is null) return null;
-        return new SellerProductDto(
-            sp.ProductId, sp.Product!.Title,
-            sp.Product.Images.Where(i => i.IsPrimary).Select(i => i.Url).FirstOrDefault() ?? "",
-            sp.Product.Category!.Name, sp.Product.Price, sp.Product.Stock,
-            sp.IsPublished, sp.UpdatedAt
+        var product = sp.Product!;
+        var features = JsonSerializer.Deserialize<Dictionary<string, string>>(product.FeaturesJson) ?? [];
+        var badges = JsonSerializer.Deserialize<List<string>>(product.BadgesJson) ?? [];
+        var rating = product.Reviews.Any() ? Math.Round(product.Reviews.Average(r => (double)r.Rating), 1) : 0.0;
+        var reviewCount = product.Reviews.Count;
+
+        return new ProductDetailDto(
+            product.Id,
+            product.Title,
+            product.Brand,
+            product.SellerName,
+            product.Category?.Name ?? "",
+            product.Price,
+            product.OriginalPrice,
+            rating,
+            reviewCount,
+            product.Stock,
+            product.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).ToList(),
+            product.ShortDescription,
+            product.Description,
+            features,
+            badges,
+            product.CargoText,
+            product.UpdatedAt
         );
     }
 

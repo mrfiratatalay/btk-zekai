@@ -138,6 +138,7 @@ public class SellerController(SellerService seller) : ControllerBase
             return result is null ? BadRequest(new { message = "İçerik üretilemedi." }) : Ok(result);
         }
         catch (AiServiceException ex) { return AiServiceError(ex); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
@@ -214,6 +215,14 @@ public class SellerController(SellerService seller) : ControllerBase
             price = (double)payload.Price,
             description = payload.Description,
             features = payload.Features,
+            reviews = payload.Reviews.Take(12).Select(r => new
+            {
+                author_name = r.AuthorName,
+                rating = r.Rating,
+                title = r.Title,
+                text = r.Text,
+                verified_purchase = r.VerifiedPurchase,
+            }),
         };
 
         var cachedArtifact = await seller.GetCachedSimulationArtifactAsync(UserId, productId);
@@ -399,6 +408,14 @@ public class SellerController(SellerService seller) : ControllerBase
     public async Task<IActionResult> GetProductSocialDrafts(string productId)
     {
         try { return Ok(await seller.GetProductSocialDraftsAsync(UserId, productId)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPost("products/{productId}/social-drafts")]
+    public async Task<IActionResult> SaveSocialDraft(string productId, [FromBody] SaveSocialDraftRequest req)
+    {
+        try { return Ok(await seller.SaveSocialDraftAsync(UserId, productId, req)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
