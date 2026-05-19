@@ -84,7 +84,7 @@ export function BundleSetupSheet({
             onClick={() => submit(false)}
             className="h-12 rounded-xl border border-border text-sm font-black text-foreground hover:bg-muted disabled:opacity-60"
           >
-            Taslak Kaydet
+            Kaydet
           </button>
           <button
             disabled={loading}

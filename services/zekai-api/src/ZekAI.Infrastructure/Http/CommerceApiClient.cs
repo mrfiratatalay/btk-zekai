@@ -10,6 +10,30 @@ public class CommerceApiClient(HttpClient http)
     private void SetBearerToken(string token)
         => http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
+    private static async Task<string> BuildErrorMessageAsync(HttpResponseMessage response, string fallback)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(body))
+            return $"{fallback} Commerce API status: {(int)response.StatusCode}.";
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+                return message.GetString() ?? fallback;
+            if (doc.RootElement.TryGetProperty("title", out var title))
+                return title.GetString() ?? fallback;
+        }
+        catch (JsonException)
+        {
+            // Plain text / developer exception page.
+        }
+
+        var firstLine = body.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(firstLine)) return fallback;
+        return firstLine.Length > 350 ? firstLine[..350] : firstLine;
+    }
+
     public async Task<CommerceAuthResponse?> LoginAsync(string email, string password)
     {
         var response = await http.PostAsJsonAsync("/api/auth/login", new { email, password });
@@ -44,6 +68,8 @@ public class CommerceApiClient(HttpClient http)
     {
         SetBearerToken(commerceToken);
         var response = await http.PutAsJsonAsync($"/api/seller/products/{productId}", updatePayload);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(await BuildErrorMessageAsync(response, "Ürün Akıllı Market'te güncellenemedi."));
         return response.IsSuccessStatusCode;
     }
 
@@ -51,6 +77,8 @@ public class CommerceApiClient(HttpClient http)
     {
         SetBearerToken(commerceToken);
         var response = await http.PutAsJsonAsync($"/api/seller/products/{productId}/publish", new { published });
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(await BuildErrorMessageAsync(response, "Ürün Akıllı Market'te yayınlanamadı."));
         return response.IsSuccessStatusCode;
     }
 

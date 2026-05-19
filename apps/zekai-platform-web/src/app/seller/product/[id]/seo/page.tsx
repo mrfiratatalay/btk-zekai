@@ -1,6 +1,6 @@
-import { SellerSeoClient } from "@/components/seller-studio/SellerSeoClient";
+import { redirect } from "next/navigation";
 
 export default async function SellerSeoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <SellerSeoClient productId={id} />;
+  redirect(`/seller/product/${id}/ai-edit`);
 }

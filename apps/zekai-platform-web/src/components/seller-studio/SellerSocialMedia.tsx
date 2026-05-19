@@ -728,9 +728,9 @@ function GeneratedPanel({
   );
 }
 
-// ─── DraftsSection ────────────────────────────────────────────────────────────
+// ─── SavedContentSection ──────────────────────────────────────────────────────
 
-function DraftsSection({
+function SavedContentSection({
   drafts,
   onLoadDraft,
   onDeleteDraft,
@@ -746,8 +746,8 @@ function DraftsSection({
       <div className="flex items-center gap-3">
         <FileText className="size-5 text-muted-foreground" />
         <div>
-          <h2 className="text-base font-bold text-foreground">Taslaklar</h2>
-          <p className="text-xs text-muted-foreground">DB&apos;de saklanan içerik varyasyonların — biri &ldquo;Aktif&rdquo;</p>
+          <h2 className="text-base font-bold text-foreground">Kayıtlı İçerikler</h2>
+          <p className="text-xs text-muted-foreground">Daha önce üretilen sosyal medya içeriklerini tekrar kullan.</p>
         </div>
       </div>
 
@@ -848,7 +848,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
       setContent(result);
       setActivePlatform(selectedPlatforms[0] ?? "instagram");
       getProductSocialDrafts(product.id).then(setDrafts).catch(() => undefined);
-      toast.success(result._cached ? "Kayıtlı sosyal medya taslağı kullanıldı." : `${selectedPlatforms.length} platform için içerik üretildi ve otomatik kaydedildi.`);
+      toast.success(result._cached ? "Kayıtlı sosyal medya içeriği kullanıldı." : `${selectedPlatforms.length} platform için içerik üretildi ve kaydedildi.`);
     } catch {
       toast.error("İçerik üretilemedi, lütfen tekrar dene.");
     } finally {
@@ -871,7 +871,7 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
         };
       });
       getProductSocialDrafts(product.id).then(setDrafts).catch(() => undefined);
-      toast.success(result._cached ? `${platformLabel(platform)} kayıtlı taslaktan yüklendi.` : `${platformLabel(platform)} yeniden üretildi ve otomatik kaydedildi.`);
+      toast.success(result._cached ? `${platformLabel(platform)} kayıtlı içerikten yüklendi.` : `${platformLabel(platform)} yeniden üretildi ve kaydedildi.`);
     } catch {
       toast.error("Platform içeriği yeniden üretilemedi.");
     } finally {
@@ -882,14 +882,14 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
   function handleLoadDraft(draft: SocialDraft) {
     setContent(draft.content);
     setActivePlatform(draft.content.platforms?.[0] ?? "instagram");
-    toast.success("Taslak yüklendi.");
+    toast.success("Kayıtlı içerik yüklendi.");
   }
 
   async function handleDeleteDraft(draftId: string) {
     try {
       await deleteSocialDraft(draftId);
       setDrafts((current) => current.filter((d) => d.id !== draftId));
-      toast.success("Taslak silindi.");
+      toast.success("Kayıtlı içerik silindi.");
     } catch {
       toast.error("Silinemedi.");
     }
@@ -971,9 +971,9 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
         </div>
       </div>
 
-      {/* Drafts section */}
+      {/* Saved content section */}
       {drafts.length > 0 && (
-        <DraftsSection
+        <SavedContentSection
           drafts={drafts}
           onLoadDraft={handleLoadDraft}
           onDeleteDraft={handleDeleteDraft}

@@ -102,7 +102,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
   const [lightboxSrc, setLightboxSrc]             = useState<string | null>(null);
   const [publishing, setPublishing]               = useState(false);
   const [aiApplied, setAiApplied]                 = useState(false);
-  const [isDraft, setIsDraft]                     = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const [generatedImages, setGeneratedImages]       = useState<GeneratedProductImageItem[]>([]);
   const [selectedImageType, setSelectedImageType]   = useState<string | null>(null);
@@ -144,7 +144,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       ? `${COMMERCE_API}${appliedImageUrl}`
       : product.image || null;
 
-  function markDraft() { setIsDraft(true); }
+  function markUnsaved() { setHasUnsavedChanges(true); }
 
   function buildPayload() {
     const originalPriceNum = originalPrice ? Number(originalPrice) : null;
@@ -163,7 +163,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
     };
   }
 
-  async function handleGenerateCEO() {
+  async function handleGenerateContent() {
     setAiGenerating(true);
     setAiImprovementNote(null);
     try {
@@ -174,8 +174,8 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       if (result.features.length > 0) setFeatures(aiFeaturesToRecord(result.features));
       if (result.whatIImproved) setAiImprovementNote(result.whatIImproved);
       setAiApplied(true);
-      setIsDraft(true);
-      toast.success(result._cached ? "Kayıtlı AI içerik taslağı kullanıldı" : "AI içerik üretildi ve otomatik taslaklara kaydedildi");
+      setHasUnsavedChanges(true);
+      toast.success(result._cached ? "Kayıtlı AI içerik kullanıldı" : "AI içerik üretildi ve kaydedildi");
     } catch {
       toast.error("İçerik üretilemedi. Lütfen tekrar dene.");
     } finally {
@@ -190,7 +190,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       const img = await generateProductImage(product.id, style);
       setGeneratedImages((prev) => [...prev.filter((p) => p.type !== style), img]);
       setSelectedImageType(style);
-      toast.success(img._cached ? `${IMAGE_STYLE_LABELS[style]} kayıtlı görseli kullanıldı` : `${IMAGE_STYLE_LABELS[style]} görseli üretildi ve Taslaklarım'a kaydedildi`);
+      toast.success(img._cached ? `${IMAGE_STYLE_LABELS[style]} kayıtlı görseli kullanıldı` : `${IMAGE_STYLE_LABELS[style]} görseli üretildi ve kaydedildi`);
     } catch {
       toast.error("Görsel üretilemedi. Lütfen tekrar dene.");
     } finally {
@@ -219,7 +219,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
     setPublishing(true);
     try {
       await updateProductContent(product.id, buildPayload(), { publish: true });
-      setIsDraft(false);
+      setHasUnsavedChanges(false);
       toast.success("Değişiklikler Akıllı Market'e yayınlandı");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Yayınlama başarısız.");
@@ -236,7 +236,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
     setNewFeatureKey("");
     setNewFeatureVal("");
     setAddingFeature(false);
-    markDraft();
+    markUnsaved();
   }
 
   function removeFeature(key: string) {
@@ -245,7 +245,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       delete next[key];
       return next;
     });
-    markDraft();
+    markUnsaved();
   }
 
   function startEdit(key: string) {
@@ -257,7 +257,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
     if (!editingKey) return;
     setFeatures((prev) => ({ ...prev, [editingKey]: editingVal }));
     setEditingKey(null);
-    markDraft();
+    markUnsaved();
   }
 
   const featureEntries = Object.entries(features);
@@ -281,9 +281,9 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
         </Link>
         <ChevronRight className="size-3.5" />
         <span className="text-gray-600 dark:text-gray-300">AI ile Düzenle</span>
-        {isDraft && (
+        {hasUnsavedChanges && (
           <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
-            Taslak
+            Yayınlanmadı
           </span>
         )}
       </div>
@@ -426,16 +426,16 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
           <div className="px-6 pt-6 pb-5 space-y-4">
             <div>
               <SectionLabel>Ürün Başlığı</SectionLabel>
-              <input value={title} onChange={(e) => { setTitle(e.target.value); markDraft(); }} className="mt-2 block w-full bg-transparent text-lg font-semibold leading-snug text-gray-900 outline-none placeholder-gray-300 dark:text-white" placeholder="Ürün başlığı..." />
+              <input value={title} onChange={(e) => { setTitle(e.target.value); markUnsaved(); }} className="mt-2 block w-full bg-transparent text-lg font-semibold leading-snug text-gray-900 outline-none placeholder-gray-300 dark:text-white" placeholder="Ürün başlığı..." />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <SectionLabel>Marka</SectionLabel>
-                <input value={brand} onChange={(e) => { setBrand(e.target.value); markDraft(); }} className="mt-2 block w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/8 dark:bg-white/5 dark:text-white" placeholder="Marka adı" />
+                <input value={brand} onChange={(e) => { setBrand(e.target.value); markUnsaved(); }} className="mt-2 block w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/8 dark:bg-white/5 dark:text-white" placeholder="Marka adı" />
               </div>
               <div>
                 <SectionLabel>Kategori</SectionLabel>
-                <select value={categoryId} onChange={(e) => { setCategoryId(Number(e.target.value)); markDraft(); }} className="mt-2 block w-full cursor-pointer rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/8 dark:bg-white/5 dark:text-white">
+                <select value={categoryId} onChange={(e) => { setCategoryId(Number(e.target.value)); markUnsaved(); }} className="mt-2 block w-full cursor-pointer rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-green-400 dark:border-white/8 dark:bg-white/5 dark:text-white">
                   {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
@@ -447,7 +447,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
           {/* ── Kısa Açıklama ── */}
           <div className="px-6 py-5">
             <SectionLabel>Kısa Açıklama</SectionLabel>
-            <input value={shortDescription} onChange={(e) => { setShortDesc(e.target.value); markDraft(); }} className="mt-2 block w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-400 dark:border-white/8 dark:bg-white/5 dark:text-gray-300" placeholder="Ürünü tek satırda özetle..." />
+            <input value={shortDescription} onChange={(e) => { setShortDesc(e.target.value); markUnsaved(); }} className="mt-2 block w-full rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-400 dark:border-white/8 dark:bg-white/5 dark:text-gray-300" placeholder="Ürünü tek satırda özetle..." />
           </div>
 
           <div className="h-px bg-gray-100 dark:bg-white/8" />
@@ -455,9 +455,9 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
           {/* ── Detaylı Açıklama ── */}
           <div className="px-6 pt-5">
             <SectionLabel>Detaylı Açıklama</SectionLabel>
-            <textarea value={description} onChange={(e) => { setDescription(e.target.value); markDraft(); }} rows={6} className="mt-2 block w-full resize-none bg-transparent text-sm leading-relaxed text-gray-700 outline-none placeholder-gray-300 dark:text-gray-300" placeholder="Açıklama yazın ya da AI ile otomatik üretin..." />
+            <textarea value={description} onChange={(e) => { setDescription(e.target.value); markUnsaved(); }} rows={6} className="mt-2 block w-full resize-none bg-transparent text-sm leading-relaxed text-gray-700 outline-none placeholder-gray-300 dark:text-gray-300" placeholder="Açıklama yazın ya da AI ile otomatik üretin..." />
           </div>
-          <button disabled={aiGenerating} onClick={handleGenerateCEO} className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-gray-100 py-3 text-sm font-semibold text-green-600 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8">
+          <button disabled={aiGenerating} onClick={handleGenerateContent} className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-gray-100 py-3 text-sm font-semibold text-green-600 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/8 dark:text-green-400 dark:hover:bg-green-500/8">
             {aiGenerating ? <><Loader2 className="size-4 animate-spin" /> Üretiliyor...</> : <><Sparkles className="size-4" /> AI ile İçerik Üret</>}
           </button>
 
@@ -534,9 +534,9 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
             <SectionLabel>Fiyat & Stok</SectionLabel>
             <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
               {[
-                { label: "Satış Fiyatı (₺)", val: price, set: (v: string) => { setPrice(v); markDraft(); }, type: "number" },
-                { label: "İndirim Öncesi (₺)", val: originalPrice, set: (v: string) => { setOriginalPrice(v); markDraft(); }, type: "number" },
-                { label: "Stok Adedi", val: stock, set: (v: string) => { setStock(v); markDraft(); }, type: "number" },
+                { label: "Satış Fiyatı (₺)", val: price, set: (v: string) => { setPrice(v); markUnsaved(); }, type: "number" },
+                { label: "İndirim Öncesi (₺)", val: originalPrice, set: (v: string) => { setOriginalPrice(v); markUnsaved(); }, type: "number" },
+                { label: "Stok Adedi", val: stock, set: (v: string) => { setStock(v); markUnsaved(); }, type: "number" },
               ].map((f) => (
                 <div key={f.label}>
                   <label className="mb-1.5 block text-xs text-gray-400">{f.label}</label>
@@ -553,7 +553,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
                 <input
                   type="text"
                   value={cargoText}
-                  onChange={(e) => { setCargoText(e.target.value); markDraft(); }}
+                  onChange={(e) => { setCargoText(e.target.value); markUnsaved(); }}
                   className="h-10 w-full rounded-xl border border-gray-100 bg-gray-50 px-3 text-sm font-bold text-gray-900 outline-none transition focus:border-green-400 focus:ring-2 focus:ring-green-400/10 dark:border-white/8 dark:bg-white/5 dark:text-white"
                 />
               </div>

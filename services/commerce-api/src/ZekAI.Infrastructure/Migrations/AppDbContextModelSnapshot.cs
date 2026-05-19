@@ -680,7 +680,7 @@ namespace ZekAI.Infrastructure.Migrations
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("StoreConnection");
+                    b.ToTable("StoreConnections");
                 });
 
             modelBuilder.Entity("ZekAI.Domain.Entities.User", b =>

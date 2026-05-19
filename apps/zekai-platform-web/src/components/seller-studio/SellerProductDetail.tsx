@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Bot, ChevronRight, Eye, FileText, Package, PackagePlus, Share2, Sparkles } from "lucide-react";
+import { Bot, ChevronRight, Eye, Package, PackagePlus, Share2, Sparkles } from "lucide-react";
 import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 
@@ -45,20 +45,11 @@ const MODULES = [
     iconBg: "bg-lime-500/10",
     iconColor: "text-lime-700 dark:text-lime-300",
   },
-  {
-    key: "seo",
-    icon: FileText,
-    title: "SEO Optimizasyonu",
-    description: "Arama görünürlüğü için anahtar kelime, başlık ve meta üret",
-    href: (id: string) => `/seller/product/${id}/seo`,
-    iconBg: "bg-amber-500/10",
-    iconColor: "text-amber-600 dark:text-amber-400",
-  },
 ] as const;
 
 export function SellerProductDetail({ product }: { product: SellerProductPerformance }) {
   return (
-    <div className="mx-auto max-w-xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8">
 
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -70,33 +61,35 @@ export function SellerProductDetail({ product }: { product: SellerProductPerform
       </nav>
 
       {/* Ürün başlığı */}
-      <div className="flex items-start gap-4">
-        <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
-          {product.image ? (
-            <Image src={product.image} alt={product.title} fill className="object-contain p-1.5" />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <Package className="size-7 text-muted-foreground" />
-            </div>
-          )}
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
+            {product.image ? (
+              <Image src={product.image} alt={product.title} fill className="object-contain p-1.5" />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <Package className="size-7 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold leading-snug text-foreground">
+              {product.title}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {product.category} · {formatSellerPrice(product.price)} · {product.stock} stok
+            </p>
+          </div>
+          <a
+            href={`${COMMERCE_WEB_URL}/product/${product.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            <Eye className="size-4" />
+            Mağazada Gör
+          </a>
         </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold leading-snug text-foreground">
-            {product.title}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {product.category} · {formatSellerPrice(product.price)} · {product.stock} stok
-          </p>
-        </div>
-        <a
-          href={`${COMMERCE_WEB_URL}/product/${product.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          <Eye className="size-4" />
-          Mağazada Gör
-        </a>
       </div>
 
       {/* Araçlar */}
@@ -105,16 +98,14 @@ export function SellerProductDetail({ product }: { product: SellerProductPerform
           Araçlar
         </p>
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
-          {MODULES.map((mod, i) => {
+        <div className="grid gap-3 sm:grid-cols-2">
+          {MODULES.map((mod) => {
             const Icon = mod.icon;
             return (
               <Link
                 key={mod.key}
                 href={mod.href(product.id)}
-                className={`group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted ${
-                  i < MODULES.length - 1 ? "border-b border-border" : ""
-                }`}
+                className="group flex min-h-28 items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:border-green-500/30 hover:bg-green-500/5 hover:shadow-md"
               >
                 <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${mod.iconBg}`}>
                   <Icon className={`size-4 ${mod.iconColor}`} />

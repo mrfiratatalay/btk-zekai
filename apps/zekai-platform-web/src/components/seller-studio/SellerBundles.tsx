@@ -58,7 +58,7 @@ export function SellerBundles({
       setEditingBundle(null);
       queryClient.invalidateQueries({ queryKey: ["seller-bundles", product.id] });
     },
-    onError: (err: Error) => alert(`Taslak güncellenemedi: ${err.message}`),
+    onError: (err: Error) => alert(`Paket güncellenemedi: ${err.message}`),
   });
   const updateAndPublishMutation = useMutation({
     mutationFn: async ({ bundleId, payload }: { bundleId: string; payload: UpdateProductBundlePayload }) => {
@@ -69,7 +69,7 @@ export function SellerBundles({
       setEditingBundle(null);
       queryClient.invalidateQueries({ queryKey: ["seller-bundles", product.id] });
     },
-    onError: (err: Error) => alert(`Taslak yayınlanamadı: ${err.message}`),
+    onError: (err: Error) => alert(`Paket yayınlanamadı: ${err.message}`),
   });
   const archiveMutation = useMutation({
     mutationFn: (bundleId: string) => archiveProductBundle(product.id, bundleId),
@@ -98,7 +98,7 @@ export function SellerBundles({
   }
 
   const STATUS_LABELS: Record<string, string> = {
-    Draft: "Taslak",
+    Draft: "Hazır",
     Published: "Yayında",
     Archived: "Arşivlendi",
   };
@@ -328,7 +328,7 @@ function PackageManagerSheet({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Taslaklar ({draftBundles.length})
+            Hazır Paketler ({draftBundles.length})
           </button>
           <button
             type="button"
@@ -347,7 +347,7 @@ function PackageManagerSheet({
           <div className="rounded-2xl border border-dashed border-border py-16 text-center">
             <Package className="mx-auto mb-3 size-8 text-muted-foreground/40" />
             <p className="text-sm font-semibold text-muted-foreground">
-              {bundleTab === "drafts" ? "Henüz taslak paket yok." : "Henüz yayında paket yok."}
+              {bundleTab === "drafts" ? "Henüz hazır paket yok." : "Henüz yayında paket yok."}
             </p>
           </div>
         ) : (
@@ -386,10 +386,23 @@ function BundleRow({
   onDelete: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <div
+      role={bundle.status === "Draft" ? "button" : undefined}
+      tabIndex={bundle.status === "Draft" ? 0 : undefined}
       onClick={bundle.status === "Draft" ? onEdit : undefined}
-      className="flex w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4 text-left transition hover:border-lime-500/30 hover:bg-lime-500/5 lg:flex-row lg:items-center"
+      onKeyDown={
+        bundle.status === "Draft"
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onEdit();
+              }
+            }
+          : undefined
+      }
+      className={`flex w-full flex-col gap-4 rounded-2xl border border-border bg-card p-4 text-left transition lg:flex-row lg:items-center ${
+        bundle.status === "Draft" ? "cursor-pointer hover:border-lime-500/30 hover:bg-lime-500/5" : ""
+      }`}
     >
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <ProductThumb image={bundle.primaryProduct.image} title={bundle.primaryProduct.title} />
@@ -408,21 +421,21 @@ function BundleRow({
         <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusClassName}`}>{statusLabel}</span>
         {bundle.status === "Draft" && (
           <>
-            <button onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-black text-foreground hover:bg-muted">
+            <button type="button" onClick={onEdit} className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-black text-foreground hover:bg-muted">
               <Pencil className="size-3.5" />
               Düzenle
             </button>
-            <button onClick={onPublish} className="rounded-xl bg-lime-400 px-4 py-2 text-xs font-black text-gray-950">
+            <button type="button" onClick={onPublish} className="rounded-xl bg-lime-400 px-4 py-2 text-xs font-black text-gray-950">
               Yayınla
             </button>
           </>
         )}
-        <button onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-black text-muted-foreground hover:bg-muted">
+        <button type="button" onClick={onDelete} className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-xs font-black text-muted-foreground hover:bg-muted">
           <Trash2 className="size-3.5" />
           Sil
         </button>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -471,7 +484,7 @@ function BundleDraftEditSheet({
       <aside className="h-full w-full max-w-2xl overflow-y-auto bg-card p-6 shadow-2xl">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-bold text-lime-700 dark:text-lime-300">Taslağı Düzenle</p>
+            <p className="text-sm font-bold text-lime-700 dark:text-lime-300">Paketi Düzenle</p>
             <h2 className="mt-1 text-2xl font-black text-foreground">{bundle.title}</h2>
           </div>
           <button onClick={onClose} className="rounded-xl p-2 text-muted-foreground hover:bg-muted" aria-label="Kapat">
@@ -520,7 +533,7 @@ function BundleDraftEditSheet({
             onClick={() => onSave(bundle.id, payload)}
             className="h-12 rounded-xl border border-border text-sm font-black text-foreground hover:bg-muted disabled:opacity-60"
           >
-            Taslağı Güncelle
+            Kaydet
           </button>
           <button
             disabled={loading}

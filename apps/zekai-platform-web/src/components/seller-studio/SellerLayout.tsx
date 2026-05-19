@@ -11,7 +11,7 @@ import { ZekaiLogo } from "@/components/ui/ZekaiLogo";
 
 const NAV_ITEMS = [
   { label: "Ürünlerim", href: "/seller/products", icon: Package },
-  { label: "Taslaklarım", href: "/seller/drafts", icon: FileStack },
+  { label: "Kayıtlarım", href: "/seller/drafts", icon: FileStack },
   { label: "Ayarlar", href: "/seller/settings", icon: Settings },
 ];
 

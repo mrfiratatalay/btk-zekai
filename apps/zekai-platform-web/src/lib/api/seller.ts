@@ -109,22 +109,6 @@ export const generateSocialContent = (productId: string, payload: GenerateSocial
     suppressMockMode: true,
   });
 
-// ── SEO Optimizasyonu ────────────────────────────────────────────────────────
-
-export interface SeoResult {
-  focusKeyword: string;
-  secondaryKeywords: string[];
-  seoTitle: string;
-  metaDescription: string;
-  urlSlugSuggestion: string;
-  improvementTips: string[];
-  _mock?: boolean;
-  _cached?: boolean;
-}
-
-export const generateSeo = (productId: string) =>
-  apiFetch<SeoResult>(`/api/seller/products/${productId}/seo`, { method: "POST" });
-
 export interface BundleProduct {
   id: string;
   title: string;

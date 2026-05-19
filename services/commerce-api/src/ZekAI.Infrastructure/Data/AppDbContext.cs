@@ -117,5 +117,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany()
             .HasForeignKey(pb => pb.ComplementaryProductId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<StoreConnection>()
+            .ToTable("StoreConnections");
+        mb.Entity<StoreConnection>()
+            .HasOne(sc => sc.Seller)
+            .WithMany(s => s.StoreConnections)
+            .HasForeignKey(sc => sc.SellerId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
