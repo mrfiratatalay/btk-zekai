@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, API_BASE } from "./client";
 
 export interface SavedAnalysisApi {
   id: string;
@@ -144,3 +144,111 @@ export const updateBuyerProfileInApi = (data: { profileName?: string; onboarded?
     method: "PUT",
     body: JSON.stringify(data),
   });
+
+// ── Compare Verdict ───────────────────────────────────────────────────────────
+
+export interface CompareProductVerdictApi {
+  product_id: string;
+  one_line_reason: string;
+  relative_fit: "best" | "ok" | "skip";
+}
+
+export interface CompareVerdictResultApi {
+  winner_id: string;
+  headline: string;
+  winner_reason: string;
+  caution?: string;
+  product_verdicts: CompareProductVerdictApi[];
+}
+
+export interface CompareVerdictPayload {
+  comparisonNeed: string;
+  analyses: Array<{
+    productId: string;
+    productTitle: string;
+    productCategory: string;
+    productPrice: number;
+    userNeedText: string;
+    fitScore: number;
+    trustScore: number;
+    priceScore: number;
+    returnRiskPercent: number;
+  }>;
+}
+
+type SseEvent = {
+  type?: string;
+  message?: string;
+  author?: string;
+  actions?: { state_delta?: Record<string, unknown> };
+};
+
+export async function streamCompareVerdict(
+  payload: CompareVerdictPayload,
+  onEvent: (event: SseEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const token = typeof window === "undefined" ? null : localStorage.getItem("zekai_token");
+  const timeoutSignal = AbortSignal.timeout(60_000);
+  const combinedSignal = signal
+    ? AbortSignal.any([signal, timeoutSignal])
+    : timeoutSignal;
+
+  const response = await fetch(`${API_BASE}/api/buyer/compare-verdict`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal: combinedSignal,
+    body: JSON.stringify({
+      comparisonNeed: payload.comparisonNeed,
+      analyses: payload.analyses.map((a) => ({
+        productId: a.productId,
+        productTitle: a.productTitle,
+        productCategory: a.productCategory,
+        productPrice: a.productPrice,
+        userNeedText: a.userNeedText,
+        fitScore: a.fitScore,
+        trustScore: a.trustScore,
+        priceScore: a.priceScore,
+        returnRiskPercent: a.returnRiskPercent,
+      })),
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error(`Karşılaştırma isteği başarısız: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const json = line.replace(/^data:\s*/, "").trim();
+      if (!json) continue;
+      try {
+        const parsed = JSON.parse(json) as SseEvent;
+        if (parsed?.type === "error") {
+          const err = new Error(parsed.message ?? "Karşılaştırma tamamlanamadı.");
+          err.name = "SseError";
+          throw err;
+        }
+        onEvent(parsed);
+      } catch (error) {
+        if (error instanceof Error && error.name === "SseError") throw error;
+      }
+    }
+  }
+}

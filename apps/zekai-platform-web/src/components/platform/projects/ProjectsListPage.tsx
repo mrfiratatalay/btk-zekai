@@ -152,15 +152,15 @@ function ProjectCard({
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.98 }}
-      className="group relative flex flex-col overflow-hidden rounded-[32px] border border-border/50 bg-card shadow-sm hover:shadow-xl hover:shadow-[#adff41]/5 transition-all"
+      className="group relative flex flex-col overflow-hidden rounded-2xl sm:rounded-[32px] border border-border/50 bg-card shadow-sm hover:shadow-xl hover:shadow-[#adff41]/5 transition-all"
     >
-      <div className="p-6">
-        <div className="flex items-start gap-4">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-muted/40 border border-border shadow-sm group-hover:border-[#adff41]/50 transition-colors">
-            <FolderOpen className="size-6 text-[#5a8a00] dark:text-[#adff41]" />
+      <div className="p-4 sm:p-6">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex size-12 sm:size-14 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-muted/40 border border-border shadow-sm group-hover:border-[#adff41]/50 transition-colors">
+            <FolderOpen className="size-5 sm:size-6 text-[#5a8a00] dark:text-[#adff41]" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-lg font-bold text-foreground">{project.title}</h3>
+            <h3 className="truncate text-base sm:text-lg font-bold text-foreground">{project.title}</h3>
             {project.goal && (
               <p className="mt-1 truncate text-sm text-muted-foreground">{project.goal}</p>
             )}
@@ -221,7 +221,7 @@ function ProjectCard({
           </div>
         )}
       </div>
-      <div className="mt-auto flex items-center justify-between border-t border-border/50 bg-muted/10 px-6 py-4">
+      <div className="mt-auto flex items-center justify-between border-t border-border/50 bg-muted/10 px-4 py-3 sm:px-6 sm:py-4">
         {analyses.length === 0 ? (
           <p className="text-xs font-semibold text-muted-foreground/60">Henüz ürün eklenmedi</p>
         ) : (

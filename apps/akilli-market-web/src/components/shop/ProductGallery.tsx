@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 import { useFavoritesStore } from "@/lib/store/favorites-store";
 
 export function ProductGallery({ product }: { product: Product }) {
-  const [selected, setSelected] = useState(product.image);
+  const images = Array.from(new Set([product.image, ...product.thumbnails])).filter(Boolean);
+  const [selected, setSelected] = useState(images[0] ?? "");
   const [copied, setCopied] = useState(false);
-  const images = Array.from(new Set([product.image, ...product.thumbnails]));
   const idx = Math.max(0, images.indexOf(selected));
 
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite);
@@ -62,9 +62,11 @@ export function ProductGallery({ product }: { product: Product }) {
           </Button>
         </div>
 
-        <Image src={selected} alt={product.title} fill priority
-          sizes="(max-width: 1024px) 100vw, 480px"
-          className="object-contain p-8 transition-opacity duration-200" />
+        {selected && (
+          <Image src={selected} alt={product.title} fill priority
+            sizes="(max-width: 1024px) 100vw, 480px"
+            className="object-contain p-8 transition-opacity duration-200" />
+        )}
 
         {images.length > 1 && (
           <>

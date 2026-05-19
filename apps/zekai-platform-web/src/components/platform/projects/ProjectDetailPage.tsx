@@ -334,7 +334,7 @@ export function ProjectDetailPage() {
           <h2 className="text-sm font-bold text-foreground">
             Ürünler ({projectAnalyses.length})
           </h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {projectAnalyses.length >= 2 && (
               <Button
                 size="sm"
@@ -343,7 +343,7 @@ export function ProjectDetailPage() {
                 className="rounded-xl text-xs"
               >
                 <GitCompare className="mr-1.5 size-3.5" />
-                Hepsini Karşılaştır
+                <span className="hidden sm:inline">Hepsini </span>Karşılaştır
               </Button>
             )}
             <Button
@@ -352,7 +352,7 @@ export function ProjectDetailPage() {
               className="rounded-xl bg-[#adff41] text-[#0a0a0f] font-bold hover:bg-[#9aef30] text-xs"
             >
               <Plus className="mr-1 size-3.5" />
-              Ürün Ekle
+              Ekle
             </Button>
           </div>
         </div>

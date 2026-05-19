@@ -298,7 +298,7 @@ export function SavedAnalysesPage() {
 
       <main className="mx-auto max-w-3xl px-4 py-8 md:px-6">
         {/* Filter bar (Segmented Control) */}
-        <div className="mb-8 flex items-center justify-between gap-4">
+        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2 p-1.5 bg-muted/50 rounded-2xl w-fit border border-border/50">
             {FILTER_OPTIONS.map((opt) => {
               const count =

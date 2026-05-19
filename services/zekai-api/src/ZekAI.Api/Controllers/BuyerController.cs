@@ -350,4 +350,70 @@ public class BuyerController(BuyerService buyer, CommerceApiClient commerce) : C
         await using var stream = await response.Content.ReadAsStreamAsync(HttpContext.RequestAborted);
         await stream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
     }
+
+    [HttpPost("compare-verdict")]
+    public async Task CompareVerdict(
+        [FromBody] CompareVerdictRequest req,
+        [FromServices] IHttpClientFactory httpClientFactory)
+    {
+        if (string.IsNullOrWhiteSpace(req.ComparisonNeed) || req.Analyses is null || req.Analyses.Count < 2)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            await Response.WriteAsJsonAsync(new { message = "comparisonNeed ve en az 2 ürün analizi zorunludur." });
+            return;
+        }
+
+        var aiPayload = new
+        {
+            comparison_need = req.ComparisonNeed,
+            products = req.Analyses.Select(a => new
+            {
+                product_id = a.ProductId,
+                title = a.ProductTitle,
+                category = a.ProductCategory ?? "",
+                price = a.ProductPrice,
+                user_need_text = a.UserNeedText ?? "",
+                fit_score = a.FitScore,
+                trust_score = a.TrustScore,
+                price_score = a.PriceScore,
+                return_risk_percent = a.ReturnRiskPercent,
+            }).ToList(),
+        };
+
+        var client = httpClientFactory.CreateClient("AiService");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/buyer/compare-verdict")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(aiPayload), Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Accept.ParseAdd("text/event-stream");
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, HttpContext.RequestAborted);
+        if (!response.IsSuccessStatusCode)
+        {
+            Response.StatusCode = (int)response.StatusCode;
+            var body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            await Response.WriteAsJsonAsync(new { message = body, aiServiceStatus = (int)response.StatusCode });
+            return;
+        }
+
+        Response.ContentType = "text/event-stream";
+        Response.Headers["Cache-Control"] = "no-cache";
+        Response.Headers["X-Accel-Buffering"] = "no";
+        await using var stream = await response.Content.ReadAsStreamAsync(HttpContext.RequestAborted);
+        await stream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
+    }
 }
+
+public record CompareAnalysisDto(
+    string ProductId,
+    string ProductTitle,
+    string? ProductCategory,
+    double ProductPrice,
+    string? UserNeedText,
+    int FitScore,
+    int TrustScore,
+    int PriceScore,
+    int ReturnRiskPercent
+);
+
+public record CompareVerdictRequest(string ComparisonNeed, List<CompareAnalysisDto> Analyses);

@@ -155,7 +155,7 @@ export function QuickAnalyzeBar() {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="Ürün linkini yapıştır..."
-                className="h-14 w-full rounded-[32px] border border-border/50 bg-background/80 backdrop-blur-2xl pl-14 pr-32 text-sm text-foreground shadow-2xl outline-none placeholder:text-muted-foreground/50 focus:border-[#adff41]/50 focus:bg-background transition-all sm:h-16 sm:pl-16 sm:pr-36 sm:text-base"
+                className="h-14 w-full rounded-[32px] border border-border/50 bg-background/80 backdrop-blur-2xl pl-14 pr-20 text-sm text-foreground shadow-2xl outline-none placeholder:text-muted-foreground/50 focus:border-[#adff41]/50 focus:bg-background transition-all sm:h-16 sm:pl-16 sm:pr-36 sm:text-base"
               />
               <Button
                 type="submit"

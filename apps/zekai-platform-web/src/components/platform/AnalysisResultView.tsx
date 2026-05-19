@@ -136,7 +136,7 @@ export function AnalysisResultView({
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
 
         {/* ── 1. TEK KARAR ──────────────────────────────────────────────── */}
-        <div className="flex flex-col items-center pt-12 pb-10 text-center">
+        <div className="flex flex-col items-center pt-8 sm:pt-12 pb-8 sm:pb-10 text-center">
           {/* Risk halkası */}
           <div className="hidden">
             <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 100 100">
@@ -166,7 +166,7 @@ export function AnalysisResultView({
           </h1>
 
           {/* Tek cümle özet */}
-          <p className="mt-5 max-w-xl text-base font-medium leading-relaxed text-foreground sm:text-lg">
+          <p className="mt-4 max-w-xl text-sm font-medium leading-relaxed text-foreground sm:mt-5 sm:text-base md:text-lg">
             {analysis.finalAdvice}
           </p>
 
