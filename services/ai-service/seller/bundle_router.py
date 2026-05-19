@@ -11,7 +11,8 @@ from mock.responses import get_mock_bundle_recommendations, is_mockable_gemini_e
 
 router = APIRouter()
 
-MODEL = "gemini-2.5-flash"
+BUNDLE_MODEL = os.getenv("GEMINI_BUNDLE_MODEL", "gemini-2.5-flash-lite").strip()
+BUNDLE_THINKING_BUDGET = int(os.getenv("GEMINI_BUNDLE_THINKING_BUDGET", "0"))
 
 
 class BundleCandidate(BaseModel):
@@ -104,7 +105,7 @@ def _recommend_sync(client: genai.Client, req: BundleRecommendRequest) -> AiBund
 
     prompt = _build_prompt(req)
     response = client.models.generate_content(
-        model=MODEL,
+        model=BUNDLE_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=(
@@ -114,7 +115,7 @@ def _recommend_sync(client: genai.Client, req: BundleRecommendRequest) -> AiBund
             ),
             response_mime_type="application/json",
             response_schema=AiBundleRecommendResponse,
-            thinking_config=types.ThinkingConfig(thinking_budget=512),
+            thinking_config=types.ThinkingConfig(thinking_budget=BUNDLE_THINKING_BUDGET),
         ),
     )
     return AiBundleRecommendResponse.model_validate_json(response.text)

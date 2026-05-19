@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
 import type { BundleRecommendation, CreateProductBundlePayload } from "@/lib/api/seller";
 import { formatSellerPrice } from "@/lib/format";
 
@@ -17,32 +16,17 @@ export function BundleSetupSheet({
   onClose: () => void;
   onSubmit: (payload: CreateProductBundlePayload) => void;
 }) {
-  const [title, setTitle] = useState("");
-  const [shortDescription, setShortDescription] = useState("");
-  const [campaignText, setCampaignText] = useState("");
-  const [ctaLabel, setCtaLabel] = useState("Paketi Sepete Ekle");
-  const [discountPercent, setDiscountPercent] = useState(5);
-
-  useEffect(() => {
-    if (!recommendation) return;
-    setTitle(recommendation.suggestedTitle);
-    setShortDescription(recommendation.suggestedShortDescription);
-    setCampaignText(recommendation.suggestedCampaignText);
-    setCtaLabel(recommendation.suggestedCtaLabel);
-    setDiscountPercent(recommendation.suggestedDiscountPercent);
-  }, [recommendation]);
-
   if (!recommendation) return null;
 
   function submit(publish: boolean) {
     if (!recommendation) return;
     onSubmit({
       complementaryProductId: recommendation.complementaryProduct.id,
-      title,
-      shortDescription,
-      campaignText,
-      ctaLabel,
-      discountPercent,
+      title: recommendation.suggestedTitle,
+      shortDescription: recommendation.suggestedShortDescription,
+      campaignText: recommendation.suggestedCampaignText,
+      ctaLabel: recommendation.suggestedCtaLabel,
+      discountPercent: recommendation.suggestedDiscountPercent,
       recommendationReason: recommendation.recommendationReason,
       score: recommendation.score,
       publish,
@@ -55,7 +39,7 @@ export function BundleSetupSheet({
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-bold text-lime-700 dark:text-lime-300">Paketi Hazırla</p>
-            <h2 className="mt-1 text-2xl font-black text-foreground">{title}</h2>
+            <h2 className="mt-1 text-2xl font-black text-foreground">{recommendation.suggestedTitle}</h2>
           </div>
           <button onClick={onClose} className="rounded-xl p-2 text-muted-foreground hover:bg-muted">
             <X className="size-5" />
@@ -85,37 +69,13 @@ export function BundleSetupSheet({
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[
-            { label: "Paket Adı", value: title, onChange: setTitle, colSpan: false },
-            { label: "İndirim (%)", value: discountPercent, onChange: (v: string) => setDiscountPercent(Number(v)), colSpan: false, type: "number" },
-          ].map((field) => (
-            <label key={field.label} className="space-y-1.5">
-              <span className="text-xs font-bold text-muted-foreground">{field.label}</span>
-              <input
-                type={field.type ?? "text"}
-                min={field.type === "number" ? 0 : undefined}
-                max={field.type === "number" ? 50 : undefined}
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-lime-500"
-              />
-            </label>
-          ))}
-          {[
-            { label: "Kısa Açıklama", value: shortDescription, onChange: setShortDescription },
-            { label: "Kampanya Metni", value: campaignText, onChange: setCampaignText },
-            { label: "CTA Butonu", value: ctaLabel, onChange: setCtaLabel },
-          ].map((field) => (
-            <label key={field.label} className="space-y-1.5 sm:col-span-2">
-              <span className="text-xs font-bold text-muted-foreground">{field.label}</span>
-              <input
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-lime-500"
-              />
-            </label>
-          ))}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ReadonlyField label="Paket Adı" value={recommendation.suggestedTitle} />
+          <ReadonlyField label="İndirim" value={`%${recommendation.suggestedDiscountPercent}`} />
+          <ReadonlyField label="Kısa Açıklama" value={recommendation.suggestedShortDescription} wide />
+          <ReadonlyField label="Kampanya Metni" value={recommendation.suggestedCampaignText} wide />
+          <ReadonlyField label="CTA Butonu" value={recommendation.suggestedCtaLabel} wide />
+          <ReadonlyField label="Öneri Nedeni" value={recommendation.recommendationReason} wide />
         </div>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
@@ -135,6 +95,15 @@ export function BundleSetupSheet({
           </button>
         </div>
       </aside>
+    </div>
+  );
+}
+
+function ReadonlyField({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={`rounded-xl border border-border bg-background px-4 py-3 ${wide ? "sm:col-span-2" : ""}`}>
+      <p className="text-xs font-bold text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-semibold leading-5 text-foreground">{value}</p>
     </div>
   );
 }
