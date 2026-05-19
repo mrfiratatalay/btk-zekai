@@ -12,7 +12,6 @@ import {
   Menu,
   ShieldCheck,
   Sparkles,
-  Star,
   Store,
   TrendingUp,
   Users,
@@ -26,68 +25,77 @@ const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://loc
 /* ── Data ────────────────────────────────────────────────────────────────── */
 const STATS = [
   { value: "8", label: "AI Ajan" },
-  { value: "30s", label: "Ortalama Analiz" },
-  { value: "%94", label: "Doğruluk Oranı" },
-  { value: "12", label: "Risk Ekseni" },
+  { value: "3", label: "Analiz Boyutu" },
+  { value: "5", label: "Müşteri Profili" },
+  { value: "1 tuş", label: "Mağazaya Uygula" },
 ];
 
 const FEATURES = [
   {
     icon: ShieldCheck,
     title: "Pişmanlık Riski Analizi",
-    description: "Yorum forensiği, fiyat geçmişi ve şikayet verileriyle satın alma riskinizi 30 saniyede hesaplıyoruz.",
+    description: "Yorum forensiği, fiyat geçmişi ve şikayet verileri birleştirilerek %0–100 risk skoru ve ALABİLİRSİN / DİKKATLİ İLERLE / ALTERNATİFE BAK kararı üretilir.",
     color: "#ADFF41",
+    audience: "Alıcı",
   },
   {
     icon: Bot,
-    title: "8 Ajan, 1 Karar",
-    description: "İhtiyaç Anlama'dan Doğrulama'ya uzanan çok adımlı agent akışı kanıtlanabilir sonuç üretir.",
+    title: "8 AI Ajan, Şeffaf Akış",
+    description: "Advisor → Market → Review → Price → Alternatives → Return Risk → Decision → Synthesis — her ajan ekranda izlenebilir, karar gerekçesi görülür.",
     color: "#10B981",
-  },
-  {
-    icon: TrendingUp,
-    title: "Seller Copilot",
-    description: "Ürün sayfalarını AI ile optimize et, güncellenmiş içeriği tek tuşla mağazana uygula.",
-    color: "#3B82F6",
-  },
-  {
-    icon: Users,
-    title: "Sentetik Müşteri Paneli",
-    description: "5 farklı alıcı profili simüle edilerek ürünün gerçek müşteri gözüyle nasıl göründüğü analiz edilir; her kararın gerekçesi sunulur.",
-    color: "#F59E0B",
+    audience: "Alıcı",
   },
   {
     icon: BarChart3,
-    title: "Fiyat & Pazar Analizi",
-    description: "Fiyat geçmişi, pazar medyanı ve sahte indirim sinyallerini gerçek verilerle karşılaştırıyoruz.",
+    title: "Karar Odası & Karşılaştırma",
+    description: "Birden fazla ürünü aynı projeye bağla, bütçe ve amaç belirle. 2-3 ürünü yan yana karşılaştır, AI hangi ürünün daha iyi fit olduğunu gerekçesiyle açıklar.",
     color: "#8B5CF6",
+    audience: "Alıcı",
   },
   {
-    icon: ShieldCheck,
-    title: "Güvenli & KVKK Uyumlu",
-    description: "Tüm veriler uçtan uca şifrelenir. KVKK ve GDPR uyumlu altyapı.",
+    icon: Users,
+    title: "Sentetik Müşteri Simülasyonu",
+    description: "5 farklı alıcı profili ürününü test eder; kimin neden satın alıp almadığını, hangi ürün öğesine (başlık, fiyat, garanti…) odaklandığını animasyonlu olarak gösterir.",
+    color: "#F59E0B",
+    audience: "Satıcı",
+  },
+  {
+    icon: TrendingUp,
+    title: "AI İçerik & Görsel Editörü",
+    description: "Simülasyon bulgularını kullanarak başlık, açıklama, teknik özellikler ve fiyatı AI ile yeniden yaz. 3 stil seçeneğiyle ürün görseli üret. Tek tuşla mağazana uygula.",
+    color: "#3B82F6",
+    audience: "Satıcı",
+  },
+  {
+    icon: Sparkles,
+    title: "Müşteri Sesi AI & Sosyal Medya",
+    description: "Yorum yanıtlarını ve FAQ önerilerini AI ile hazırla, onaylayıp mağazaya yayınla. Instagram, TikTok ve X için 3 ton ve 3 amaç seçeneğiyle içerik üret.",
     color: "#EC4899",
+    audience: "Satıcı",
   },
 ];
 
-const TESTIMONIALS = [
+const SCENARIOS = [
   {
-    name: "Ayşe Kaya",
-    role: "Ev Hanımı",
-    avatar: "https://i.pravatar.cc/150?img=5",
-    content: "Bir kulaklık almadan önce Zekai'yi kullandım. %62 pişmanlık riski göstermişti — satın almadım. Ay sonunda farklı ürünü aldım, hiç pişman olmadım.",
+    tag: "Alıcı Senaryosu",
+    tagColor: "#C1F25D",
+    icon: ShieldCheck,
+    title: "Kulaklık satın almadan önce",
+    content: "Ürün linki yapıştırıldı, ihtiyaç metni yazıldı. 8 ajan devreye girdi: yorum forensiğinde 18 mikrofon şikayeti bulundu, fiyat geçmişi sahte indirim paterni gösterdi. Pişmanlık Riski: %62 — Dikkatli İlerle.",
   },
   {
-    name: "Emre Demir",
-    role: "E-Ticaret Satıcısı",
-    avatar: "https://i.pravatar.cc/150?img=8",
-    content: "Müşteri simülasyonu çalıştırdım; 3 persona 'fiyat belirsiz' diye vazgeçmişti. AI ile başlığı ve açıklamayı düzelttim, bir sonraki üründe aynı hatayı yapmadım.",
+    tag: "Satıcı Senaryosu",
+    tagColor: "#3B82F6",
+    icon: Users,
+    title: "Ürün sayfası simülasyonu",
+    content: "5 sentetik müşteri profili ürünü test etti. 3 persona 'fiyat net değil' gerekçesiyle vazgeçti. AI, başlık ve açıklamayı optimize etti; güncellenmiş içerik tek tuşla mağazaya uygulandı.",
   },
   {
-    name: "Selin Arslan",
-    role: "Yazılım Geliştirici",
-    avatar: "https://i.pravatar.cc/150?img=9",
-    content: "Agentic workflow ekranını ilk gördüğümde çok etkilendim. 8 ajanın sırayla çalıştığını izlemek harika.",
+    tag: "Alıcı Senaryosu",
+    tagColor: "#C1F25D",
+    icon: Bot,
+    title: "8 ajan, şeffaf karar",
+    content: "İhtiyaç Anlama → Pazar Kontrolü → Yorum Analizi → Fiyat Kontrolü → Alternatif Önerisi → Pişmanlık Riski → Sentez — her adım ekranda izlenebilir, karar gerekçesi görülür.",
   },
 ];
 
@@ -104,25 +112,28 @@ const BUYER_STEPS = [
 ];
 
 const SELLER_STEPS = [
-  { step: "01", icon: Store, title: "Mağazanı bağla", desc: "Seller Studio'ya giriş yap, mevcut ürünlerini platforma ekle." },
-  { step: "02", icon: Users, title: "Müşteri simülasyonu", desc: "5 sentetik alıcı profili ürününü test eder; kimin neden satın alıp almadığını ve eksik noktaları gösterir." },
-  { step: "03", icon: TrendingUp, title: "Uygula ve yayınla", desc: "AI önerilerini tek tıkla ürün sayfana uygula, sosyal medya içeriğini hazır al." },
+  { step: "01", icon: Store, title: "Mağazanı bağla", desc: "Seller Studio'ya giriş yap, API key ile Akıllı Market mağazanı bağla ve ürünlerini platforma getir." },
+  { step: "02", icon: Users, title: "Simüle et & analiz et", desc: "5 sentetik müşteri profili ürününü test eder. Kimin neden satın aldığı, hangi öğenin (başlık, fiyat, garanti…) kararı etkilediği görülür. Müşteri yorumlarına AI yanıt taslakları üretilir." },
+  { step: "03", icon: TrendingUp, title: "Düzenle, yayınla, paylaş", desc: "AI ile başlık, açıklama ve görseli yenile; tek tuşla mağazana uygula. Instagram, TikTok ve X için içerik üret, müşteri sorularına FAQ oluştur." },
 ];
 
 const BUYER_BENEFITS = [
-  "Anlık pişmanlık riski skoru",
+  "8 AI ajanlı derin ürün analizi (Uygunluk, Güven, Fiyat)",
+  "Pişmanlık riski skoru — ALABİLİRSİN / DİKKATLİ İLERLE / ALTERNATİFE BAK",
   "Sahte indirim & fiyat manipülasyonu tespiti",
-  "8 AI ajanlı derin ürün analizi",
-  "Kişisel ihtiyaca göre alternatif önerisi",
-  "Yorum forensiği & güven skoru",
+  "Kişisel ihtiyaca göre alternatif ürün önerisi",
+  "Karar Odası — projeye göre ürün gruplayıp bütçe takibi",
+  "2-3 ürün yan yana karşılaştırma, AI karar gerekçesi",
+  "Analizleri kaydet, durum takibi yap (Düşünüyorum → Satın Aldım)",
 ];
 
 const SELLER_BENEFITS = [
-  "Sentetik müşteri simülasyonu (5 farklı profil)",
-  "Müşteri bazlı karar gerekçesi ve öneri",
-  "AI destekli başlık & açıklama optimizasyonu",
-  "AI ürün görseli üreteci",
-  "Sosyal medya içerik üreteci (Instagram, Twitter)",
+  "Sentetik müşteri simülasyonu — 5 profil, animasyonlu, canlı akış",
+  "Müşteri bazlı karar gerekçesi; hangi ürün öğesi kaybettiriyor",
+  "AI ile başlık, açıklama, teknik özellik ve fiyat düzenleme",
+  "AI ürün görseli üreteci (studio, unboxing, lifestyle stilleri)",
+  "Müşteri Sesi AI — yorum yanıtları ve FAQ'ları AI ile yayınla",
+  "Sosyal medya içerik üreteci — Instagram, TikTok, X",
 ];
 
 const NAV_LINKS = [
@@ -255,7 +266,7 @@ export function ZekaiLanding() {
               </h1>
               <p className="mb-8 mt-5 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
                 Zekai, e-ticarette her iki tarafın da doğru kararı vermesini sağlayan bağımsız bir AI platformudur.
-                Alıcılar için risk analizi, satıcılar için büyüme araçları — tek çatı altında.
+                Alıcılar için 8 ajanlı risk analizi, Karar Odası ve karşılaştırma motoru; satıcılar için müşteri simülasyonu, AI içerik editörü, Müşteri Sesi AI ve sosyal medya araçları — tek çatı altında.
               </p>
 
               <div className="flex flex-wrap gap-3">
@@ -281,17 +292,11 @@ export function ZekaiLanding() {
                 </span>
               </div>
 
-              <div className="mt-5 flex items-center gap-3">
-                <div className="flex">
-                  {[5, 8, 9, 11, 13].map((i) => (
-                    <img key={i} src={`https://i.pravatar.cc/150?img=${i}`}
-                      className="-ml-2 first:ml-0 size-9 rounded-full border-2 border-background object-cover" alt="" />
-                  ))}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">10.000+ kullanıcı</p>
-                  <p className="text-xs text-muted-foreground">⭐ 4.9 puan · 1.200+ yorum</p>
-                </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                  <Bot className="size-3.5" />
+                  Advisor · Market · Review · Price · Alternatives · Return Risk · Decision · Synthesis
+                </span>
               </div>
             </motion.div>
 
@@ -500,8 +505,17 @@ export function ZekaiLanding() {
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = f.color + "4D"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "transparent"; }}
                 >
-                  <div className="mb-5 flex size-12 sm:size-14 items-center justify-center rounded-2xl" style={{ backgroundColor: f.color + "1A", color: f.color }}>
-                    <Icon className="size-6 sm:size-7" />
+                  <div className="mb-4 flex items-start justify-between gap-2">
+                    <div className="flex size-12 sm:size-14 items-center justify-center rounded-2xl" style={{ backgroundColor: f.color + "1A", color: f.color }}>
+                      <Icon className="size-6 sm:size-7" />
+                    </div>
+                    <span className={`mt-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                      f.audience === "Alıcı"
+                        ? "bg-[#C1F25D]/15 text-[#5a8a00] dark:text-[#C1F25D]"
+                        : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                    }`}>
+                      {f.audience}
+                    </span>
                   </div>
                   <h3 className="mb-2 text-base sm:text-lg font-bold text-foreground">{f.title}</h3>
                   <p className="text-sm leading-relaxed text-muted-foreground">{f.description}</p>
@@ -577,32 +591,34 @@ export function ZekaiLanding() {
         </div>
       </section>
 
-      {/* ── Testimonials ─────────────────────────────────────────────────── */}
+      {/* ── Scenarios ────────────────────────────────────────────────────── */}
       <section className="border-y border-border bg-card py-16 sm:py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 sm:mb-14 text-center">
-            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">KULLANICI YORUMLARI</p>
-            <h2 className="text-3xl font-bold text-foreground md:text-4xl">Ne Diyorlar?</h2>
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#C1F25D]">ÖRNEK SENARYOLAR</p>
+            <h2 className="text-3xl font-bold text-foreground md:text-4xl">Gerçekte Ne Oluyor?</h2>
+            <p className="mx-auto mt-3 max-w-lg text-sm sm:text-base text-muted-foreground">
+              Zekai&apos;nin alıcı ve satıcı akışlarının gerçek çıktıları.
+            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="rounded-3xl border border-border bg-background p-5 sm:p-7" style={{ borderRadius: "24px" }}>
-                <div className="mb-4 flex gap-0.5">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="size-4 fill-amber-400 text-amber-400" />
-                  ))}
+            {SCENARIOS.map((s) => {
+              const Icon = s.icon;
+              return (
+                <div key={s.title} className="rounded-3xl border border-border bg-background p-5 sm:p-7" style={{ borderRadius: "24px" }}>
+                  <span
+                    className="mb-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold"
+                    style={{ backgroundColor: s.tagColor + "1A", color: s.tagColor === "#C1F25D" ? "#5a8a00" : s.tagColor }}
+                  >
+                    <Icon className="size-3.5" />
+                    {s.tag}
+                  </span>
+                  <h3 className="mb-3 text-base font-bold text-foreground">{s.title}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{s.content}</p>
                 </div>
-                <p className="mb-5 text-sm leading-relaxed text-muted-foreground">&ldquo;{t.content}&rdquo;</p>
-                <div className="flex items-center gap-3">
-                  <img src={t.avatar} className="size-10 sm:size-11 rounded-full object-cover" alt={t.name} />
-                  <div>
-                    <p className="font-semibold text-foreground">{t.name}</p>
-                    <p className="text-xs text-muted-foreground">{t.role}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
