@@ -1,7 +1,7 @@
 # ZekAI — AI Destekli E-Ticaret Karar Platformu
 
-> **HackAthon'26** | BTK Akademi × Google × Girişimcilik Vakfı  
-> Tema: E-Ticaret Odaklı Yapay Zeka Uygulaması  
+> **HackAthon'26** | BTK Akademi × Google × Girişimcilik Vakfı
+> Tema: E-Ticaret Odaklı Yapay Zeka Uygulaması
 > Temel AI: Google Gemini 2.5 Flash + Google ADK
 
 ---
@@ -279,7 +279,7 @@ Commerce API, ZekAI API ve AI Service Render'da Docker container olarak çalış
 
 ### Servisler Arası Güvenlik
 - Frontend hiçbir zaman AI service'e doğrudan gitmez; her şey zekai-api üzerinden proxy'lenir.
-- İki servisin JWT token'ları tamamen bağımsızdır.
+- İki servisin  JWT token'ları tamamen bağımsızdır.
 - Satıcının Akıllı Market bağlantısı zekai-api'deki `SellerStoreConnection` tablosunda JWT token olarak saklanır.
 
 ---
