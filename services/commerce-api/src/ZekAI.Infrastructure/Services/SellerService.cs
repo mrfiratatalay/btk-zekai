@@ -360,7 +360,7 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
         return imageUrl;
     }
 
-    public async Task<SocialMediaContentDto> GenerateSocialContentAsync(Guid userId, string productId, string tone)
+    public async Task<SocialMediaContentDto> GenerateSocialContentAsync(Guid userId, string productId, GenerateSocialContentRequest req)
     {
         var seller = await GetSellerByUserIdAsync(userId);
         var sp = await db.SellerProducts
@@ -372,52 +372,10 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
             .FirstOrDefaultAsync(p => p.Id == productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
-        var title = product.Title;
-        var category = product.Category?.Name ?? "Ürün";
-        var price = product.Price.ToString("N0");
-
-        var (instagram, tiktokJson, twitter) = tone switch
-        {
-            "profesyonel" => (
-                $"{title} ile farkı hissedin.\n\n{category} kategorisinde üstün kalite ve güvenilir performans. " +
-                $"Her detayda mükemmellik arayan profesyoneller için.\n\n" +
-                $"₺{price} · Ücretsiz Kargo · Hızlı Teslimat\n\n#Profesyonel #Kalite #{category.Replace(" ", "")}",
-                JsonSerializer.Serialize(new[]
-                {
-                    new { time = "00:00-00:03", text = $"{title} — profesyonel seçim." },
-                    new { time = "00:03-00:08", text = $"Üstün kalite, güvenilir performans." },
-                    new { time = "00:08-00:15", text = $"₺{price} ile şimdi sahip ol. Link bio'da." },
-                }),
-                $"{title} — {category} kategorisinde profesyonel tercih. " +
-                $"Kalite ve performansta taviz yok. ₺{price} · Ücretsiz Kargo"
-            ),
-            "mizahi" => (
-                $"Bunu almazsanız pişman olursunuz (söz!) 😅\n\n{title} kapınıza kadar gelsin, " +
-                $"siz sadece unboxing videosunu çekin 🎉\n\n" +
-                $"₺{price} · Kargo bizden · Gülümseme garantili 😄\n\n#{category.Replace(" ", "")} #AlışverişKeyfi #ÜcretsizKargo",
-                JsonSerializer.Serialize(new[]
-                {
-                    new { time = "00:00-00:03", text = $"Bunu görünce duramadım 😂" },
-                    new { time = "00:03-00:08", text = $"{title} — {category} dünyasını değiştirir!" },
-                    new { time = "00:08-00:15", text = $"₺{price} mi? Yani bu bir şaka mı? 😅 Al gitsin!" },
-                }),
-                $"Fiyatı görünce ben de şaşırdım 😂 {title} sadece ₺{price}! " +
-                $"Hızlı ol, stok bitmeden kapısından gir 🏃‍♂️ #{category.Replace(" ", "")}"
-            ),
-            _ => (
-                $"{title} ile hayatın kolaylaşsın 💫\n\n{category} kategorisinde seni bekleyen " +
-                $"bu harika ürünü keşfet. Kaliteli, uygun fiyatlı ve hızlı teslimat!\n\n" +
-                $"₺{price} · Ücretsiz Kargo\n\n#{category.Replace(" ", "")} #ÜcretsizKargo #AkıllıAlışveriş",
-                JsonSerializer.Serialize(new[]
-                {
-                    new { time = "00:00-00:03", text = $"Merhaba! Sana harika bir ürün tanıtacağım 🎉" },
-                    new { time = "00:03-00:08", text = $"{title} — kaliteli, uygun fiyatlı!" },
-                    new { time = "00:08-00:15", text = $"₺{price} ile hemen sipariş ver, ücretsiz kargo!" },
-                }),
-                $"Aradığın ürünü buldun! {title} ile {category.ToLower()} deneyimini yükselt. " +
-                $"₺{price} + ücretsiz kargo 🚀 #{category.Replace(" ", "")}"
-            )
-        };
+        var tone = NormalizeTone(req.Tone);
+        var purpose = NormalizePurpose(req.Purpose);
+        var platforms = NormalizePlatforms(req.Platforms);
+        var fallback = BuildFallbackSocialContent(product.Title, product.Category?.Name ?? "Ürün", product.Price, tone, purpose, platforms);
 
         var existing = await db.SocialMediaContents
             .FirstOrDefaultAsync(s => s.SellerId == seller.Id && s.ProductId == productId && s.Tone == tone);
@@ -433,18 +391,14 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
             db.SocialMediaContents.Add(existing);
         }
 
-        existing.InstagramContent = instagram;
-        existing.TiktokScriptJson = tiktokJson;
-        existing.TwitterContent = twitter;
+        existing.InstagramContent = fallback.Instagram is null ? "" : JsonSerializer.Serialize(fallback.Instagram);
+        existing.TiktokScriptJson = fallback.Tiktok is null ? "" : JsonSerializer.Serialize(fallback.Tiktok);
+        existing.TwitterContent = fallback.Twitter is null ? "" : JsonSerializer.Serialize(fallback.Twitter);
         existing.GeneratedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
 
-        var scenes = JsonSerializer.Deserialize<List<JsonElement>>(tiktokJson)!
-            .Select(e => new TiktokScene(e.GetProperty("time").GetString()!, e.GetProperty("text").GetString()!))
-            .ToList();
-
-        return new SocialMediaContentDto(tone, instagram, scenes, twitter, existing.GeneratedAt);
+        return new SocialMediaContentDto(tone, purpose, platforms, fallback.Instagram, fallback.Tiktok, fallback.Twitter, existing.GeneratedAt);
     }
 
     public async Task<SocialMediaContentDto> SaveSocialContentAsync(Guid userId, string productId, SaveSocialContentRequest req)
@@ -469,18 +423,167 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
             db.SocialMediaContents.Add(existing);
         }
 
-        existing.InstagramContent = req.Instagram;
-        existing.TiktokScriptJson = req.TiktokScriptJson;
-        existing.TwitterContent = req.Twitter;
+        var instagram = req.Instagram ?? DeserializeInstagram(existing.InstagramContent);
+        var tiktok = req.Tiktok ?? DeserializeTiktok(existing.TiktokScriptJson);
+        var twitter = req.Twitter ?? DeserializeTwitter(existing.TwitterContent);
+
+        if (req.Instagram is not null)
+            existing.InstagramContent = JsonSerializer.Serialize(req.Instagram);
+        if (req.Tiktok is not null)
+            existing.TiktokScriptJson = JsonSerializer.Serialize(req.Tiktok);
+        if (req.Twitter is not null)
+            existing.TwitterContent = JsonSerializer.Serialize(req.Twitter);
         existing.GeneratedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
 
-        var scenes = JsonSerializer.Deserialize<List<JsonElement>>(req.TiktokScriptJson)!
-            .Select(e => new TiktokScene(e.GetProperty("time").GetString()!, e.GetProperty("text").GetString()!))
-            .ToList();
+        var platforms = NormalizePlatforms(req.Platforms);
+        if (req.Platforms.Count == 0)
+        {
+            platforms = [];
+            if (instagram is not null) platforms.Add("instagram");
+            if (tiktok is not null) platforms.Add("tiktok");
+            if (twitter is not null) platforms.Add("twitter");
+        }
 
-        return new SocialMediaContentDto(req.Tone, req.Instagram, scenes, req.Twitter, existing.GeneratedAt);
+        return new SocialMediaContentDto(
+            NormalizeTone(req.Tone),
+            NormalizePurpose(req.Purpose),
+            platforms,
+            instagram,
+            tiktok,
+            twitter,
+            existing.GeneratedAt);
+    }
+
+    private static string NormalizeTone(string? tone)
+    {
+        var value = string.IsNullOrWhiteSpace(tone) ? "samimi" : tone.Trim().ToLowerInvariant();
+        return value is "profesyonel" or "samimi" or "mizahi" ? value : "samimi";
+    }
+
+    private static string NormalizePurpose(string? purpose)
+    {
+        var value = string.IsNullOrWhiteSpace(purpose) ? "guven" : purpose.Trim().ToLowerInvariant();
+        return value is "satis" or "guven" or "tanitim" ? value : "guven";
+    }
+
+    private static List<string> NormalizePlatforms(List<string>? platforms)
+    {
+        var result = new List<string>();
+        foreach (var raw in platforms ?? [])
+        {
+            var key = raw.Trim().ToLowerInvariant();
+            if (key is "x") key = "twitter";
+            if ((key is "instagram" or "tiktok" or "twitter") && !result.Contains(key))
+                result.Add(key);
+        }
+        return result.Count > 0 ? result : ["instagram"];
+    }
+
+    private static SocialMediaContentDto BuildFallbackSocialContent(
+        string title,
+        string category,
+        decimal price,
+        string tone,
+        string purpose,
+        List<string> platforms)
+    {
+        var priceText = price.ToString("N0");
+        SocialInstagramContentDto? instagram = null;
+        SocialTiktokContentDto? tiktok = null;
+        SocialTwitterContentDto? twitter = null;
+
+        if (platforms.Contains("instagram"))
+        {
+            instagram = new SocialInstagramContentDto(
+                $"{title} ile ihtiyacına güvenilir bir çözüm ekle.\n\n{category} kategorisinde pratik kullanım, net fayda ve hızlı teslimat bir arada. ₺{priceText} fiyatıyla mağazada seni bekliyor.",
+                ["#alışveriş", "#kalite", "#güvenlialışveriş", $"#{category.Replace(" ", "")}", "#zekai"],
+                "Ürünü şimdi incele.",
+                "Her An Yanınızda, Her An Güvende"
+            );
+        }
+
+        if (platforms.Contains("tiktok"))
+        {
+            tiktok = new SocialTiktokContentDto(
+                "Bu ürünü görünce alışveriş listen değişebilir.",
+                [
+                    new SocialTiktokSceneDto("Sahne 1", $"{title} yakın planda gösterilir ve ihtiyaç hızlıca kurulur."),
+                    new SocialTiktokSceneDto("Sahne 2", $"{category} kullanım senaryosunda ürünün ana faydası anlatılır."),
+                    new SocialTiktokSceneDto("Sahne 3", $"₺{priceText} fiyat, stok ve inceleme çağrısı ile kapanış yapılır."),
+                ],
+                $"{title} ile günlük ihtiyacına pratik bir çözüm ekle. Ürünü incele, kararını rahat ver.",
+                ["#ZekAI", "#Ürünİncelemesi", "#AkıllıAlışveriş", $"#{category.Replace(" ", "")}"]
+            );
+        }
+
+        if (platforms.Contains("twitter"))
+        {
+            twitter = new SocialTwitterContentDto(
+                $"{title} şimdi ₺{priceText}. {category} kategorisinde net fayda, pratik kullanım ve güvenli alışveriş deneyimi arayanlar için.",
+                ["#alışveriş", "#fırsat"],
+                "Ürünü incele"
+            );
+        }
+
+        return new SocialMediaContentDto(tone, purpose, platforms, instagram, tiktok, twitter, DateTime.UtcNow);
+    }
+
+    private static SocialInstagramContentDto? DeserializeInstagram(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<SocialInstagramContentDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (parsed is not null) return parsed;
+        }
+        catch (JsonException) { }
+
+        var lines = json.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var hashtags = lines.Where(l => l.StartsWith('#')).SelectMany(l => l.Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToList();
+        var caption = string.Join("\n", lines.Where(l => !l.StartsWith('#')));
+        return new SocialInstagramContentDto(caption, hashtags, "Ürünü şimdi incele.", "");
+    }
+
+    private static SocialTiktokContentDto? DeserializeTiktok(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<SocialTiktokContentDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (parsed is not null) return parsed;
+        }
+        catch (JsonException) { }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return null;
+            var scenes = doc.RootElement.EnumerateArray()
+                .Select((e, index) => new SocialTiktokSceneDto(
+                    e.TryGetProperty("time", out var time) ? time.GetString() ?? $"Sahne {index + 1}" : $"Sahne {index + 1}",
+                    e.TryGetProperty("text", out var text) ? text.GetString() ?? "" : ""))
+                .ToList();
+            return new SocialTiktokContentDto(scenes.FirstOrDefault()?.Description ?? "", scenes, "", []);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static SocialTwitterContentDto? DeserializeTwitter(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<SocialTwitterContentDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (parsed is not null) return parsed;
+        }
+        catch (JsonException) { }
+
+        return new SocialTwitterContentDto(json, [], "Ürünü incele");
     }
 
     public async Task<List<ProductBundleDto>> GetBundlesAsync(Guid userId, string productId)

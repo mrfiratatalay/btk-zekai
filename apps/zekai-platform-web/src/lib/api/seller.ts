@@ -53,23 +53,56 @@ export const getSellerProducts = () => apiFetch<SellerProduct[]>("/api/seller/pr
 export const getSellerProduct = (id: string) =>
   apiFetch<SellerProduct>(`/api/seller/products/${id}`);
 
-export interface TiktokScene {
-  time: string;
-  text: string;
+export type SocialPlatform = "instagram" | "tiktok" | "twitter";
+export type SocialTone = "profesyonel" | "samimi" | "mizahi";
+export type SocialPurpose = "satis" | "guven" | "tanitim";
+
+export interface SocialInstagramContent {
+  caption: string;
+  hashtags: string[];
+  cta: string;
+  overlayText: string;
+}
+
+export interface SocialTiktokScene {
+  title: string;
+  description: string;
+}
+
+export interface SocialTiktokContent {
+  hook: string;
+  scenes: SocialTiktokScene[];
+  caption: string;
+  hashtags: string[];
+}
+
+export interface SocialTwitterContent {
+  post: string;
+  hashtags: string[];
+  cta: string;
 }
 
 export interface SocialMediaContent {
   tone: string;
-  instagram: string;
-  tiktok: TiktokScene[];
-  twitter: string;
+  purpose: string;
+  platforms: SocialPlatform[];
+  instagram: SocialInstagramContent | null;
+  tiktok: SocialTiktokContent | null;
+  twitter: SocialTwitterContent | null;
   generatedAt: string;
+  _mock?: boolean;
 }
 
-export const generateSocialContent = (productId: string, tone: string) =>
+export interface GenerateSocialContentPayload {
+  tone: SocialTone;
+  purpose: SocialPurpose;
+  platforms: SocialPlatform[];
+}
+
+export const generateSocialContent = (productId: string, payload: GenerateSocialContentPayload) =>
   apiFetch<SocialMediaContent>(`/api/seller/products/${productId}/social-content`, {
     method: "POST",
-    body: JSON.stringify({ tone }),
+    body: JSON.stringify(payload),
   });
 
 export interface BundleProduct {

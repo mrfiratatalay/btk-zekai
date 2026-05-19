@@ -5,18 +5,31 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import errors as genai_errors, types
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from mock.responses import is_mockable_gemini_error, get_mock_social_content
 
 router = APIRouter()
 
-MODEL = "gemini-2.5-flash"
+MODEL = os.getenv("GEMINI_SOCIAL_MODEL", "gemini-2.5-flash-lite").strip()
+THINKING_BUDGET = int(os.getenv("GEMINI_SOCIAL_THINKING_BUDGET", "0"))
 
 TONE_INSTRUCTIONS = {
     "profesyonel": "Profesyonel, kurumsal ve güvenilir bir ton. Marka itibarını öne çıkar, teknik değerleri vurgula.",
     "samimi": "Samimi, sıcak ve arkadaşça bir ton. Alıcıya doğrudan konuş, doğal bir dil kullan.",
     "mizahi": "Eğlenceli, mizahi ve neşeli bir ton. Emoji kullan, espri yap ama ürünün değerini düşürme.",
+}
+
+PURPOSE_INSTRUCTIONS = {
+    "satis": "Satışı artır: faydayı, fiyat algısını ve hızlı aksiyonu öne çıkar.",
+    "guven": "Güven oluştur: risk azaltan, iç rahatlatan ve kanıt odaklı mesajlar kullan.",
+    "tanitim": "Ürün tanıtımı: temel özellikleri, kullanım senaryosunu ve farkını anlaşılır anlat.",
+}
+
+PLATFORM_LABELS = {
+    "instagram": "Instagram",
+    "tiktok": "TikTok / Reels",
+    "twitter": "X",
 }
 
 
@@ -26,30 +39,43 @@ class SocialContentRequest(BaseModel):
     price: float
     description: str | None = None
     features: list[str] = []
-    tone: str  # profesyonel | samimi | mizahi
+    tone: str
+    purpose: str = "guven"
+    platforms: list[str] = Field(default_factory=lambda: ["instagram", "tiktok", "twitter"])
+
+
+class InstagramContent(BaseModel):
+    caption: str
+    hashtags: list[str]
+    cta: str
+    overlay_text: str
 
 
 class TiktokScene(BaseModel):
-    time: str
-    text: str
+    title: str
+    description: str
+
+
+class TiktokContent(BaseModel):
+    hook: str
+    scenes: list[TiktokScene]
+    caption: str
+    hashtags: list[str]
+
+
+class TwitterContent(BaseModel):
+    post: str
+    hashtags: list[str]
+    cta: str
 
 
 class SocialContentResponse(BaseModel):
-    instagram: str
-    tiktok: list[TiktokScene]
-    twitter: str
-
-
-class _InstagramOutput(BaseModel):
-    caption: str
-
-
-class _TiktokOutput(BaseModel):
-    scenes: list[TiktokScene]
-
-
-class _TwitterOutput(BaseModel):
-    tweet: str
+    tone: str
+    purpose: str
+    platforms: list[str]
+    instagram: InstagramContent | None = None
+    tiktok: TiktokContent | None = None
+    twitter: TwitterContent | None = None
 
 
 def _get_client() -> genai.Client:
@@ -57,6 +83,17 @@ def _get_client() -> genai.Client:
     if not api_key or api_key == "your_google_api_key_here":
         raise HTTPException(status_code=503, detail="GOOGLE_API_KEY tanımlı değil.")
     return genai.Client(api_key=api_key)
+
+
+def _normalize_platforms(platforms: list[str]) -> list[str]:
+    normalized = []
+    for platform in platforms:
+        key = platform.lower().strip()
+        if key in {"x", "twitter"}:
+            key = "twitter"
+        if key in PLATFORM_LABELS and key not in normalized:
+            normalized.append(key)
+    return normalized or ["instagram"]
 
 
 def _product_context(req: SocialContentRequest) -> str:
@@ -71,105 +108,64 @@ def _product_context(req: SocialContentRequest) -> str:
     )
 
 
-def _generate_instagram_sync(client: genai.Client, req: SocialContentRequest) -> str:
+def _generate_sync(client: genai.Client, req: SocialContentRequest) -> SocialContentResponse:
+    platforms = _normalize_platforms(req.platforms)
     tone = TONE_INSTRUCTIONS.get(req.tone, TONE_INSTRUCTIONS["samimi"])
+    purpose = PURPOSE_INSTRUCTIONS.get(req.purpose, PURPOSE_INSTRUCTIONS["guven"])
+    platform_text = ", ".join(PLATFORM_LABELS[p] for p in platforms)
+
     prompt = (
-        f"Şu ürün için bir Instagram gönderisi yaz:\n{_product_context(req)}\n\n"
-        f"Ton: {tone}\n\n"
-        "Kurallar:\n"
-        "- 280-400 karakter arası\n"
-        "- 4-6 emoji stratejik yerlerde\n"
-        "- 6-10 alakalı Türkçe hashtag (# ile)\n"
-        "- İlk cümle dikkat çekici hook olmalı\n"
-        "- Ürünün faydası ve duygusu öne çıksın"
+        f"Aşağıdaki Türk e-ticaret ürünü için seçilen platformlara özel Türkçe sosyal medya içerikleri üret.\n\n"
+        f"{_product_context(req)}\n\n"
+        f"Ton: {tone}\n"
+        f"Amaç: {purpose}\n"
+        f"Platformlar: {platform_text}\n\n"
+        "KURALLAR (MUTLAKA UY):\n"
+        "- Sadece seçilen platformlar için içerik üret; diğerlerini null bırak.\n"
+        "- Her platform için tüm alanları DOLU döndür, hiçbirini boş bırakma.\n"
+        "- Instagram: caption 300-420 karakter, 5-8 hashtag (#ile), kısa CTA cümlesi, overlay_text max 50 karakter.\n"
+        "- TikTok: dikkat çeken hook cümlesi, tam olarak 3 sahne (title+description), caption, 3-5 hashtag.\n"
+        "- X: 220 karakteri geçmeyen post, 1-3 hashtag, kısa CTA.\n"
+        "- Türkçe yaz. Satıcının direkt kullanabileceği içerik üret."
     )
+
     response = client.models.generate_content(
         model=MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=(
-                "Sen bir Instagram e-ticaret içerik uzmanısın. "
-                "Yüksek etkileşim getiren, görsel hikaye anlatan, satışa yönlendiren Türkçe içerikler üretirsin. "
-                "Asla robota benzeyen, her zaman insancıl ve özgün yazarsın."
+                "Sen Türk e-ticaret satıcıları için platforma özel sosyal medya içeriği üreten uzman bir içerik stratejistisin. "
+                "Her platform için eksiksiz ve dolu içerik üretirsin. Hiçbir alanı boş bırakmazsın."
             ),
             response_mime_type="application/json",
-            response_schema=_InstagramOutput,
-            thinking_config=types.ThinkingConfig(thinking_budget=512),
+            response_schema=SocialContentResponse,
+            thinking_config=types.ThinkingConfig(thinking_budget=THINKING_BUDGET),
         ),
     )
-    return _InstagramOutput.model_validate_json(response.text).caption
 
-
-def _generate_tiktok_sync(client: genai.Client, req: SocialContentRequest) -> list[TiktokScene]:
-    tone = TONE_INSTRUCTIONS.get(req.tone, TONE_INSTRUCTIONS["samimi"])
-    prompt = (
-        f"Şu ürün için bir TikTok video scripti yaz:\n{_product_context(req)}\n\n"
-        f"Ton: {tone}\n\n"
-        "Kurallar:\n"
-        "- Tam olarak 3 sahne üret\n"
-        "- Sahne süreleri: '00:00-00:03', '00:03-00:09', '00:09-00:15'\n"
-        "- Sahne 1 (hook): İzleyiciyi 3 saniyede yakala — soru, şok, ya da merak\n"
-        "- Sahne 2 (body): Ürünün ana faydasını göster/anlat\n"
-        "- Sahne 3 (CTA): Harekete geçirici çağrı, fiyat veya teklif"
-    )
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=(
-                "Sen bir TikTok video script yazarısın. "
-                "Hook-Body-CTA yapısına sıkı sıkıya bağlısın. "
-                "Her sahne en fazla 2 cümle, direkt ve enerjik. "
-                "Sahne metni ekrandaki seslendirme/yazı için optimize edilmiş."
-            ),
-            response_mime_type="application/json",
-            response_schema=_TiktokOutput,
-            thinking_config=types.ThinkingConfig(thinking_budget=512),
-        ),
-    )
-    return _TiktokOutput.model_validate_json(response.text).scenes
-
-
-def _generate_twitter_sync(client: genai.Client, req: SocialContentRequest) -> str:
-    tone = TONE_INSTRUCTIONS.get(req.tone, TONE_INSTRUCTIONS["samimi"])
-    prompt = (
-        f"Şu ürün için bir Twitter/X gönderisi yaz:\n{_product_context(req)}\n\n"
-        f"Ton: {tone}"
-    )
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=(
-                "Sen 280 karakter sınırında çalışan bir e-ticaret copywriter'sın. "
-                "Her kelime değer taşımalı. Yapı: güçlü hook (1 cümle) + ürün faydası + fiyat/teklif + 1-2 hashtag. "
-                "Hiçbir zaman 270 karakteri geçme. URL için yer bırak."
-            ),
-            response_mime_type="application/json",
-            response_schema=_TwitterOutput,
-            thinking_config=types.ThinkingConfig(thinking_budget=512),
-        ),
-    )
-    return _TwitterOutput.model_validate_json(response.text).tweet
+    result = SocialContentResponse.model_validate_json(response.text)
+    result.tone = req.tone
+    result.purpose = req.purpose
+    result.platforms = platforms
+    return result
 
 
 @router.post("/social-content", response_model=SocialContentResponse)
 async def generate_social_content(req: SocialContentRequest):
-    client = _get_client()
+    api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+    if not api_key or api_key == "your_google_api_key_here":
+        return JSONResponse(content=get_mock_social_content(
+            req.product_title, req.category, req.price,
+            req.tone, req.purpose, _normalize_platforms(req.platforms),
+        ))
 
+    client = genai.Client(api_key=api_key)
     try:
-        instagram, tiktok_scenes, twitter = await asyncio.gather(
-            asyncio.to_thread(_generate_instagram_sync, client, req),
-            asyncio.to_thread(_generate_tiktok_sync, client, req),
-            asyncio.to_thread(_generate_twitter_sync, client, req),
-        )
+        return await asyncio.to_thread(_generate_sync, client, req)
     except genai_errors.APIError as exc:
         if is_mockable_gemini_error(exc):
-            return JSONResponse(content=get_mock_social_content(req.product_title, req.category, req.price))
+            return JSONResponse(content=get_mock_social_content(
+                req.product_title, req.category, req.price,
+                req.tone, req.purpose, _normalize_platforms(req.platforms),
+            ))
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
-
-    return SocialContentResponse(
-        instagram=instagram,
-        tiktok=tiktok_scenes,
-        twitter=twitter,
-    )

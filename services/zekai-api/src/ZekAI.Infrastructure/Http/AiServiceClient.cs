@@ -28,7 +28,7 @@ public class AiServiceClient(HttpClient http)
 
     public async Task<AiSocialContentResult?> GenerateSocialContentAsync(
         string productTitle, string category, decimal price,
-        string? description, List<string> features, string tone)
+        string? description, List<string> features, string tone, string purpose, List<string> platforms)
     {
         var payload = new
         {
@@ -38,6 +38,8 @@ public class AiServiceClient(HttpClient http)
             description,
             features,
             tone,
+            purpose,
+            platforms,
         };
 
         var response = await http.PostAsJsonAsync("/seller/social-content", payload, JsonOpts);
@@ -146,12 +148,35 @@ public class AiServiceException(int statusCode, string responseBody) : Exception
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
-public record AiTiktokScene(string Time, string Text);
+public record AiInstagramContent(
+    string Caption,
+    List<string> Hashtags,
+    string Cta,
+    string OverlayText
+);
+
+public record AiTiktokScene(string Title, string Description);
+
+public record AiTiktokContent(
+    string Hook,
+    List<AiTiktokScene> Scenes,
+    string Caption,
+    List<string> Hashtags
+);
+
+public record AiTwitterContent(
+    string Post,
+    List<string> Hashtags,
+    string Cta
+);
 
 public record AiSocialContentResult(
-    string Instagram,
-    List<AiTiktokScene> Tiktok,
-    string Twitter,
+    string Tone,
+    string Purpose,
+    List<string> Platforms,
+    AiInstagramContent? Instagram,
+    AiTiktokContent? Tiktok,
+    AiTwitterContent? Twitter,
     [property: JsonPropertyName("_mock")] bool Mock = false
 );
 

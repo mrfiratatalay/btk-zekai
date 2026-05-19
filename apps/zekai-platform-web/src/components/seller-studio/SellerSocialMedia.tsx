@@ -2,205 +2,865 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
+  Bookmark,
   Briefcase,
+  Camera,
   Check,
   ChevronRight,
+  Clapperboard,
   Copy,
+  Edit3,
+  FileText,
   Heart,
   Loader2,
+  MessageCircle,
   Package,
   RefreshCw,
-  Share2,
+  ShieldCheck,
   Smile,
   Sparkles,
+  Trash2,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useMockStore } from "@/lib/store/mock-store";
+import { cn } from "@/lib/utils";
 import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
-import { generateSocialContent, type SocialMediaContent } from "@/lib/api/seller";
+import {
+  generateSocialContent,
+  type SocialInstagramContent,
+  type SocialMediaContent,
+  type SocialPlatform,
+  type SocialPurpose,
+  type SocialTiktokContent,
+  type SocialTone,
+  type SocialTwitterContent,
+} from "@/lib/api/seller";
 
-type Tone = "profesyonel" | "samimi" | "mizahi";
+// ─── Draft types & helpers ────────────────────────────────────────────────────
 
-const TONES: { key: Tone; label: string; Icon: LucideIcon }[] = [
+interface SocialDraft {
+  id: string;
+  productId: string;
+  content: SocialMediaContent;
+  savedAt: string;
+}
+
+function loadDraftsFromStorage(productId: string): SocialDraft[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem("zekai_social_drafts");
+    const all: SocialDraft[] = raw ? JSON.parse(raw) : [];
+    return all.filter((d) => d.productId === productId).slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
+function persistDrafts(productDrafts: SocialDraft[], productId: string) {
+  try {
+    const raw = localStorage.getItem("zekai_social_drafts");
+    const all: SocialDraft[] = raw ? JSON.parse(raw) : [];
+    const other = all.filter((d) => d.productId !== productId);
+    localStorage.setItem(
+      "zekai_social_drafts",
+      JSON.stringify([...productDrafts, ...other]),
+    );
+  } catch {
+    // ignore
+  }
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const TONES: { key: SocialTone; label: string; Icon: LucideIcon }[] = [
   { key: "profesyonel", label: "Profesyonel", Icon: Briefcase },
   { key: "samimi", label: "Samimi", Icon: Heart },
   { key: "mizahi", label: "Mizahi", Icon: Smile },
 ];
 
-/* ── Platform SVG ikonları ─────────────────────────────────────── */
-function IgIcon() {
-  return (
-    <svg viewBox="0 0 32 32" className="size-8 shrink-0" fill="none">
-      <defs>
-        <linearGradient id="ig2" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#f09433" />
-          <stop offset="30%" stopColor="#e6683c" />
-          <stop offset="55%" stopColor="#dc2743" />
-          <stop offset="78%" stopColor="#cc2366" />
-          <stop offset="100%" stopColor="#bc1888" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="9" fill="url(#ig2)" />
-      <circle cx="16" cy="16" r="5.5" stroke="white" strokeWidth="2" fill="none" />
-      <circle cx="22.5" cy="9.5" r="1.5" fill="white" />
-    </svg>
-  );
-}
-function TkIcon() {
-  return (
-    <svg viewBox="0 0 32 32" className="size-8 shrink-0" fill="none">
-      <rect width="32" height="32" rx="9" fill="#010101" />
-      <path
-        d="M21 10.2c-.9-.6-1.6-1.5-1.9-2.7h-2.7v11.7c0 1.3-1 2.3-2.3 2.3s-2.3-1-2.3-2.3 1-2.3 2.3-2.3c.2 0 .5 0 .7.1v-2.8c-.2 0-.4-.1-.7-.1C11.5 14.1 9 16.6 9 19.7s2.5 5.6 5.6 5.6 5.6-2.5 5.6-5.6V13c1 .7 2.2 1.1 3.5 1.1v-2.6c-.7 0-1.9-.4-2.7-1.3z"
-        fill="white"
-      />
-    </svg>
-  );
-}
-function XIcon() {
-  return (
-    <svg viewBox="0 0 32 32" className="size-8 shrink-0" fill="none">
-      <rect width="32" height="32" rx="9" fill="#000" />
-      <path
-        d="M22 9h-2.8l-3 3.8L13.4 9H9l5 6.5L9 23h2.8l3.3-4.1L18.6 23H23l-5.3-6.9L22 9z"
-        fill="white"
-      />
-    </svg>
-  );
+const PURPOSES: { key: SocialPurpose; label: string; Icon: LucideIcon }[] = [
+  { key: "satis", label: "Satışı artır", Icon: TrendingUp },
+  { key: "guven", label: "Güven oluştur", Icon: ShieldCheck },
+  { key: "tanitim", label: "Ürün tanıtımı", Icon: Package },
+];
+
+const PLATFORMS: {
+  key: SocialPlatform;
+  label: string;
+  shortLabel: string;
+  Icon: LucideIcon;
+}[] = [
+  { key: "instagram", label: "Instagram", shortLabel: "Instagram", Icon: Camera },
+  { key: "tiktok", label: "TikTok / Reels", shortLabel: "TikTok / Reels", Icon: Clapperboard },
+  { key: "twitter", label: "X", shortLabel: "X", Icon: MessageCircle },
+];
+
+function platformLabel(platform: SocialPlatform) {
+  return PLATFORMS.find((item) => item.key === platform)?.label ?? platform;
 }
 
-/* ── Kopyala butonu ─────────────────────────────────────────────── */
-function CopyButton({ text }: { text: string }) {
+// ─── Formatters ───────────────────────────────────────────────────────────────
+
+function splitTags(tags: string) {
+  return tags
+    .split(/\s+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function formatTags(tags: string[] | null | undefined) {
+  return (tags ?? []).join(" ");
+}
+
+function formatInstagram(content: SocialInstagramContent) {
+  return [content.caption, formatTags(content.hashtags), content.cta, content.overlayText]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function formatTiktok(content: SocialTiktokContent) {
+  return [
+    `Hook: ${content.hook}`,
+    ...(content.scenes ?? []).map((scene) => `${scene.title}: ${scene.description}`),
+    `Caption: ${content.caption}`,
+    `Hashtagler: ${formatTags(content.hashtags)}`,
+  ].join("\n");
+}
+
+function formatTwitter(content: SocialTwitterContent) {
+  return [content.post, formatTags(content.hashtags), content.cta].filter(Boolean).join("\n");
+}
+
+function formatAll(content: SocialMediaContent) {
+  const parts: string[] = [];
+  if (content.instagram) parts.push(`Instagram\n${formatInstagram(content.instagram)}`);
+  if (content.tiktok) parts.push(`TikTok / Reels\n${formatTiktok(content.tiktok)}`);
+  if (content.twitter) parts.push(`X\n${formatTwitter(content.twitter)}`);
+  return parts.join("\n\n---\n\n");
+}
+
+function platformIsReady(content: SocialMediaContent | null, platform: SocialPlatform) {
+  return Boolean(content?.[platform]);
+}
+
+// ─── Small reusable components ────────────────────────────────────────────────
+
+function CopyButton({ text, label = "Kopyala", className }: { text: string; label?: string; className?: string }) {
   const [copied, setCopied] = useState(false);
+
   async function handleCopy() {
     await navigator.clipboard.writeText(text);
     setCopied(true);
-    toast.success("Kopyalandı!");
-    setTimeout(() => setCopied(false), 2000);
+    toast.success("Kopyalandı.");
+    setTimeout(() => setCopied(false), 1600);
   }
+
   return (
     <button
+      type="button"
       onClick={handleCopy}
-      className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+      className={cn(
+        "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+        className,
+      )}
     >
-      {copied
-        ? <><Check className="size-3 text-green-500" /><span className="text-green-600 dark:text-green-400">Kopyalandı</span></>
-        : <><Copy className="size-3" />Kopyala</>}
+      {copied ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
+      {copied ? "Kopyalandı" : label}
     </button>
   );
 }
 
-/* ── Platform bölümü — Apple'ın "Settings" listesi gibi ───────── */
-function PlatformRow({
-  icon,
+function OptionButton({
+  active,
+  onClick,
+  Icon,
   label,
-  children,
-  action,
-  loading,
 }: {
-  icon: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+  Icon: LucideIcon;
   label: string;
-  children?: React.ReactNode;
-  action?: React.ReactNode;
-  loading?: boolean;
 }) {
   return (
-    <div className="flex gap-4 py-5">
-      {/* Sol: ikon */}
-      <div className="mt-0.5 shrink-0">{icon}</div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-all",
+        active
+          ? "border-green-500 bg-green-500/10 text-green-700 shadow-[0_0_0_1px_rgba(34,197,94,0.18)] dark:text-green-400"
+          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      <Icon className="size-4" />
+      {label}
+    </button>
+  );
+}
 
-      {/* Orta: başlık + içerik */}
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <p className="font-semibold text-foreground">{label}</p>
-          {action}
+function LabeledInput({ label, value, onChange }: { label: string; value: string | null | undefined; onChange: (value: string) => void }) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <input
+        value={value ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 rounded-lg border border-border bg-card px-3 text-sm outline-none transition-colors focus:border-green-500"
+      />
+    </label>
+  );
+}
+
+function LabeledTextarea({ label, value, onChange }: { label: string; value: string | null | undefined; onChange: (value: string) => void }) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <textarea
+        value={value ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-20 resize-none rounded-lg border border-border bg-card px-3 py-3 text-sm leading-6 outline-none transition-colors focus:border-green-500"
+      />
+    </label>
+  );
+}
+
+function ContentRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[220px_1fr]">
+      <div className="flex items-center gap-3 text-sm font-bold text-foreground">
+        {icon}
+        {label}
+      </div>
+      <p className="text-sm leading-6 text-muted-foreground">{value}</p>
+    </div>
+  );
+}
+
+// ─── ProductSummary ───────────────────────────────────────────────────────────
+
+function ProductSummary({ product }: { product: SellerProductPerformance }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center gap-4">
+        <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
+          {product.image ? (
+            <Image src={product.image} alt={product.title} fill className="object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Package className="size-5 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-bold text-foreground">{product.title}</h2>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>{product.category}</span>
+            <span className="font-semibold text-foreground">{formatSellerPrice(product.price)}</span>
+            <span>Stok: <span className="font-semibold text-green-600">{product.stock}</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SettingsPanel ────────────────────────────────────────────────────────────
+
+function SettingsPanel({
+  tone,
+  purpose,
+  selectedPlatforms,
+  generating,
+  onToneChange,
+  onPurposeChange,
+  onTogglePlatform,
+  onGenerate,
+}: {
+  tone: SocialTone;
+  purpose: SocialPurpose;
+  selectedPlatforms: SocialPlatform[];
+  generating: boolean;
+  onToneChange: (tone: SocialTone) => void;
+  onPurposeChange: (purpose: SocialPurpose) => void;
+  onTogglePlatform: (platform: SocialPlatform) => void;
+  onGenerate: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <h2 className="text-base font-bold text-foreground">İçerik Ayarları</h2>
+
+      <div className="mt-5 grid gap-5">
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ton</p>
+          <div className="flex flex-wrap gap-2">
+            {TONES.map(({ key, label, Icon }) => (
+              <OptionButton key={key} active={tone === key} onClick={() => onToneChange(key)} Icon={Icon} label={label} />
+            ))}
+          </div>
         </div>
 
-        {loading ? (
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin text-green-500" />
-              İçerik hazırlanıyor...
+        <div className="h-px bg-border" />
+
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amaç</p>
+          <div className="flex flex-wrap gap-2">
+            {PURPOSES.map(({ key, label, Icon }) => (
+              <OptionButton key={key} active={purpose === key} onClick={() => onPurposeChange(key)} Icon={Icon} label={label} />
+            ))}
+          </div>
+        </div>
+
+        <div className="h-px bg-border" />
+
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Platformlar</p>
+          <div className="flex flex-wrap gap-4">
+            {PLATFORMS.map(({ key, label, Icon }) => {
+              const checked = selectedPlatforms.includes(key);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onTogglePlatform(key)}
+                  className="inline-flex items-center gap-2.5 text-sm font-bold text-foreground"
+                >
+                  <span
+                    className={cn(
+                      "flex size-5 items-center justify-center rounded-md border transition-colors",
+                      checked ? "border-green-500 bg-green-500 text-white" : "border-border bg-background text-transparent",
+                    )}
+                  >
+                    <Check className="size-3.5" />
+                  </span>
+                  <Icon className={cn("size-5", checked ? "text-foreground" : "text-muted-foreground")} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onGenerate}
+          disabled={generating || selectedPlatforms.length === 0}
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-6 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {generating ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Üretiliyor...
+            </>
+          ) : (
+            <>
+              <Sparkles className="size-4" />
+              {selectedPlatforms.length === 0
+                ? "Platform Seç"
+                : `${selectedPlatforms.length} Platform İçin Üret`}
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── EmptyContentState ────────────────────────────────────────────────────────
+
+function EmptyContentState() {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 py-20 text-center">
+      <Sparkles className="size-10 text-muted-foreground" />
+      <h3 className="mt-4 text-base font-bold text-foreground">İçerik henüz üretilmedi</h3>
+      <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+        Sol panelden ton, amaç ve platformları seçip "Üret" butonuna bas.
+      </p>
+    </div>
+  );
+}
+
+// ─── EditableFields ───────────────────────────────────────────────────────────
+
+function EditableFields({
+  fields,
+}: {
+  fields: {
+    label: string;
+    value: string | null | undefined;
+    max: number;
+    multiline?: boolean;
+    onChange: (value: string) => void;
+  }[];
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-background p-5">
+      <div className="grid gap-4">
+        {fields.map((field) => {
+          const safeValue = field.value ?? "";
+          return (
+            <div key={field.label} className="grid gap-2 md:grid-cols-[130px_1fr]">
+              <label className="pt-3 text-sm font-semibold text-foreground">{field.label}</label>
+              <div>
+                {field.multiline ? (
+                  <textarea
+                    value={safeValue}
+                    onChange={(event) => field.onChange(event.target.value)}
+                    className="min-h-36 w-full resize-none rounded-lg border border-border bg-card px-3 py-3 text-sm leading-6 outline-none transition-colors focus:border-green-500"
+                  />
+                ) : (
+                  <input
+                    value={safeValue}
+                    onChange={(event) => field.onChange(event.target.value)}
+                    className="h-11 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none transition-colors focus:border-green-500"
+                  />
+                )}
+                <p className="mt-1 text-right text-xs text-muted-foreground">
+                  {safeValue.length} / {field.max}
+                </p>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <div className="h-2 w-full animate-pulse rounded-full bg-muted" />
-              <div className="h-2 w-4/5 animate-pulse rounded-full bg-muted" />
-              <div className="h-2 w-3/5 animate-pulse rounded-full bg-muted" />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── InstagramPreview ─────────────────────────────────────────────────────────
+
+function InstagramPreview({
+  product,
+  content,
+  onChange,
+}: {
+  product: SellerProductPerformance;
+  content: SocialInstagramContent;
+  onChange: (content: SocialInstagramContent) => void;
+}) {
+  return (
+    <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+      <div className="rounded-2xl border border-border bg-background p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-full bg-green-600 text-xs font-black text-white">ME</div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-foreground">Mehmet Elektronik</p>
+          </div>
+          <span className="text-xl leading-none text-muted-foreground">...</span>
+        </div>
+        <div className="relative mt-4 aspect-square overflow-hidden rounded-xl bg-muted">
+          {product.image ? (
+            <Image src={product.image} alt={product.title} fill className="object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Package className="size-10 text-muted-foreground" />
+            </div>
+          )}
+          {content.overlayText && (
+            <div className="absolute inset-x-4 bottom-4 rounded-lg bg-black/55 px-3 py-2 text-center text-sm font-bold text-white">
+              {content.overlayText}
+            </div>
+          )}
+        </div>
+        <div className="mt-4 flex items-center justify-between text-foreground">
+          <div className="flex gap-4">
+            <Heart className="size-6" />
+            <MessageCircle className="size-6" />
+            <Camera className="size-6" />
+          </div>
+          <Bookmark className="size-6" />
+        </div>
+        <p className="mt-4 whitespace-pre-line text-sm leading-6 text-foreground">{content.caption}</p>
+        <p className="mt-2 text-sm leading-6 text-green-700 dark:text-green-400">{formatTags(content.hashtags)}</p>
+      </div>
+
+      <EditableFields
+        fields={[
+          {
+            label: "Caption",
+            value: content.caption,
+            max: 2200,
+            multiline: true,
+            onChange: (value) => onChange({ ...content, caption: value }),
+          },
+          {
+            label: "Hashtagler",
+            value: formatTags(content.hashtags),
+            max: 500,
+            onChange: (value) => onChange({ ...content, hashtags: splitTags(value) }),
+          },
+          {
+            label: "CTA",
+            value: content.cta,
+            max: 150,
+            onChange: (value) => onChange({ ...content, cta: value }),
+          },
+          {
+            label: "Görsel Üstü Yazı",
+            value: content.overlayText,
+            max: 80,
+            onChange: (value) => onChange({ ...content, overlayText: value }),
+          },
+        ]}
+      />
+    </div>
+  );
+}
+
+// ─── TiktokPreview ────────────────────────────────────────────────────────────
+
+function TiktokPreview({
+  product,
+  content,
+  onChange,
+}: {
+  product: SellerProductPerformance;
+  content: SocialTiktokContent;
+  onChange: (content: SocialTiktokContent) => void;
+}) {
+  return (
+    <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+      <div className="mx-auto w-full max-w-[330px] rounded-[2rem] border border-border bg-black p-3 shadow-sm">
+        <div className="relative aspect-[9/16] overflow-hidden rounded-[1.55rem] bg-neutral-900">
+          {product.image ? (
+            <Image src={product.image} alt={product.title} fill className="object-cover opacity-70" />
+          ) : null}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/10 to-black/70" />
+          <div className="absolute left-5 top-6 text-sm font-bold text-white">9:41</div>
+          <div className="absolute left-6 right-14 top-24 text-2xl font-black leading-tight text-white">{content.hook}</div>
+          <div className="absolute bottom-7 left-6 right-16">
+            <p className="text-sm font-bold text-white">zekai.urunleri</p>
+            <p className="mt-2 line-clamp-2 text-sm text-white">{content.caption}</p>
+          </div>
+          <div className="absolute bottom-20 right-4 grid gap-5 text-center text-xs font-bold text-white">
+            <Heart className="size-7 fill-white" />
+            <MessageCircle className="size-7" />
+            <Bookmark className="size-7" />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-background p-5">
+        <h3 className="text-base font-bold text-foreground">Reels Video Fikri</h3>
+        <div className="mt-4 overflow-hidden rounded-xl border border-border">
+          <ContentRow icon={<Sparkles className="size-4 text-green-600" />} label="Hook" value={content.hook} />
+          {(content.scenes ?? []).map((scene, index) => (
+            <ContentRow
+              key={`${scene.title}-${index}`}
+              icon={<Clapperboard className="size-4 text-green-600" />}
+              label={scene.title}
+              value={scene.description}
+            />
+          ))}
+          <ContentRow icon={<Edit3 className="size-4 text-green-600" />} label="Caption" value={content.caption} />
+          <ContentRow icon={<MessageCircle className="size-4 text-green-600" />} label="Hashtagler" value={formatTags(content.hashtags)} />
+        </div>
+        <div className="mt-5 grid gap-4">
+          <LabeledTextarea label="Hook" value={content.hook} onChange={(value) => onChange({ ...content, hook: value })} />
+          {(content.scenes ?? []).map((scene, index) => (
+            <LabeledTextarea
+              key={index}
+              label={scene.title || `Sahne ${index + 1}`}
+              value={scene.description}
+              onChange={(value) => {
+                const scenes = [...(content.scenes ?? [])];
+                scenes[index] = { ...scene, description: value };
+                onChange({ ...content, scenes });
+              }}
+            />
+          ))}
+          <LabeledTextarea label="Caption" value={content.caption} onChange={(value) => onChange({ ...content, caption: value })} />
+          <LabeledInput
+            label="Hashtagler"
+            value={formatTags(content.hashtags)}
+            onChange={(value) => onChange({ ...content, hashtags: splitTags(value) })}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TwitterPreview ───────────────────────────────────────────────────────────
+
+function TwitterPreview({
+  content,
+  generatedContent,
+  onChange,
+}: {
+  content: SocialTwitterContent;
+  generatedContent: SocialMediaContent;
+  onChange: (content: SocialTwitterContent) => void;
+}) {
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="rounded-2xl border border-border bg-background p-5">
+        <div className="flex items-start gap-3">
+          <div className="flex size-11 items-center justify-center rounded-full bg-black text-lg font-black text-white">X</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-foreground">Mehmet Elektronik</p>
+              <p className="text-sm text-muted-foreground">@mehmetelektronik</p>
+            </div>
+            <p className="mt-3 whitespace-pre-line text-lg leading-8 text-foreground">{content.post}</p>
+            <p className="mt-3 text-sm text-green-700 dark:text-green-400">{formatTags(content.hashtags)}</p>
+            <div className="mt-5 flex items-center gap-8 text-sm text-muted-foreground">
+              <span>128 yanıt</span>
+              <span>2.4B görüntülenme</span>
+              <span>486 beğeni</span>
             </div>
           </div>
-        ) : (
-          children
+        </div>
+        <div className="mt-6 grid gap-4">
+          <LabeledTextarea label="Post" value={content.post} onChange={(value) => onChange({ ...content, post: value })} />
+          <LabeledInput
+            label="Hashtagler"
+            value={formatTags(content.hashtags)}
+            onChange={(value) => onChange({ ...content, hashtags: splitTags(value) })}
+          />
+          <LabeledInput label="CTA" value={content.cta} onChange={(value) => onChange({ ...content, cta: value })} />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-background p-5">
+        <h3 className="text-base font-bold text-foreground">İçerik Paketi Özeti</h3>
+        <div className="mt-5 space-y-3">
+          {PLATFORMS.map(({ key, label, Icon }) => (
+            <div key={key} className="flex items-center justify-between rounded-xl border border-border px-3 py-3">
+              <div className="flex items-center gap-3">
+                <Icon className="size-5 text-muted-foreground" />
+                <span className="text-sm font-semibold text-foreground">{label}</span>
+              </div>
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-bold",
+                  platformIsReady(generatedContent, key)
+                    ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {platformIsReady(generatedContent, key) ? "Hazır" : "Seçilmedi"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── GeneratedPanel ───────────────────────────────────────────────────────────
+
+function GeneratedPanel({
+  product,
+  content,
+  activePlatform,
+  regeneratingPlatform,
+  onActivePlatformChange,
+  onUpdateContent,
+  onRegeneratePlatform,
+  onSaveDraft,
+}: {
+  product: SellerProductPerformance;
+  content: SocialMediaContent;
+  activePlatform: SocialPlatform;
+  regeneratingPlatform: SocialPlatform | null;
+  onActivePlatformChange: (platform: SocialPlatform) => void;
+  onUpdateContent: (content: SocialMediaContent) => void;
+  onRegeneratePlatform: (platform: SocialPlatform) => void;
+  onSaveDraft: () => void;
+}) {
+  const readyPlatforms = PLATFORMS.filter(({ key }) => platformIsReady(content, key));
+  const activeText = useMemo(() => {
+    if (activePlatform === "instagram" && content.instagram) return formatInstagram(content.instagram);
+    if (activePlatform === "tiktok" && content.tiktok) return formatTiktok(content.tiktok);
+    if (activePlatform === "twitter" && content.twitter) return formatTwitter(content.twitter);
+    return "";
+  }, [activePlatform, content]);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm">
+      <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-bold text-foreground">Üretilen İçerikler</h2>
+          <div className="mt-4 flex flex-wrap gap-1 border-b border-border">
+            {readyPlatforms.map(({ key, label, Icon }) => (
+              <button
+                type="button"
+                key={key}
+                onClick={() => onActivePlatformChange(key)}
+                className={cn(
+                  "inline-flex h-10 items-center gap-2 border-b-2 px-4 text-sm font-bold transition-colors",
+                  activePlatform === key
+                    ? "border-green-500 text-green-700 dark:text-green-400"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="size-5" />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <CopyButton text={formatAll(content)} label="Tümünü Kopyala" />
+          <button
+            type="button"
+            onClick={onSaveDraft}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-green-500 bg-background px-4 text-sm font-semibold text-green-700 transition-colors hover:bg-green-500/10 dark:text-green-400"
+          >
+            <Bookmark className="size-4" />
+            Taslak Olarak Kaydet
+          </button>
+        </div>
+      </div>
+
+      <div className="p-5">
+        {activePlatform === "instagram" && content.instagram && (
+          <InstagramPreview
+            product={product}
+            content={content.instagram}
+            onChange={(instagram) => onUpdateContent({ ...content, instagram })}
+          />
         )}
+        {activePlatform === "tiktok" && content.tiktok && (
+          <TiktokPreview product={product} content={content.tiktok} onChange={(tiktok) => onUpdateContent({ ...content, tiktok })} />
+        )}
+        {activePlatform === "twitter" && content.twitter && (
+          <TwitterPreview
+            content={content.twitter}
+            generatedContent={content}
+            onChange={(twitter) => onUpdateContent({ ...content, twitter })}
+          />
+        )}
+
+        <div className="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_260px]">
+          <CopyButton text={activeText} />
+          <button
+            type="button"
+            onClick={() => toast.info("Alanları doğrudan düzenleyebilirsin.")}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Edit3 className="size-4" />
+            Düzenle
+          </button>
+          <button
+            type="button"
+            onClick={() => onRegeneratePlatform(activePlatform)}
+            disabled={regeneratingPlatform === activePlatform}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-bold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {regeneratingPlatform === activePlatform ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            {platformLabel(activePlatform)}&apos;ı Yeniden Üret
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ── Instagram içerik görünümü ──────────────────────────────────── */
-function InstagramContent({ content }: { content: string }) {
-  const lines = content.split("\n");
-  const hashIdx = lines.findIndex((l) => l.startsWith("#"));
-  const body = hashIdx > 0 ? lines.slice(0, hashIdx).join("\n").trim() : content;
-  const tags = hashIdx > 0 ? lines.slice(hashIdx).join(" ") : "";
-  const full = content;
-  return (
-    <div className="space-y-2">
-      <p className="text-sm leading-relaxed text-foreground whitespace-pre-line">{body}</p>
-      {tags && <p className="text-sm text-green-600 dark:text-green-400">{tags}</p>}
-      <CopyButton text={full} />
-    </div>
-  );
-}
+// ─── DraftsSection ────────────────────────────────────────────────────────────
 
-/* ── TikTok içerik görünümü ─────────────────────────────────────── */
-function TiktokContent({ scenes }: { scenes: { time: string; text: string }[] }) {
-  const full = scenes.map((s) => `${s.time}  ${s.text}`).join("\n");
+function DraftsSection({
+  drafts,
+  onLoadDraft,
+  onDeleteDraft,
+}: {
+  drafts: SocialDraft[];
+  onLoadDraft: (draft: SocialDraft) => void;
+  onDeleteDraft: (id: string) => void;
+}) {
   return (
-    <div className="space-y-2">
-      <div className="space-y-2">
-        {scenes.map((s) => (
-          <div key={s.time} className="flex gap-3 text-sm">
-            <span className="shrink-0 font-mono text-xs font-semibold text-green-500 dark:text-green-400 pt-px">
-              {s.time}
-            </span>
-            <span className="text-foreground">{s.text}</span>
-          </div>
-        ))}
+    <div className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <FileText className="size-5 text-muted-foreground" />
+        <div>
+          <h2 className="text-base font-bold text-foreground">Taslaklar</h2>
+          <p className="text-xs text-muted-foreground">Kaydettiğin içerik paketleri</p>
+        </div>
       </div>
-      <CopyButton text={full} />
+
+      <div className="mt-5 space-y-3">
+        {drafts.map((draft) => {
+          const platformNames = (draft.content.platforms ?? [])
+            .map((p) => platformLabel(p as SocialPlatform))
+            .join(", ");
+          const date = new Date(draft.savedAt).toLocaleString("tr-TR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return (
+            <div
+              key={draft.id}
+              className="flex items-center justify-between gap-4 rounded-xl border border-border px-4 py-3"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">{platformNames}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{date}</p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onLoadDraft(draft)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-green-600 px-3 text-xs font-bold text-white transition-colors hover:bg-green-700"
+                >
+                  Yükle
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDeleteDraft(draft.id)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-/* ── Twitter içerik görünümü ────────────────────────────────────── */
-function TwitterContent({ content }: { content: string }) {
-  return (
-    <div className="space-y-2">
-      <p className="text-sm leading-relaxed text-foreground">{content}</p>
-      <CopyButton text={content} />
-    </div>
-  );
-}
+// ─── Main export ──────────────────────────────────────────────────────────────
 
-/* ── Ana bileşen ────────────────────────────────────────────────── */
 export function SellerSocialMedia({ product }: { product: SellerProductPerformance }) {
-  const [tone, setTone] = useState<Tone>("samimi");
+  const [tone, setTone] = useState<SocialTone>("samimi");
+  const [purpose, setPurpose] = useState<SocialPurpose>("guven");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([]);
+  const [activePlatform, setActivePlatform] = useState<SocialPlatform>("instagram");
   const [generating, setGenerating] = useState(false);
+  const [regeneratingPlatform, setRegeneratingPlatform] = useState<SocialPlatform | null>(null);
   const [content, setContent] = useState<SocialMediaContent | null>(null);
-  const hasGenerated = content !== null;
-  const isMockMode = useMockStore((s) => s.isMockMode);
+  const [drafts, setDrafts] = useState<SocialDraft[]>(() => loadDraftsFromStorage(product.id));
+
+  function togglePlatform(platform: SocialPlatform) {
+    setSelectedPlatforms((current) =>
+      current.includes(platform)
+        ? current.filter((item) => item !== platform)
+        : [...current, platform],
+    );
+  }
 
   async function handleGenerate() {
     setGenerating(true);
     try {
-      const result = await generateSocialContent(product.id, tone);
+      const result = await generateSocialContent(product.id, { tone, purpose, platforms: selectedPlatforms });
       setContent(result);
-      toast.success("3 platform için içerik üretildi.");
+      setActivePlatform(selectedPlatforms[0] ?? "instagram");
+      toast.success(`${selectedPlatforms.length} platform için içerik üretildi.`);
     } catch {
       toast.error("İçerik üretilemedi, lütfen tekrar dene.");
     } finally {
@@ -208,181 +868,133 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
     }
   }
 
-  async function handleRegenerate() {
-    setContent(null);
-    await handleGenerate();
+  async function handleRegeneratePlatform(platform: SocialPlatform) {
+    setRegeneratingPlatform(platform);
+    try {
+      const result = await generateSocialContent(product.id, { tone, purpose, platforms: [platform] });
+      setContent((current) => {
+        if (!current) return result;
+        return {
+          ...current,
+          [platform]: result[platform],
+          generatedAt: result.generatedAt,
+          platforms: Array.from(new Set([...current.platforms, platform])) as SocialPlatform[],
+          _mock: result._mock ?? current._mock,
+        };
+      });
+      toast.success(`${platformLabel(platform)} yeniden üretildi.`);
+    } catch {
+      toast.error("Platform içeriği yeniden üretilemedi.");
+    } finally {
+      setRegeneratingPlatform(null);
+    }
+  }
+
+  function handleSaveDraft() {
+    if (!content) return;
+    const newDraft: SocialDraft = {
+      id: Date.now().toString(),
+      productId: product.id,
+      content,
+      savedAt: new Date().toISOString(),
+    };
+    setDrafts((current) => {
+      const updated = [newDraft, ...current].slice(0, 10);
+      persistDrafts(updated, product.id);
+      return updated;
+    });
+    toast.success("Taslak kaydedildi.");
+  }
+
+  function handleLoadDraft(draft: SocialDraft) {
+    setContent(draft.content);
+    setActivePlatform(draft.content.platforms[0] ?? "instagram");
+    toast.success("Taslak yüklendi.");
+  }
+
+  function handleDeleteDraft(draftId: string) {
+    setDrafts((current) => {
+      const updated = current.filter((d) => d.id !== draftId);
+      persistDrafts(updated, product.id);
+      return updated;
+    });
   }
 
   return (
     <div className="pb-16">
-      {/* Demo mod uyarısı */}
-      {isMockMode && hasGenerated && (
+      {/* Mock alert */}
+      {content?._mock && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-400">
           <AlertTriangle className="size-4 shrink-0" />
-          Demo mod — Gemini API kapasitesi geçici olarak doldu. Bu içerik gerçek AI çıktısı değil, örnek veridir. Daha sonra tekrar deneyin.
+          Demo mod aktif. Bu içerik gerçek AI çıktısı olmayabilir.
         </div>
       )}
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link href="/seller/products" className="transition-colors hover:text-gray-700 dark:hover:text-gray-200">
-          Ürünlerim
-        </Link>
-        <ChevronRight className="size-3.5" />
-        <Link
-          href={`/seller/product/${product.id}`}
-          className="max-w-[160px] truncate transition-colors hover:text-gray-700 dark:hover:text-gray-200"
-        >
-          {product.title}
-        </Link>
-        <ChevronRight className="size-3.5" />
-        <span className="text-foreground">Sosyal Medya İçeriği</span>
-      </div>
-
-      {/* Sayfa başlığı */}
-      <div className="mt-6 mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Sosyal Medya İçeriği
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ürünün için 3 platforma uygun içerik oluştur ve kopyala.
-        </p>
-      </div>
-
-      {/* Ürün özeti — minimalist, tek satır */}
-      <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
-        <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
-          {product.image
-            ? <Image src={product.image} alt={product.title} fill className="object-contain p-1" />
-            : <div className="flex h-full items-center justify-center"><Package className="size-4 text-gray-300" /></div>
-          }
+      {/* Breadcrumb + title (full width, sticky at top of scroll area) */}
+      <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-background/95 px-4 pt-4 pb-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8 lg:pt-8 border-b border-border mb-6">
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Link href="/seller/products" className="transition-colors hover:text-foreground">
+            Ürünlerim
+          </Link>
+          <ChevronRight className="size-3.5" />
+          <Link href={`/seller/product/${product.id}`} className="max-w-[220px] truncate transition-colors hover:text-foreground">
+            {product.title}
+          </Link>
+          <ChevronRight className="size-3.5" />
+          <span className="text-foreground">Sosyal Medya İçeriği</span>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">{product.title}</p>
-          <p className="text-xs text-muted-foreground">{product.category} · {formatSellerPrice(product.price)}</p>
-        </div>
-      </div>
-
-      {/* Ton seçimi + Üret aksiyonu */}
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
-
-        {/* Ton seçici */}
-        <div className="px-5 py-4">
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ton Seçimi</p>
-          <div className="flex flex-wrap gap-2">
-            {TONES.map(({ key, label, Icon }) => (
-              <button
-                key={key}
-                onClick={() => setTone(key)}
-                className={`flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
-                  tone === key
-                    ? "border-green-300 bg-green-50 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-400"
-                    : "border-border bg-background text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <Icon className="size-3.5" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Aksiyon butonu — border-t ile ayrılmış, SellerAIEdit pattern */}
-        {!hasGenerated ? (
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-border py-3.5 text-sm font-semibold text-green-600 transition-colors hover:bg-green-500/8 disabled:cursor-not-allowed disabled:opacity-50 dark:text-green-400"
-          >
-            {generating
-              ? <><Loader2 className="size-4 animate-spin" />Üretiliyor...</>
-              : <><Sparkles className="size-4" />İçerik Üret</>}
-          </button>
-        ) : (
-          <button
-            onClick={handleRegenerate}
-            disabled={generating}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 border-t border-border py-3.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
-          >
-            <RefreshCw className={`size-4 ${generating ? "animate-spin" : ""}`} />
-            Yeniden Üret
-          </button>
-        )}
-      </div>
-
-      {/* Başarı satırı */}
-      {hasGenerated && (
-        <div className="mt-4 flex items-center gap-2 px-1">
-          <div className="flex size-4 items-center justify-center rounded-full bg-green-500">
-            <Check className="size-2.5 text-white" />
-          </div>
-          <p className="text-sm text-green-600 dark:text-green-400">
-            3 platform için içerik üretildi.
+        <div className="mt-3">
+          <h1 className="text-2xl font-black tracking-tight text-foreground">Sosyal Medya İçeriği</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ürünün için seçili platformlara uygun pazarlama içeriği oluştur.
           </p>
         </div>
-      )}
+      </div>
 
-      {/* Platform listesi — Apple Settings benzeri, divider'lı tek kart */}
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
-
-        {/* Instagram */}
-        <div className="px-5">
-          <PlatformRow
-            icon={<IgIcon />}
-            label="Instagram"
-            loading={generating}
-            action={hasGenerated && content ? <CopyButton text={content.instagram} /> : undefined}
-          >
-            {hasGenerated && content && <InstagramContent content={content.instagram} />}
-            {!hasGenerated && !generating && (
-              <p className="text-sm text-muted-foreground/40">İçerik üretilmedi</p>
-            )}
-          </PlatformRow>
+      {/* Two-column layout: sticky settings (left) + content (right) */}
+      <div className="grid gap-6 lg:grid-cols-[320px_1fr] lg:items-start">
+        {/* Left sticky column */}
+        <div className="space-y-4 lg:sticky lg:top-0 lg:self-start">
+          <ProductSummary product={product} />
+          <SettingsPanel
+            tone={tone}
+            purpose={purpose}
+            selectedPlatforms={selectedPlatforms}
+            generating={generating}
+            onToneChange={setTone}
+            onPurposeChange={setPurpose}
+            onTogglePlatform={togglePlatform}
+            onGenerate={handleGenerate}
+          />
         </div>
 
-        <div className="mx-5 border-t border-border" />
-
-        {/* TikTok */}
-        <div className="px-5">
-          <PlatformRow
-            icon={<TkIcon />}
-            label="TikTok / Reels"
-            loading={generating}
-            action={hasGenerated && content ? <CopyButton text={content.tiktok.map(s => `${s.time}  ${s.text}`).join("\n")} /> : undefined}
-          >
-            {hasGenerated && content && <TiktokContent scenes={content.tiktok} />}
-            {!hasGenerated && !generating && (
-              <p className="text-sm text-muted-foreground/40">İçerik üretilmedi</p>
-            )}
-          </PlatformRow>
-        </div>
-
-        <div className="mx-5 border-t border-border" />
-
-        {/* Twitter */}
-        <div className="px-5">
-          <PlatformRow
-            icon={<XIcon />}
-            label="X (Twitter)"
-            loading={generating}
-            action={hasGenerated && content ? <CopyButton text={content.twitter} /> : undefined}
-          >
-            {hasGenerated && content && <TwitterContent content={content.twitter} />}
-            {!hasGenerated && !generating && (
-              <p className="text-sm text-muted-foreground/40">İçerik üretilmedi</p>
-            )}
-          </PlatformRow>
+        {/* Right column */}
+        <div>
+          {content ? (
+            <GeneratedPanel
+              product={product}
+              content={content}
+              activePlatform={activePlatform}
+              regeneratingPlatform={regeneratingPlatform}
+              onActivePlatformChange={setActivePlatform}
+              onUpdateContent={(nextContent) => setContent(nextContent)}
+              onRegeneratePlatform={handleRegeneratePlatform}
+              onSaveDraft={handleSaveDraft}
+            />
+          ) : (
+            <EmptyContentState />
+          )}
         </div>
       </div>
 
-      {/* Alt bilgi */}
-      {!hasGenerated && !generating && (
-        <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-          <Share2 className="size-3.5" />
-          Ürün başlığı, kategori ve açıklaması kullanılarak içerik üretilir.
-        </p>
+      {/* Drafts section */}
+      {drafts.length > 0 && (
+        <DraftsSection
+          drafts={drafts}
+          onLoadDraft={handleLoadDraft}
+          onDeleteDraft={handleDeleteDraft}
+        />
       )}
-
     </div>
   );
 }
