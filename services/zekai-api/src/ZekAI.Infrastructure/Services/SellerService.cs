@@ -160,14 +160,31 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
 
         var features = pd.Features?.Values.ToList() ?? [];
 
-        // tone'u body'den parse et
+        // Üretim ayarlarını body'den parse et
         var tone = "samimi";
         if (body is JsonElement bodyEl && bodyEl.TryGetProperty("tone", out var toneEl))
             tone = toneEl.GetString() ?? "samimi";
+        var purpose = "guven";
+        if (body is JsonElement purposeBodyEl && purposeBodyEl.TryGetProperty("purpose", out var purposeEl))
+            purpose = purposeEl.GetString() ?? "guven";
+        var platforms = new List<string> { "instagram", "tiktok", "twitter" };
+        if (body is JsonElement platformBodyEl && platformBodyEl.TryGetProperty("platforms", out var platformsEl) &&
+            platformsEl.ValueKind == JsonValueKind.Array)
+        {
+            platforms = platformsEl.EnumerateArray()
+                .Select(p => p.GetString())
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => p!.Trim().ToLowerInvariant() == "x" ? "twitter" : p!.Trim().ToLowerInvariant())
+                .Where(p => p is "instagram" or "tiktok" or "twitter")
+                .Distinct()
+                .ToList();
+            if (platforms.Count == 0)
+                platforms = ["instagram"];
+        }
 
         // AI servisinden içerik üret
         var aiResult = await aiService.GenerateSocialContentAsync(
-            pd.Title, pd.Category, pd.Price, pd.Description, features, tone);
+            pd.Title, pd.Category, pd.Price, pd.Description, features, tone, purpose, platforms);
 
         if (aiResult is null)
         {
@@ -176,15 +193,14 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             return doc?.RootElement;
         }
 
-        // Tiktok sahnelerini JSON'a serialize et
-        var tiktokJson = JsonSerializer.Serialize(aiResult.Tiktok.Select(s => new { time = s.Time, text = s.Text }));
-
         // commerce-api'ye kaydet
         var savePayload = new
         {
             tone,
+            purpose,
+            platforms,
             instagram = aiResult.Instagram,
-            tiktokScriptJson = tiktokJson,
+            tiktok = aiResult.Tiktok,
             twitter = aiResult.Twitter,
         };
         var saved = await commerce.ProxyPostAsync(conn.CommerceAccessToken, $"/api/seller/products/{productId}/save-social-content", savePayload);
@@ -193,6 +209,8 @@ public class SellerService(ZekaiDbContext db, CommerceApiClient commerce, AiServ
             return new
             {
                 tone,
+                purpose,
+                platforms,
                 instagram = aiResult.Instagram,
                 tiktok = aiResult.Tiktok,
                 twitter = aiResult.Twitter,

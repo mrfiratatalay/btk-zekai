@@ -138,7 +138,7 @@ public class SellerController(SellerService seller) : ControllerBase
     {
         try
         {
-            var result = await seller.GenerateSocialContentAsync(UserId, productId, req.Tone);
+            var result = await seller.GenerateSocialContentAsync(UserId, productId, req);
             return Ok(result);
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }

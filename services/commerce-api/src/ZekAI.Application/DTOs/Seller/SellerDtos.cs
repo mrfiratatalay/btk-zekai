@@ -56,14 +56,16 @@ public class CreateProductRequest
 public record PublishProductRequest(bool Published);
 
 public record UpdateProductImageRequest(string ImageBase64, string MimeType);
-public record GenerateSocialContentRequest(string Tone);
+public record GenerateSocialContentRequest(string Tone, string Purpose, List<string> Platforms);
 
 public class SaveSocialContentRequest
 {
     public string Tone { get; set; } = "";
-    public string Instagram { get; set; } = "";
-    public string TiktokScriptJson { get; set; } = "";
-    public string Twitter { get; set; } = "";
+    public string Purpose { get; set; } = "";
+    public List<string> Platforms { get; set; } = [];
+    public SocialInstagramContentDto? Instagram { get; set; }
+    public SocialTiktokContentDto? Tiktok { get; set; }
+    public SocialTwitterContentDto? Twitter { get; set; }
 }
 
 public record BundleProductDto(
@@ -145,13 +147,38 @@ public class UpdateProductBundleRequest
 }
 
 public record PublishBundleRequest(bool Published);
-public record TiktokScene(string Time, string Text);
+public record SocialInstagramContentDto(
+    string Caption,
+    List<string> Hashtags,
+    string Cta,
+    string OverlayText
+);
+
+public record SocialTiktokSceneDto(
+    string Title,
+    string Description
+);
+
+public record SocialTiktokContentDto(
+    string Hook,
+    List<SocialTiktokSceneDto> Scenes,
+    string Caption,
+    List<string> Hashtags
+);
+
+public record SocialTwitterContentDto(
+    string Post,
+    List<string> Hashtags,
+    string Cta
+);
 
 public record SocialMediaContentDto(
     string Tone,
-    string Instagram,
-    List<TiktokScene> Tiktok,
-    string Twitter,
+    string Purpose,
+    List<string> Platforms,
+    SocialInstagramContentDto? Instagram,
+    SocialTiktokContentDto? Tiktok,
+    SocialTwitterContentDto? Twitter,
     DateTime GeneratedAt
 );
 

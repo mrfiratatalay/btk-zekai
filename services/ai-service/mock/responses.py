@@ -242,36 +242,69 @@ def get_mock_content(product_title: str, category: str, price: float) -> dict:
 
 # ── Social Content Mock ────────────────────────────────────────────────────────
 
-def get_mock_social_content(product_title: str, category: str, price: float) -> dict:
-    return {
-        "instagram": (
-            f"✨ {product_title} ile hayatını kolaylaştır! 🚀\n\n"
-            f"{category} kategorisinde öne çıkan bu ürün, kalitesi ve uygun fiyatıyla dikkat çekiyor. "
-            f"Sadece ₺{price:.0f}!\n\n"
-            "📦 Hızlı kargo | 🔄 Kolay iade | ⭐ Müşteri favorisi\n\n"
-            "#alışveriş #kalite #uygunfiyat #türkiye #eticaret #indirim #trending"
-        ),
-        "tiktok": [
-            {
-                "time": "00:00-00:03",
-                "text": f"Bu ürünü görünce {category.lower()} alışverişine bakışın değişecek!",
-            },
-            {
-                "time": "00:03-00:09",
-                "text": f"{product_title} — kaliteli malzeme, uzun ömür, kolay kullanım. Her şeyi düşünülmüş.",
-            },
-            {
-                "time": "00:09-00:15",
-                "text": f"Sadece ₺{price:.0f}! Linke tıkla, hemen sepete ekle. Stoklar sınırlı!",
-            },
-        ],
-        "twitter": (
-            f"🛒 {product_title} şimdi ₺{price:.0f}!\n\n"
-            f"{category} kategorisinde kalite ve uygun fiyatın buluşması. "
-            "Hızlı kargo, kolay iade. #alışveriş #fırsat"
-        ),
+def get_mock_social_content(
+    product_title: str,
+    category: str,
+    price: float,
+    tone: str = "samimi",
+    purpose: str = "guven",
+    platforms: list[str] | None = None,
+) -> dict:
+    selected = platforms or ["instagram", "tiktok", "twitter"]
+    response = {
+        "tone": tone,
+        "purpose": purpose,
+        "platforms": selected,
+        "instagram": None,
+        "tiktok": None,
+        "twitter": None,
         "_mock": True,
     }
+
+    if "instagram" in selected:
+        response["instagram"] = {
+            "caption": (
+                f"{product_title} ile alışverişte iç rahatlığı hissedin.\n\n"
+                f"{category} kategorisinde öne çıkan bu ürün, net faydası ve uygun fiyatıyla günlük ihtiyaca pratik cevap verir. "
+                f"Sadece ₺{price:.0f}."
+            ),
+            "hashtags": ["#alışveriş", "#kalite", "#uygunfiyat", "#türkiye", "#eticaret", "#güvenlialışveriş"],
+            "cta": "Ürünü şimdi incele ve mağazada keşfet.",
+            "overlay_text": "Her An Yanınızda, Her An Güvende",
+        }
+
+    if "tiktok" in selected:
+        response["tiktok"] = {
+            "hook": "Bu ürünü görünce alışveriş listen değişebilir.",
+            "scenes": [
+                {
+                    "title": "Sahne 1",
+                    "description": f"Ürün hızlı bir yakın planla görünür, ekranda '{product_title}' başlığı belirir.",
+                },
+                {
+                    "title": "Sahne 2",
+                    "description": f"{category} kullanım senaryosu gösterilir; pratik fayda ve fiyat vurgulanır.",
+                },
+                {
+                    "title": "Sahne 3",
+                    "description": f"Son karede ₺{price:.0f} fiyatı, güvenli alışveriş ve inceleme çağrısı yer alır.",
+                },
+            ],
+            "caption": f"{product_title} ile günlük ihtiyacına pratik bir çözüm ekle. Ürünü incele, kararını rahat ver.",
+            "hashtags": ["#ZekAI", "#Ürünİncelemesi", "#AkıllıAlışveriş", f"#{category.replace(' ', '')}"],
+        }
+
+    if "twitter" in selected:
+        response["twitter"] = {
+            "post": (
+                f"{product_title} şimdi ₺{price:.0f}. "
+                f"{category} kategorisinde net fayda, pratik kullanım ve güvenli alışveriş deneyimi arayanlar için."
+            ),
+            "hashtags": ["#alışveriş", "#fırsat"],
+            "cta": "Ürünü incele",
+        }
+
+    return response
 
 
 # ── Bundle Recommendation Mock ─────────────────────────────────────────────────
