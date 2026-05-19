@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { BadgeCheck, Star, ThumbsUp } from "lucide-react";
+import { BadgeCheck, ChevronDown, HelpCircle, Star, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import type { Product, ProductReview } from "@/types/product";
+import type { ProductFaq } from "@/lib/api/products";
 import { cn } from "@/lib/utils";
 import { postProductReview } from "@/lib/api/products";
 import { getCurrentUser } from "@/lib/api/auth";
@@ -138,24 +139,50 @@ function Stars({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) 
   );
 }
 
-const TABS = [
+function FaqItem({ faq }: { faq: ProductFaq }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-slate-100 last:border-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full cursor-pointer items-center justify-between gap-4 py-4 text-left"
+      >
+        <span className="text-sm font-medium text-slate-800">{faq.question}</span>
+        <ChevronDown
+          className={cn("size-4 shrink-0 text-slate-400 transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <p className="pb-4 text-sm leading-6 text-slate-500">{faq.answer}</p>
+      )}
+    </div>
+  );
+}
+
+const BASE_TABS = [
   { id: "description", label: "Açıklama" },
   { id: "specs", label: "Özellikler" },
   { id: "reviews", label: "Yorumlar" },
+  { id: "faqs", label: "SSS" },
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+type TabId = (typeof BASE_TABS)[number]["id"];
 
 export function ProductDetailTabs({
   product,
   reviews: initialReviews,
+  faqs = [],
 }: {
   product: Product;
   similarProducts?: Product[];
   reviews: ProductReview[];
+  faqs?: ProductFaq[];
 }) {
   const [active, setActive] = useState<TabId>("description");
   const [reviews, setReviews] = useState(initialReviews);
+
+  const TABS = BASE_TABS.filter((t) => t.id !== "faqs" || faqs.length > 0);
 
   const avgRating = reviews.length
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
@@ -173,9 +200,12 @@ export function ProductDetailTabs({
         <div className="mx-auto max-w-5xl px-6">
           <div className="flex">
             {TABS.map((tab) => {
-              const label = tab.id === "reviews"
-                ? `Yorumlar (${product.reviewCount.toLocaleString("tr-TR")})`
-                : tab.label;
+              const label =
+                tab.id === "reviews"
+                  ? `Yorumlar (${product.reviewCount.toLocaleString("tr-TR")})`
+                  : tab.id === "faqs"
+                  ? `SSS (${faqs.length})`
+                  : tab.label;
               return (
                 <button
                   key={tab.id}
@@ -226,6 +256,36 @@ export function ProductDetailTabs({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {active === "faqs" && (
+          <div className="max-w-2xl">
+            {faqs.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-12 text-slate-400">
+                <HelpCircle className="size-8" />
+                <p className="text-sm">Henüz sık sorulan soru eklenmemiş.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {(() => {
+                  const groups = faqs.reduce<Record<string, ProductFaq[]>>((acc, f) => {
+                    const tag = f.categoryTag || "Genel";
+                    if (!acc[tag]) acc[tag] = [];
+                    acc[tag].push(f);
+                    return acc;
+                  }, {});
+                  return Object.entries(groups).map(([tag, items]) => (
+                    <div key={tag} className="rounded-xl border border-slate-100 bg-white px-5">
+                      <p className="border-b border-slate-100 pb-2 pt-4 text-xs font-bold uppercase tracking-wide text-slate-400">{tag}</p>
+                      {items.map((faq) => (
+                        <FaqItem key={faq.id} faq={faq} />
+                      ))}
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
           </div>
         )}
 
@@ -281,6 +341,12 @@ export function ProductDetailTabs({
                       </div>
                     </div>
                     <p className="mt-2 text-sm leading-6 text-slate-500">{review.text}</p>
+                    {review.sellerReply && (
+                      <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                        <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">Satıcı Yanıtı</p>
+                        <p className="text-sm leading-6 text-slate-600">{review.sellerReply}</p>
+                      </div>
+                    )}
                     <button type="button" className="mt-3 flex cursor-pointer items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
                       <ThumbsUp className="size-3.5" />
                       Faydalı ({review.helpfulCount})

@@ -22,6 +22,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SocialMediaContent> SocialMediaContents => Set<SocialMediaContent>();
     public DbSet<ProductBundle> ProductBundles => Set<ProductBundle>();
     public DbSet<StoreConnection> StoreConnections => Set<StoreConnection>();
+    public DbSet<ReviewReply> ReviewReplies => Set<ReviewReply>();
+    public DbSet<ProductFaq> ProductFaqs => Set<ProductFaq>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -125,5 +127,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .WithMany(s => s.StoreConnections)
             .HasForeignKey(sc => sc.SellerId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        mb.Entity<ReviewReply>()
+            .HasOne(rr => rr.Review)
+            .WithMany()
+            .HasForeignKey(rr => rr.ReviewId)
+            .OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<ReviewReply>()
+            .HasOne(rr => rr.Seller)
+            .WithMany()
+            .HasForeignKey(rr => rr.SellerId)
+            .OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<ReviewReply>()
+            .HasIndex(rr => rr.ReviewId).IsUnique();
+
+        mb.Entity<ProductFaq>()
+            .HasOne(f => f.Seller)
+            .WithMany()
+            .HasForeignKey(f => f.SellerId)
+            .OnDelete(DeleteBehavior.Cascade);
+        mb.Entity<ProductFaq>()
+            .HasIndex(f => new { f.ProductId, f.SellerId, f.Question });
     }
 }

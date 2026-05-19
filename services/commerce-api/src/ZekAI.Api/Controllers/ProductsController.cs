@@ -47,6 +47,10 @@ public class ProductsController(ProductService products) : ControllerBase
     public async Task<IActionResult> GetBundles(string id)
         => Ok(await products.GetPublishedBundlesAsync(id));
 
+    [HttpGet("{id}/faqs")]
+    public async Task<IActionResult> GetFaqs(string id)
+        => Ok(await products.GetPublicFaqsAsync(id));
+
     [HttpGet("from-url")]
     public async Task<IActionResult> GetByUrl([FromQuery] string url)
     {

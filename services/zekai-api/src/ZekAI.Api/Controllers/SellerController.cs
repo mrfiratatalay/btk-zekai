@@ -504,4 +504,53 @@ public class SellerController(SellerService seller) : ControllerBase
         await Response.WriteAsync($"data: {JsonSerializer.Serialize(payload)}\n\n", HttpContext.RequestAborted);
         await Response.Body.FlushAsync(HttpContext.RequestAborted);
     }
+
+    // ── Customer Voice ─────────────────────────────────────────────────────
+
+    [HttpGet("products/{productId}/customer-voice")]
+    public async Task<IActionResult> GetCustomerVoice(string productId)
+    {
+        try { return Ok(await seller.GetCustomerVoiceAsync(UserId, productId)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPost("products/{productId}/customer-voice/generate")]
+    public async Task<IActionResult> GenerateCustomerVoice(string productId)
+    {
+        try { return Ok(await seller.GenerateCustomerVoiceAsync(UserId, productId)); }
+        catch (AiServiceException ex) { return AiServiceError(ex); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPut("customer-voice/reply-drafts/{draftId:int}")]
+    public async Task<IActionResult> UpdateReplyDraft(int draftId, [FromBody] UpdateReplyDraftRequest req)
+    {
+        try { return Ok(await seller.UpdateReplyDraftAsync(UserId, draftId, req.SuggestedReply)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("customer-voice/reply-drafts/{draftId:int}/publish")]
+    public async Task<IActionResult> PublishReplyDraft(int draftId)
+    {
+        try { return Ok(await seller.PublishReviewReplyDraftAsync(UserId, draftId)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPut("customer-voice/faq-drafts/{draftId:int}")]
+    public async Task<IActionResult> UpdateFaqDraft(int draftId, [FromBody] UpdateFaqDraftRequest req)
+    {
+        try { return Ok(await seller.UpdateFaqDraftAsync(UserId, draftId, req.Question, req.Answer)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("customer-voice/faq-drafts/{draftId:int}/publish")]
+    public async Task<IActionResult> PublishFaqDraft(int draftId, [FromBody] PublishFaqDraftRequest req)
+    {
+        try { return Ok(await seller.PublishFaqDraftAsync(UserId, draftId, req.SortOrder)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
 }

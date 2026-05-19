@@ -148,6 +148,21 @@ public class AiServiceClient(HttpClient http)
         return await ReadAiResponseAsync<AiBundleRecommendResponse>(response);
     }
 
+    // ── Customer Voice (Reply Drafts + FAQ Drafts) ────────────────────────────
+
+    public async Task<AiCustomerVoiceResult?> GenerateCustomerVoiceAsync(
+        string productTitle, string category, List<AiReviewInput> reviews)
+    {
+        var payload = new
+        {
+            product_title = productTitle,
+            category,
+            reviews,
+        };
+        var response = await http.PostAsJsonAsync("/seller/customer-voice", payload, JsonOpts);
+        return await ReadAiResponseAsync<AiCustomerVoiceResult>(response);
+    }
+
     // ── SEO Optimization ──────────────────────────────────────────────────────
 
     public async Task<AiSeoResult?> GenerateSeoAsync(
@@ -282,6 +297,35 @@ public record AiBundleRec(
 public record AiBundleRecommendResponse(
     List<AiBundleRec> Recommendations,
     string? MissingOpportunityNote,
+    [property: JsonPropertyName("_mock")] bool Mock = false
+);
+
+public record AiReviewInput(
+    [property: JsonPropertyName("review_id")] int ReviewId,
+    [property: JsonPropertyName("author_name")] string AuthorName,
+    int Rating,
+    string Text,
+    List<string> Tags
+);
+
+public record AiReplyDraft(
+    [property: JsonPropertyName("review_id")] int ReviewId,
+    [property: JsonPropertyName("needs_reply")] bool NeedsReply,
+    [property: JsonPropertyName("issue_type")] string IssueType,
+    string Sentiment,
+    [property: JsonPropertyName("suggested_reply")] string SuggestedReply
+);
+
+public record AiFaqDraft(
+    string Question,
+    string Answer,
+    [property: JsonPropertyName("source_review_ids")] List<int> SourceReviewIds,
+    [property: JsonPropertyName("category_tag")] string CategoryTag
+);
+
+public record AiCustomerVoiceResult(
+    [property: JsonPropertyName("reply_drafts")] List<AiReplyDraft> ReplyDrafts,
+    [property: JsonPropertyName("faq_drafts")] List<AiFaqDraft> FaqDrafts,
     [property: JsonPropertyName("_mock")] bool Mock = false
 );
 

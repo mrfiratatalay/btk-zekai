@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using ZekAI.Application.DTOs.Products;
 using ZekAI.Application.DTOs.Seller;
 using ZekAI.Infrastructure.Services;
 
@@ -214,6 +215,36 @@ public class SellerController(SellerService seller) : ControllerBase
     public async Task<IActionResult> ArchiveBundle(string productId, Guid bundleId)
     {
         try { await seller.ArchiveBundleAsync(UserId, productId, bundleId); return NoContent(); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    // ── Customer Voice ─────────────────────────────────────────────────────
+
+    [HttpGet("products/{productId}/reviews")]
+    public async Task<IActionResult> GetProductReviews(string productId)
+    {
+        try { return Ok(await seller.GetProductReviewsForSellerAsync(UserId, productId)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpGet("products/{productId}/review-replies")]
+    public async Task<IActionResult> GetReviewReplies(string productId)
+    {
+        try { return Ok(await seller.GetReviewRepliesAsync(productId)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("products/{productId}/reviews/{reviewId:int}/reply")]
+    public async Task<IActionResult> PublishReviewReply(string productId, int reviewId, [FromBody] PublishReviewReplyRequest req)
+    {
+        try { return Ok(await seller.PublishReviewReplyAsync(UserId, productId, reviewId, req.ReplyText)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("products/{productId}/faqs")]
+    public async Task<IActionResult> PublishFaq(string productId, [FromBody] PublishFaqRequest req)
+    {
+        try { return Ok(await seller.PublishFaqAsync(UserId, productId, req)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
