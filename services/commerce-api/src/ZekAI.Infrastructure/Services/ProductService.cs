@@ -175,9 +175,7 @@ public class ProductService(AppDbContext db)
         return bundle.PrimaryProduct is not null &&
                bundle.ComplementaryProduct is not null &&
                bundle.PrimaryProduct.Stock > 0 &&
-               bundle.ComplementaryProduct.Stock > 0 &&
-               bundle.PrimaryProduct.SellerProduct?.IsPublished == true &&
-               bundle.ComplementaryProduct.SellerProduct?.IsPublished == true;
+               bundle.ComplementaryProduct.Stock > 0;
     }
 
     private static PublicProductBundleDto MapPublicBundle(ProductBundle bundle)

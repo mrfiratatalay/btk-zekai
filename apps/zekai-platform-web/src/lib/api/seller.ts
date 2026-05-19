@@ -126,6 +126,8 @@ export interface MissingBundleOpportunity {
 export interface BundleRecommendationResponse {
   recommendations: BundleRecommendation[];
   missingOpportunity: MissingBundleOpportunity | null;
+  _mock?: boolean;
+  _cached?: boolean;
 }
 
 export interface CreateProductBundlePayload {
@@ -149,12 +151,12 @@ export interface UpdateProductBundlePayload {
 }
 
 export const getSellerProductBundles = (productId: string) =>
-  apiFetch<ProductBundle[]>(`/api/seller/products/${productId}/bundles`);
+  apiFetch<ProductBundle[]>(`/api/seller/products/${productId}/bundles`).then(data => data ?? []);
 
-export const generateBundleRecommendations = (productId: string) =>
+export const generateBundleRecommendations = (productId: string, options?: { force?: boolean }) =>
   apiFetch<BundleRecommendationResponse>(`/api/seller/products/${productId}/bundle-recommendations`, {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify({ force: options?.force ?? false }),
   });
 
 export const createProductBundle = (productId: string, data: CreateProductBundlePayload) =>

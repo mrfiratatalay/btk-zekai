@@ -8,6 +8,7 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
     public DbSet<ZekaiUser> Users => Set<ZekaiUser>();
     public DbSet<ZekaiRefreshToken> RefreshTokens => Set<ZekaiRefreshToken>();
     public DbSet<SellerStoreConnection> StoreConnections => Set<SellerStoreConnection>();
+    public DbSet<BundleRecommendationCache> BundleRecommendationCaches => Set<BundleRecommendationCache>();
     public DbSet<BuyerAnalysis> Analyses => Set<BuyerAnalysis>();
     public DbSet<ShoppingProject> ShoppingProjects => Set<ShoppingProject>();
     public DbSet<ShoppingProjectAnalysis> ShoppingProjectAnalyses => Set<ShoppingProjectAnalysis>();
@@ -27,6 +28,10 @@ public class ZekaiDbContext(DbContextOptions<ZekaiDbContext> options) : DbContex
             .HasOne(sc => sc.ZekaiUser)
             .WithMany(u => u.StoreConnections)
             .HasForeignKey(sc => sc.ZekaiUserId);
+
+        mb.Entity<BundleRecommendationCache>()
+            .HasIndex(c => new { c.SellerKey, c.PrimaryProductId, c.ProductListHash })
+            .IsUnique();
 
         mb.Entity<BuyerAnalysis>()
             .HasOne(a => a.User)

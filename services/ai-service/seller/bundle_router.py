@@ -7,11 +7,12 @@ from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel, Field
 
-from mock.responses import is_mockable_gemini_error, get_mock_bundle_recommendations
+from mock.responses import get_mock_bundle_recommendations, is_mockable_gemini_error
 
 router = APIRouter()
 
-MODEL = "gemini-2.5-flash"
+BUNDLE_MODEL = os.getenv("GEMINI_BUNDLE_MODEL", "gemini-2.5-flash-lite").strip()
+BUNDLE_THINKING_BUDGET = int(os.getenv("GEMINI_BUNDLE_THINKING_BUDGET", "0"))
 
 
 class BundleCandidate(BaseModel):
@@ -42,6 +43,7 @@ class AiBundleRec(BaseModel):
 class AiBundleRecommendResponse(BaseModel):
     recommendations: list[AiBundleRec]
     missing_opportunity_note: str | None = None
+    mock: bool = Field(default=False, alias="_mock")
 
 
 def _get_client() -> genai.Client:
@@ -75,7 +77,7 @@ ADAY TAMAMLAYICI ÜRÜNLER:
 {candidates_text}
 
 GÖREV:
-1. Aday ürünlerden en uyumlu 1-3 ürünü seç. Seçim kriterleri (önem sırasıyla):
+1. Aday ürünlerden en uyumlu en fazla 3 ürünü seç. 3 mantıklı eşleşme yoksa daha az öner; hiç mantıklı uyum yoksa boş liste dön. Seçim kriterleri (önem sırasıyla):
    a) Kullanım senaryosu örtüşmesi — birlikte kullanılır mı?
    b) Semantik uyum — aynı müşteri segmenti alır mı?
    c) Fiyat dengesi — çok pahalı ya da çok ucuz olmamalı
@@ -103,7 +105,7 @@ def _recommend_sync(client: genai.Client, req: BundleRecommendRequest) -> AiBund
 
     prompt = _build_prompt(req)
     response = client.models.generate_content(
-        model=MODEL,
+        model=BUNDLE_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=(
@@ -113,7 +115,7 @@ def _recommend_sync(client: genai.Client, req: BundleRecommendRequest) -> AiBund
             ),
             response_mime_type="application/json",
             response_schema=AiBundleRecommendResponse,
-            thinking_config=types.ThinkingConfig(thinking_budget=1024),
+            thinking_config=types.ThinkingConfig(thinking_budget=BUNDLE_THINKING_BUDGET),
         ),
     )
     return AiBundleRecommendResponse.model_validate_json(response.text)
@@ -121,11 +123,16 @@ def _recommend_sync(client: genai.Client, req: BundleRecommendRequest) -> AiBund
 
 @router.post("/bundle-recommend", response_model=AiBundleRecommendResponse)
 async def recommend_bundles(req: BundleRecommendRequest):
-    client = _get_client()
+    api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+    if not api_key or api_key == "your_google_api_key_here":
+        candidate_ids = [c.id for c in req.candidates]
+        return JSONResponse(content=get_mock_bundle_recommendations(req.primary.id, candidate_ids))
+
+    client = genai.Client(api_key=api_key)
     try:
         return await asyncio.to_thread(_recommend_sync, client, req)
     except genai_errors.APIError as exc:
-        if is_mockable_gemini_error(exc):
-            candidate_ids = [c.id for c in req.candidates]
-            return JSONResponse(content=get_mock_bundle_recommendations(req.primary.id, candidate_ids))
-        raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
+        if not is_mockable_gemini_error(exc):
+            raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc
+        candidate_ids = [c.id for c in req.candidates]
+        return JSONResponse(content=get_mock_bundle_recommendations(req.primary.id, candidate_ids))

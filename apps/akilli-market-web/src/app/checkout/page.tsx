@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { ShopHeader } from "@/components/shop/ShopHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useCartStore, cartDiscountTotal, cartPayableTotal, cartSubtotal } from "@/lib/store/cart-store";
+import { useCartStore, cartDiscountTotal, cartPayableTotal, cartSubtotal, groupCartLines } from "@/lib/store/cart-store";
 import { createOrder, type Order } from "@/lib/api/buyer";
 import { getCurrentUser } from "@/lib/api/auth";
 import { formatPrice } from "@/lib/api/products";
@@ -18,6 +18,7 @@ const PAYMENT_METHODS = ["Kredi Kartı", "Havale/EFT", "Kapıda Ödeme"] as cons
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, clearCart } = useCartStore();
+  const lines = groupCartLines(items);
   const subtotal = cartSubtotal(items);
   const discountTotal = cartDiscountTotal(items);
   const total = cartPayableTotal(items);
@@ -135,15 +136,15 @@ export default function CheckoutPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2 rounded-xl border border-[#E5E7EB] p-4">
             <p className="mb-3 text-sm font-bold text-[#111827]">Sipariş Özeti</p>
-            {items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between text-sm">
+            {lines.map((line) => (
+              <div key={line.id} className="flex items-center justify-between text-sm">
                 <span className="line-clamp-1 flex-1 text-[#374151]">
-                  {item.title}{" "}
-                  <span className="text-[#9CA3AF]">x{item.quantity}</span>
-                  {item.bundleTitle && <span className="ml-1 text-[#FF6000]">({item.bundleTitle})</span>}
+                  {line.title}{" "}
+                  <span className="text-[#9CA3AF]">x{line.quantity}</span>
+                  {line.kind === "bundle" && <span className="ml-1 text-[#FF6000]">(Paket)</span>}
                 </span>
                 <span className="ml-4 font-bold text-[#111827]">
-                  {formatPrice(item.price * item.quantity)}
+                  {formatPrice(line.price * line.quantity)}
                 </span>
               </div>
             ))}

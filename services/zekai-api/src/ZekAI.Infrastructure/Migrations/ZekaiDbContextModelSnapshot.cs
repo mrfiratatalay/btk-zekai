@@ -22,6 +22,48 @@ namespace ZekAI.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.BundleRecommendationCache", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PrimaryProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProductListHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SellerKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SellerKey", "PrimaryProductId", "ProductListHash")
+                        .IsUnique();
+
+                    b.ToTable("BundleRecommendationCaches");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.BuyerAnalysis", b =>
                 {
                     b.Property<Guid>("Id")

@@ -15,6 +15,7 @@ public record StoreConnectionDto(
 
 public record PublishRequest(bool Published);
 public record UpdateProductImageRequest(string ImageBase64, string MimeType);
+public record BundleRecommendationRequest(bool Force = false);
 
 // Payload passed to ai-service for simulation stream
 public record SimulationInsightDto(
