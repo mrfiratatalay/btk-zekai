@@ -6,11 +6,12 @@ import Image from "next/image";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { ShopHeader } from "@/components/shop/ShopHeader";
 import { Button } from "@/components/ui/button";
-import { useCartStore, cartDiscountTotal, cartItemCount, cartPayableTotal, cartSubtotal } from "@/lib/store/cart-store";
+import { useCartStore, cartDiscountTotal, cartItemCount, cartPayableTotal, cartSubtotal, groupCartLines } from "@/lib/store/cart-store";
 import { formatPrice } from "@/lib/api/products";
 
 export default function CartPage() {
-  const { items, loading, loadCart, removeItem, updateQty } = useCartStore();
+  const { items, loading, loadCart, removeItem, removeBundle, updateQty, updateBundleQty } = useCartStore();
+  const lines = groupCartLines(items);
   const subtotal = cartSubtotal(items);
   const discountTotal = cartDiscountTotal(items);
   const total = cartPayableTotal(items);
@@ -43,35 +44,44 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {items.map((item) => (
+            {lines.map((line) => (
               <div
-                key={item.id}
+                key={line.id}
                 className="flex gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4"
               >
                 <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-[#F9FAFB]">
-                  <Image
-                    src={item.image}
-                    alt={item.title}
-                    fill
-                    sizes="96px"
-                    className="object-contain p-2"
-                  />
+                  {line.image && (
+                    <Image
+                      src={line.image}
+                      alt={line.title}
+                      fill
+                      sizes="96px"
+                      className="object-contain p-2"
+                    />
+                  )}
                 </div>
 
                 <div className="flex flex-1 flex-col justify-between gap-2">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="line-clamp-2 text-sm font-semibold text-[#111827]">
-                      {item.title}
-                    </p>
-                    {item.bundleId && (
-                      <p className="mt-1 w-fit rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold text-[#FF6000]">
-                        {item.bundleTitle}
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 text-sm font-semibold text-[#111827]">
+                        {line.title}
                       </p>
-                    )}
+                      {line.kind === "bundle" && (
+                        <div className="mt-1 space-y-1">
+                          <p className="w-fit rounded-full bg-orange-50 px-2 py-0.5 text-xs font-bold text-[#FF6000]">
+                            Paket
+                          </p>
+                          <p className="line-clamp-2 text-xs text-[#6B7280]">
+                            {line.productTitles.join(" + ")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                     <button
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => line.kind === "bundle" ? removeBundle(line.bundleId!) : removeItem(line.itemId!)}
                       className="shrink-0 cursor-pointer text-[#9CA3AF] transition hover:text-[#DC2626]"
-                      aria-label="Ürünü kaldır"
+                      aria-label={line.kind === "bundle" ? "Paketi kaldır" : "Ürünü kaldır"}
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -79,28 +89,28 @@ export default function CartPage() {
 
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-[#FF6000]">
-                      {formatPrice(item.price * item.quantity)}
+                      {formatPrice(line.price * line.quantity)}
                     </span>
-                    {item.discountAmount > 0 && (
+                    {line.discountAmount > 0 && (
                       <span className="text-xs font-semibold text-emerald-600">
-                        -{formatPrice(item.discountAmount * item.quantity)}
+                        -{formatPrice(line.discountAmount * line.quantity)}
                       </span>
                     )}
 
                     <div className="flex items-center gap-1 rounded-lg border border-[#E5E7EB] px-1">
                       <button
-                        onClick={() => updateQty(item.id, item.quantity - 1)}
+                        onClick={() => line.kind === "bundle" ? updateBundleQty(line.bundleId!, line.quantity - 1) : updateQty(line.itemId!, line.quantity - 1)}
                         className="cursor-pointer p-1.5 text-[#6B7280] transition hover:text-[#111827]"
                         aria-label="Azalt"
                       >
                         <Minus className="size-3.5" />
                       </button>
                       <span className="min-w-6 text-center text-sm font-bold text-[#111827]">
-                        {item.quantity}
+                        {line.quantity}
                       </span>
                       <button
-                        onClick={() => updateQty(item.id, Math.min(item.quantity + 1, item.stock))}
-                        disabled={item.quantity >= item.stock}
+                        onClick={() => line.kind === "bundle" ? updateBundleQty(line.bundleId!, Math.min(line.quantity + 1, line.stock)) : updateQty(line.itemId!, Math.min(line.quantity + 1, line.stock))}
+                        disabled={line.quantity >= line.stock}
                         className="cursor-pointer p-1.5 text-[#6B7280] transition hover:text-[#111827] disabled:opacity-40"
                         aria-label="Artır"
                       >

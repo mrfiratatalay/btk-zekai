@@ -13,7 +13,11 @@ export function ProductHeroSection({ product, bundles = [] }: { product: Product
       <div className="space-y-5">
         <ProductInfoPanel product={product} />
         {bundles.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-extrabold text-[#111827]">Paket Fırsatları</h2>
+              <span className="text-xs font-semibold text-slate-400">{bundles.length} paket</span>
+            </div>
             {bundles.map((bundle) => (
               <ProductBundleCard key={bundle.id} bundle={bundle} />
             ))}

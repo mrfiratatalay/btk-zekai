@@ -1,6 +1,8 @@
 import os
+from pathlib import Path
 
 import uvicorn
+from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
 from google.adk.cli.fast_api import get_fast_api_app
 
@@ -12,7 +14,12 @@ from seller.bundle_router import router as bundle_router
 from buyer.buyer_router import router as buyer_router
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_PATH = Path(__file__).resolve().parent
+BASE_DIR = str(BASE_PATH)
+ROOT_DIR = BASE_PATH.parents[1] if len(BASE_PATH.parents) > 1 else BASE_PATH
+
+load_dotenv(ROOT_DIR / ".env")
+load_dotenv(BASE_PATH / ".env")
 
 app = get_fast_api_app(
     agents_dir=BASE_DIR,

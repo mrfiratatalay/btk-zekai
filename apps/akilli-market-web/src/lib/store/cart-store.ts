@@ -24,6 +24,22 @@ interface CartState {
   clearCart: () => Promise<void>;
 }
 
+export interface CartLine {
+  id: string;
+  kind: "item" | "bundle";
+  itemId?: number;
+  productId?: string;
+  bundleId?: string;
+  title: string;
+  image: string;
+  quantity: number;
+  stock: number;
+  price: number;
+  originalPrice: number;
+  discountAmount: number;
+  productTitles: string[];
+}
+
 function mergeItems(current: CartItem[], incoming: CartItem[]) {
   const map = new Map(current.map((item) => [item.id, item]));
   for (const item of incoming) map.set(item.id, item);
@@ -125,7 +141,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
 }));
 
 export const cartItemCount = (items: CartItem[]) =>
-  items.reduce((sum, i) => sum + i.quantity, 0);
+  groupCartLines(items).reduce((sum, line) => sum + line.quantity, 0);
 
 export const cartSubtotal = (items: CartItem[]) =>
   items.reduce((sum, i) => sum + i.originalPrice * i.quantity, 0);
@@ -137,3 +153,51 @@ export const cartPayableTotal = (items: CartItem[]) =>
   items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
 export const cartTotal = cartPayableTotal;
+
+export function groupCartLines(items: CartItem[]): CartLine[] {
+  const lines: CartLine[] = [];
+  const bundleMap = new Map<string, CartItem[]>();
+
+  for (const item of items) {
+    if (!item.bundleId) {
+      lines.push({
+        id: `item:${item.id}`,
+        kind: "item",
+        itemId: item.id,
+        productId: item.productId,
+        title: item.title,
+        image: item.image,
+        quantity: item.quantity,
+        stock: item.stock,
+        price: item.price,
+        originalPrice: item.originalPrice,
+        discountAmount: item.discountAmount,
+        productTitles: [item.title],
+      });
+      continue;
+    }
+
+    const grouped = bundleMap.get(item.bundleId) ?? [];
+    grouped.push(item);
+    bundleMap.set(item.bundleId, grouped);
+  }
+
+  for (const [bundleId, bundleItems] of bundleMap) {
+    const quantity = bundleItems[0]?.quantity ?? 1;
+    lines.push({
+      id: `bundle:${bundleId}`,
+      kind: "bundle",
+      bundleId,
+      title: bundleItems[0]?.bundleTitle ?? "Paket",
+      image: bundleItems[0]?.image ?? "",
+      quantity,
+      stock: Math.min(...bundleItems.map((item) => item.stock)),
+      price: bundleItems.reduce((sum, item) => sum + item.price, 0),
+      originalPrice: bundleItems.reduce((sum, item) => sum + item.originalPrice, 0),
+      discountAmount: bundleItems.reduce((sum, item) => sum + item.discountAmount, 0),
+      productTitles: bundleItems.map((item) => item.title),
+    });
+  }
+
+  return lines;
+}
