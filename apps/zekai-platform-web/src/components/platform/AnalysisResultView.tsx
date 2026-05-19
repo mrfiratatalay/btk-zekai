@@ -138,7 +138,7 @@ export function AnalysisResultView({
         {/* ── 1. TEK KARAR ──────────────────────────────────────────────── */}
         <div className="flex flex-col items-center pt-12 pb-10 text-center">
           {/* Risk halkası */}
-          <div className="relative flex size-36 items-center justify-center">
+          <div className="hidden">
             <svg className="absolute inset-0 size-full -rotate-90" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="45" fill="none" className="stroke-muted" strokeWidth="7" />
               <motion.circle
@@ -158,7 +158,7 @@ export function AnalysisResultView({
 
           {/* Büyük karar */}
           <h1 className={cn(
-            "mt-6 inline-flex items-center gap-2 rounded-full px-5 py-2 text-lg font-black tracking-wide shadow-sm sm:text-xl",
+            "inline-flex items-center gap-2 rounded-full px-5 py-2 text-lg font-black tracking-wide shadow-sm sm:text-xl",
             lv.chip,
           )}>
             <span className={cn("size-2.5 rounded-full", lv.dot)} />
@@ -170,12 +170,6 @@ export function AnalysisResultView({
             {analysis.finalAdvice}
           </p>
 
-          {analysis.verdict && (
-            <p className="mt-2 text-xs font-bold text-muted-foreground">
-              Kompozit skor:{" "}
-              <span className="tabular-nums text-foreground">{analysis.verdict.composite_score}/100</span>
-            </p>
-          )}
         </div>
 
         {/* ── 2. NEDENLER ───────────────────────────────────────────────── */}

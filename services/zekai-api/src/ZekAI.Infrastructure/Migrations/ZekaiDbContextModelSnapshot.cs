@@ -129,6 +129,58 @@ namespace ZekAI.Infrastructure.Migrations
                     b.ToTable("Analyses");
                 });
 
+            modelBuilder.Entity("ZekAI.Domain.Entities.BuyerAnalysisCache", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CacheKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NormalizedBuyerNeed")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProductFingerprint")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ResultJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("UsedSearch")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CacheKey")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "ProductId");
+
+                    b.ToTable("AnalysisCaches");
+                });
+
             modelBuilder.Entity("ZekAI.Domain.Entities.SellerStoreConnection", b =>
                 {
                     b.Property<Guid>("Id")
@@ -340,6 +392,17 @@ namespace ZekAI.Infrastructure.Migrations
                 {
                     b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
                         .WithMany("Analyses")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ZekAI.Domain.Entities.BuyerAnalysisCache", b =>
+                {
+                    b.HasOne("ZekAI.Domain.Entities.ZekaiUser", "User")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

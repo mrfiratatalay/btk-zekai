@@ -11,24 +11,22 @@ import {
   extractVerifiedReport,
   runBuyerAgentStream,
 } from "@/lib/adk/buyer-agent";
-import { useMockStore } from "@/lib/store/mock-store";
 
 const LIVE_AGENT_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ADK_AGENT !== "false";
+const REPORT_REVEAL_DELAY_MS = 8_000;
 
 // Bir adım YALNIZCA kendi sonuç verisi (state_delta) geldiğinde tamamlandı sayılır.
 // Backend her agent için önce düz metin "başlıyor" mesajı yolluyor — o mesaj
 // adımı tamamlamaz, sadece canlı feed'e düşer.
 const STATE_KEY_TO_STEPS: Record<string, string[]> = {
-  ihtiyac_profili:    ["need-agent"],
-  fiyat_analizi:      ["price-agent"],
-  yorum_analizi:      ["review-agent"],
-  alternatif_urunler: ["alternative-agent"],
-  final_rapor:        ["synthesis-agent", "verification-agent"],
+  advisor_raporu:   ["advisor-agent"],
+  piyasa_kontrolu:  ["market-agent"],
+  final_rapor:      ["market-agent", "decision-agent"],
 };
 
 function getCacheKey(analysis: BuyerAnalysis, product?: Product) {
   if (!product) return undefined;
-  return `zekai:buyer-analysis:v2:${product.id}:${analysis.userNeedText}`;
+  return `zekai:buyer-analysis:v3:${product.id}:${analysis.userNeedText}`;
 }
 
 export function BuyerAnalysisExperience({
@@ -39,9 +37,10 @@ export function BuyerAnalysisExperience({
   product?: Product;
 }) {
   const isSaved = useAnalysesStore((s) => s.analyses.some((a) => a.id === analysis.analysisId));
-  const [status, setStatus] = useState<"running" | "completed">(() =>
+  const [status, setStatus] = useState<"running" | "completed" | "error">(() =>
     isSaved ? "completed" : "running"
   );
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (isSaved) setStatus("completed");
@@ -55,26 +54,18 @@ export function BuyerAnalysisExperience({
   // startedRef: StrictMode'da cleanup sonrası false'a döner → ikinci çalışma bloklenmez
   const startedRef = useRef(false);
   const finalReportReceivedRef = useRef(false);
+  const revealTimerRef = useRef<number | null>(null);
 
   const handleComplete = useCallback(() => setStatus("completed"), []);
 
-  // agentStepIds ref'te tutulur — completeWithLocalFallback bağımlılık zincirini kırar
   const agentStepIdsRef = useRef(analysis.agentSteps.map((s) => s.id));
-  const completeWithLocalFallback = useCallback(() => {
-    useMockStore.getState().triggerMockMode();
-    setCompletedStepIds(new Set(agentStepIdsRef.current));
-    setUseLiveAgent(false);
-    setStatus("completed");
-  }, []);
-
   useEffect(() => {
     if (!product || startedRef.current || !LIVE_AGENT_ENABLED) return;
 
     startedRef.current = true;
     finalReportReceivedRef.current = false;
-    // Önceki demo session'dan kalan flag'i sıfırla
-    useMockStore.getState().resetMockMode();
     let cancelled = false;
+    const controller = new AbortController();
     const cacheKey = getCacheKey(analysis, product);
 
     // Demo cache'i atla — gerçek AI verisi istiyoruz
@@ -82,32 +73,22 @@ export function BuyerAnalysisExperience({
       const raw = window.localStorage.getItem(cacheKey);
       if (raw) {
         try {
-          const cached = JSON.parse(raw) as BuyerAnalysis & { _fromMock?: boolean };
-          // Mock verisiyle doldurulmuş cache'i yok say, sil
-          if (!cached._fromMock) {
-            setLiveAnalysis(cached);
-            setCompletedStepIds(new Set(agentStepIdsRef.current));
-            setStatus("completed");
-            return;
-          }
-          window.localStorage.removeItem(cacheKey);
+          const cached = JSON.parse(raw) as BuyerAnalysis;
+          setLiveAnalysis(cached);
+          setCompletedStepIds(new Set(agentStepIdsRef.current));
+          setStatus("completed");
+          return;
         } catch {
           window.localStorage.removeItem(cacheKey);
         }
       }
     }
 
-    // 170s: backend en kötü ihtimalle ~75s + Google Search grounding payı.
-    // Bu süreden ÖNCE demo'ya düşersek ücretli analizi çöpe atmış oluruz.
-    // Backend zaten rate-limit/hata durumunda kendi hızlı mock'unu yolluyor.
-    const fallbackTimer = window.setTimeout(() => {
-      if (!cancelled) completeWithLocalFallback();
-    }, 170_000);
-
     runBuyerAgentStream({
       product,
       buyerNeed: analysis.userNeedText,
       analysisId: analysis.analysisId,
+      signal: controller.signal,
       onEvent(event) {
         if (cancelled) return;
 
@@ -138,37 +119,51 @@ export function BuyerAnalysisExperience({
           finalReportReceivedRef.current = true;
           const nextAnalysis = applyVerifiedReport(analysis, product, report);
           setLiveAnalysis(nextAnalysis);
-          if (cacheKey && !useMockStore.getState().isMockMode) {
+          setCompletedStepIds(new Set(agentStepIdsRef.current));
+          if (cacheKey) {
             window.localStorage.setItem(cacheKey, JSON.stringify(nextAnalysis));
           }
-          setStatus("completed");
+          if (revealTimerRef.current) {
+            window.clearTimeout(revealTimerRef.current);
+          }
+          revealTimerRef.current = window.setTimeout(() => {
+            if (!cancelled) {
+              setUseLiveAgent(false);
+              setStatus("completed");
+            }
+          }, REPORT_REVEAL_DELAY_MS);
         }
       },
     })
       .then(() => {
         if (!cancelled) {
-          window.clearTimeout(fallbackTimer);
-          setUseLiveAgent(false);
           if (!finalReportReceivedRef.current) {
-            completeWithLocalFallback();
+            setUseLiveAgent(false);
+            setErrorMessage("Analiz tamamlanmadan bağlantı kapandı. Lütfen tekrar deneyin.");
+            setStatus("error");
           }
         }
       })
       .catch((err) => {
-        console.warn("ADK stream error, falling back to demo.", err);
+        if (controller.signal.aborted) return;
+        console.warn("Buyer analysis stream error.", err);
         if (!cancelled) {
-          window.clearTimeout(fallbackTimer);
-          completeWithLocalFallback();
+          setUseLiveAgent(false);
+          setErrorMessage(err instanceof Error ? err.message : "AI analizi tamamlanamadı.");
+          setStatus("error");
         }
       });
 
     return () => {
       cancelled = true;
-      // StrictMode: cleanup sonrası startedRef sıfırlanır → ikinci effect çalışabilir
+      if (revealTimerRef.current) {
+        window.clearTimeout(revealTimerRef.current);
+        revealTimerRef.current = null;
+      }
+      controller.abort();
       startedRef.current = false;
-      window.clearTimeout(fallbackTimer);
     };
-  }, [analysis, product, completeWithLocalFallback]);
+  }, [analysis, product]);
 
   const completedOverride = useMemo(() => {
     if (!useLiveAgent) return undefined;
@@ -198,6 +193,26 @@ export function BuyerAnalysisExperience({
         completedOverride={completedOverride}
         disableTimer={useLiveAgent}
       />
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
+        <div className="max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+          <p className="text-sm font-black text-foreground">Analiz tamamlanamadı</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {errorMessage || "Gemini yanıtı alınamadı. Lütfen biraz sonra tekrar dene."}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background"
+          >
+            Tekrar dene
+          </button>
+        </div>
+      </div>
     );
   }
 

@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using ZekAI.Application.DTOs;
 using ZekAI.Domain.Entities;
 using ZekAI.Infrastructure.Data;
@@ -8,8 +11,77 @@ namespace ZekAI.Infrastructure.Services;
 
 public class BuyerService(ZekaiDbContext db, CommerceApiClient commerce)
 {
+    private static readonly TimeSpan AnalysisCacheTtl = TimeSpan.FromDays(7);
+
     public async Task<ProductPreviewResponse?> GetProductPreviewAsync(string productUrl)
         => await commerce.GetProductByUrlAsync(productUrl);
+
+    public async Task<BuyerAnalysisCache?> GetAnalysisCacheAsync(
+        Guid userId,
+        CommerceProductDetailDto product,
+        string buyerNeed)
+    {
+        var key = BuildAnalysisCacheKey(userId, product, buyerNeed);
+        return await db.AnalysisCaches
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.CacheKey == key && c.ExpiresAt > DateTime.UtcNow);
+    }
+
+    public async Task SaveAnalysisCacheAsync(
+        Guid userId,
+        CommerceProductDetailDto product,
+        string buyerNeed,
+        string resultJson,
+        bool usedSearch,
+        string model)
+    {
+        var normalizedNeed = NormalizeNeed(buyerNeed);
+        var fingerprint = BuildProductFingerprint(product);
+        var key = BuildAnalysisCacheKey(userId, product, buyerNeed);
+        var existing = await db.AnalysisCaches.FirstOrDefaultAsync(c => c.CacheKey == key);
+
+        if (existing is null)
+        {
+            db.AnalysisCaches.Add(new BuyerAnalysisCache
+            {
+                UserId = userId,
+                CacheKey = key,
+                ProductId = product.Id,
+                NormalizedBuyerNeed = normalizedNeed,
+                ProductFingerprint = fingerprint,
+                ResultJson = resultJson,
+                UsedSearch = usedSearch,
+                Model = model,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.Add(AnalysisCacheTtl),
+            });
+        }
+        else
+        {
+            existing.ResultJson = resultJson;
+            existing.UsedSearch = usedSearch;
+            existing.Model = model;
+            existing.CreatedAt = DateTime.UtcNow;
+            existing.ExpiresAt = DateTime.UtcNow.Add(AnalysisCacheTtl);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static string BuildAnalysisCacheKey(Guid userId, CommerceProductDetailDto product, string buyerNeed)
+        => Sha256($"{userId:N}|{product.Id}|{NormalizeNeed(buyerNeed)}|{BuildProductFingerprint(product)}");
+
+    private static string BuildProductFingerprint(CommerceProductDetailDto product)
+        => Sha256($"{product.Id}|{product.Price}|{product.OriginalPrice}|{product.Rating}|{product.ReviewCount}|{product.Stock}|{product.Title}|{product.Description}");
+
+    private static string NormalizeNeed(string buyerNeed)
+        => Regex.Replace((buyerNeed ?? "").Trim().ToLowerInvariant(), @"\s+", " ");
+
+    private static string Sha256(string value)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
 
     public async Task<List<AnalysisDto>> GetAnalysesAsync(Guid userId)
     {

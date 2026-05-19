@@ -95,36 +95,20 @@ export function buildBuyerAnalysisFromProduct({
           ? "Satın almadan önce yorumları ve iade koşullarını dikkatle kontrol et."
           : "Risk sinyalleri yüksek; alternatifleri karşılaştırmadan satın alma.",
     scores: { fitScore, trustScore, priceScore, returnRiskPercent },
-    // 6 adım — backend'deki 5 gerçek Gemini ajanıyla 1-1 eşleşir
     agentSteps: [
       {
-        id: "need-agent", label: "İhtiyaç Analizi", type: "need", status: "pending", durationMs: 900,
-        description: "Alıcı ihtiyacı ürün profiliyle eşleştiriliyor.",
-        summary: `İhtiyaç metni, "${product.title}" ürün verisiyle karşılaştırıldı.`,
+        id: "advisor-agent", label: "Ürün ve İhtiyaç", type: "need", status: "pending", durationMs: 900,
+        description: "Kullanım amacı, ürün özellikleri ve yorum sinyalleri birlikte değerlendiriliyor.",
+        summary: `"${product.title}" ihtiyaç metninle birlikte değerlendirildi.`,
       },
       {
-        id: "price-agent", label: "Fiyat Araştırması", type: "price", status: "pending", durationMs: 1100,
-        description: "Google Search ile piyasa fiyatı ve rakipler araştırılıyor.",
-        summary: `${formatPrice(product.price)} fiyatı piyasa verileriyle karşılaştırıldı.`,
+        id: "market-agent", label: "Piyasa Kontrolü", type: "price", status: "pending", durationMs: 1000,
+        description: "Sadece gerekirse fiyat ve alternatifler için Google Search kullanılıyor.",
+        summary: "Piyasa kontrolü gerekli görülürse tamamlandı; değilse atlandı.",
       },
       {
-        id: "review-agent", label: "Yorum Analizi", type: "review", status: "pending", durationMs: 1000,
-        description: "Ürün yorumları ve güven sinyalleri analiz ediliyor.",
-        summary: `${product.reviewCount} yorum, ${product.rating.toFixed(1)}/5 puan değerlendirildi.`,
-      },
-      {
-        id: "alternative-agent", label: "Alternatif Tarama", type: "alternatives", status: "pending", durationMs: 1000,
-        description: "Google'da kullanıcının ihtiyacına daha uygun, fiyat aralığındaki alternatifler aranıyor.",
-        summary: "Bütçe içinde daha iyi seçenekler tarandı.",
-      },
-      {
-        id: "synthesis-agent", label: "Karar Sentezi", type: "synthesis", status: "pending", durationMs: 700,
-        description: "Tüm analizler birleştirilip kanıta dayalı nihai karar üretiliyor.",
-        summary: "Uyum, güven, fiyat ve iade riski skorları sentezlendi.",
-      },
-      {
-        id: "verification-agent", label: "Doğrulama & Rapor", type: "verification", status: "pending", durationMs: 600,
-        description: "Kanıtlar doğrulanıyor, ispatlanamayan iddialar işaretleniyor, final rapor hazırlanıyor.",
+        id: "decision-agent", label: "Karar", type: "synthesis", status: "pending", durationMs: 700,
+        description: "Skorlar deterministik karar motoruyla sade tavsiyeye dönüştürülüyor.",
         summary: "Final karar raporu hazır.",
       },
     ],

@@ -7,15 +7,20 @@ import type {
   Verdict,
 } from "@/types/analysis";
 import type { Product } from "@/types/product";
-import { useMockStore } from "@/lib/store/mock-store";
 
 export type AdkAgentEvent = {
+  type?: string;
+  message?: string;
   author?: string;
   content?: { parts?: Array<{ text?: string }> };
   actions?: { state_delta?: Record<string, unknown> };
 };
 
 export type VerifiedReport = {
+  fit_score?: number;
+  trust_score?: number;
+  price_fairness_score?: number;
+  return_risk_percent?: number;
   verified_fit_score?: number;
   verified_trust_score?: number;
   verified_price_fairness_score?: number;
@@ -30,6 +35,8 @@ export type VerifiedReport = {
   verdict?: Verdict;
   /** Alternative Finder ajanının bulguları */
   alternatives?: AlternativeProduct[];
+  used_search?: boolean;
+  cached?: boolean;
 };
 
 const ZEKAI_API_URL =
@@ -48,12 +55,9 @@ function formatPrice(value: number) {
 // Eşleşme: backend SSE author → frontend step ID
 // Backend gerçekte 6 event gönderir — hayalet mapping yok
 const authorToStepId: Record<string, string> = {
-  need_understanding: "need-agent",
-  price_market:       "price-agent",
-  review_mining:      "review-agent",
-  alternative_search: "alternative-agent",
-  risk_synthesis:     "synthesis-agent",
-  verification:       "verification-agent",
+  buyer_advisor: "advisor-agent",
+  market_check:  "market-agent",
+  decision:      "decision-agent",
 };
 
 export function stepIdFromAuthor(author?: string) {
@@ -116,6 +120,8 @@ function looksLikeVerifiedReport(o: unknown): o is VerifiedReport {
   const r = o as Record<string, unknown>;
   return (
     "verdict" in r ||
+    "fit_score" in r ||
+    "trust_score" in r ||
     "verified_fit_score" in r ||
     "verified_trust_score" in r ||
     "verified_warnings" in r ||
@@ -214,12 +220,17 @@ async function streamSseEvents(
 
       try {
         const parsed = JSON.parse(json);
-        if (parsed && typeof parsed === "object" && parsed.type === "mock_notice") {
-          useMockStore.getState().triggerMockMode();
-          continue;
+        if (parsed && typeof parsed === "object" && parsed.type === "mock_notice") continue;
+        if (parsed && typeof parsed === "object" && parsed.type === "error") {
+          const error = new Error(parsed.message ?? "AI analizi tamamlanamadı.");
+          error.name = "SseError";
+          throw error;
         }
         onEvent(parsed as AdkAgentEvent);
-      } catch {
+      } catch (error) {
+        if (error instanceof Error && error.name === "SseError") {
+          throw error;
+        }
         buffer = `${json}\n${buffer}`;
       }
     }
@@ -230,13 +241,17 @@ async function streamSseEvents(
 export async function runBuyerAgentStream({
   product,
   buyerNeed,
+  signal,
   onEvent,
 }: {
   product: Product;
   buyerNeed: string;
   analysisId: string;
+  signal?: AbortSignal;
   onEvent: (event: AdkAgentEvent) => void;
 }) {
+  const timeoutSignal = AbortSignal.timeout(ANALYZE_TIMEOUT_MS);
+  const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   const response = await fetch(`${ZEKAI_API_URL}/api/buyer/analyze`, {
     method: "POST",
     headers: {
@@ -244,7 +259,7 @@ export async function runBuyerAgentStream({
       Accept: "text/event-stream",
       ...getAuthHeaders(),
     },
-    signal: AbortSignal.timeout(ANALYZE_TIMEOUT_MS),
+    signal: combinedSignal,
     body: JSON.stringify({
       productId: product.id,
       buyerNeed,
@@ -263,11 +278,11 @@ export function applyVerifiedReport(
   product: Product,
   report: VerifiedReport,
 ): BuyerAnalysis {
-  const fitScore = clampScore(report.verified_fit_score, base.scores.fitScore);
-  const trustScore = clampScore(report.verified_trust_score, base.scores.trustScore);
-  const priceScore = clampScore(report.verified_price_fairness_score, base.scores.priceScore);
+  const fitScore = clampScore(report.verified_fit_score ?? report.fit_score, base.scores.fitScore);
+  const trustScore = clampScore(report.verified_trust_score ?? report.trust_score, base.scores.trustScore);
+  const priceScore = clampScore(report.verified_price_fairness_score ?? report.price_fairness_score, base.scores.priceScore);
   const returnRiskPercent = clampScore(
-    report.verified_return_risk_percent,
+    report.verified_return_risk_percent ?? report.return_risk_percent,
     base.scores.returnRiskPercent,
   );
   const overallRiskPercent = clampScore(
@@ -300,12 +315,12 @@ export function applyVerifiedReport(
         ...strengths.slice(0, 2).map((item, index) => ({
           label: item.strength ?? `Guclu sinyal ${index + 1}`,
           score: Math.max(45, fitScore - index * 6),
-          reason: item.evidence ?? "ADK dogrulama ajanindan geldi.",
+          reason: item.evidence ?? "ZekAI analizinden geldi.",
         })),
         ...warnings.slice(0, 2).map((item, index) => ({
           label: item.warning ?? `Risk sinyali ${index + 1}`,
           score: Math.max(20, fitScore - 14 - index * 6),
-          reason: item.evidence ?? "ADK dogrulama ajanindan geldi.",
+          reason: item.evidence ?? "ZekAI analizinden geldi.",
         })),
       ].slice(0, 4),
     },
@@ -314,9 +329,9 @@ export function applyVerifiedReport(
       summary: report.final_summary ?? base.trustAnalysis.summary,
       signals: [
         {
-          title: "ADK Dogrulama",
+          title: "ZekAI Analizi",
           value: report.verification_quality ?? "medium",
-          description: report.final_summary ?? "Risk raporu kanit kalitesi acisindan dogrulandi.",
+          description: report.final_summary ?? "Karar raporu kanit kalitesi acisindan dogrulandi.",
           tone: trustTone(trustScore),
         },
         {
@@ -341,18 +356,18 @@ export function applyVerifiedReport(
     },
     priceAnalysis: {
       ...base.priceAnalysis,
-      summary: `ADK fiyat adaleti skoru ${priceScore}/100 olarak dogrulandi.`,
+      summary: `Fiyat uygunlugu ${priceScore}/100 olarak degerlendirildi.`,
       marketComparison: [
         { label: "Bu satici", value: formatPrice(product.price) },
         ...(product.originalPrice ? [{ label: "Liste fiyati", value: formatPrice(product.originalPrice) }] : []),
-        { label: "ADK fiyat skoru", value: `${priceScore}/100` },
+        { label: "Fiyat skoru", value: `${priceScore}/100` },
       ],
     },
     finalAdvice:
       report.final_summary ??
       (level === "safe"
-        ? "ADK analizine gore kontrollu sekilde degerlendirilebilir."
-        : "ADK analizine gore kanitlari inceleyip alternatiflerle karsilastirmak daha mantikli."),
+        ? "ZekAI analizine gore kontrollu sekilde degerlendirilebilir."
+        : "ZekAI analizine gore kanitlari inceleyip alternatiflerle karsilastirmak daha mantikli."),
     verdict: report.verdict,
     alternatives: report.alternatives ?? [],
   };

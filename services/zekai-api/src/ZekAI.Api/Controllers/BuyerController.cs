@@ -135,7 +135,19 @@ public class BuyerController(BuyerService buyer, CommerceApiClient commerce) : C
             return;
         }
 
-        // Fetch reviews
+        var cached = await buyer.GetAnalysisCacheAsync(UserId, product, req.BuyerNeed);
+        if (cached is not null)
+        {
+            Response.ContentType = "text/event-stream";
+            Response.Headers["Cache-Control"] = "no-cache";
+            Response.Headers["X-Accel-Buffering"] = "no";
+            await WriteSseAsync("cache", "Önceki tamamlanmış analiz bulundu.", HttpContext.RequestAborted);
+            await WriteSseAsync("buyer_advisor", "Cache sonucu kullanılıyor.", "advisor_raporu", new { cached = true }, HttpContext.RequestAborted);
+            await WriteSseAsync("decision", cached.ResultJson, "final_rapor", MergeCachedFinalReport(cached.ResultJson), HttpContext.RequestAborted);
+            return;
+        }
+
+        // Fetch reviews only when a fresh AI analysis is needed.
         var reviews = await commerce.GetProductReviewsAsync(req.ProductId);
 
         // Build ai-service payload
@@ -179,8 +191,101 @@ public class BuyerController(BuyerService buyer, CommerceApiClient commerce) : C
         Response.ContentType = "text/event-stream";
         Response.Headers["Cache-Control"] = "no-cache";
         Response.Headers["X-Accel-Buffering"] = "no";
+
+        string? finalReportJson = null;
+        bool usedSearch = false;
+        string model = "";
+
         await using var stream = await response.Content.ReadAsStreamAsync(HttpContext.RequestAborted);
-        await stream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        while (!HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            var line = await reader.ReadLineAsync(HttpContext.RequestAborted);
+            if (line is null) break;
+
+            await Response.WriteAsync(line + "\n", HttpContext.RequestAborted);
+            if (line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                TryCaptureFinalReport(line, ref finalReportJson, ref usedSearch, ref model);
+            }
+
+            if (line.Length == 0)
+            {
+                await Response.Body.FlushAsync(HttpContext.RequestAborted);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(finalReportJson) && !HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            await buyer.SaveAnalysisCacheAsync(UserId, product, req.BuyerNeed, finalReportJson, usedSearch, model);
+        }
+    }
+
+    private async Task WriteSseAsync(
+        string author,
+        string text,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            author,
+            content = new { parts = new[] { new { text } } }
+        });
+        await Response.WriteAsync($"data: {payload}\n\n", cancellationToken);
+        await Response.Body.FlushAsync(cancellationToken);
+    }
+
+    private async Task WriteSseAsync(
+        string author,
+        string text,
+        string stateKey,
+        object stateValue,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            author,
+            content = new { parts = new[] { new { text } } },
+            actions = new { state_delta = new Dictionary<string, object> { [stateKey] = stateValue } }
+        });
+        await Response.WriteAsync($"data: {payload}\n\n", cancellationToken);
+        await Response.Body.FlushAsync(cancellationToken);
+    }
+
+    private static object MergeCachedFinalReport(string resultJson)
+    {
+        using var doc = JsonDocument.Parse(resultJson);
+        var dict = JsonSerializer.Deserialize<Dictionary<string, object?>>(doc.RootElement.GetRawText()) ?? [];
+        dict["cached"] = true;
+        return dict;
+    }
+
+    private static void TryCaptureFinalReport(
+        string line,
+        ref string? finalReportJson,
+        ref bool usedSearch,
+        ref string model)
+    {
+        try
+        {
+            var json = line["data:".Length..].Trim();
+            if (string.IsNullOrWhiteSpace(json)) return;
+
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("actions", out var actions)) return;
+            if (!actions.TryGetProperty("state_delta", out var delta)) return;
+            if (!delta.TryGetProperty("final_rapor", out var report)) return;
+
+            finalReportJson = report.GetRawText();
+            if (report.TryGetProperty("used_search", out var usedSearchProp))
+                usedSearch = usedSearchProp.ValueKind == JsonValueKind.True;
+            if (report.TryGetProperty("model", out var modelProp))
+                model = modelProp.GetString() ?? "";
+        }
+        catch
+        {
+            // Non-final or malformed SSE data should not break the stream proxy.
+        }
     }
 
     [HttpPost("agent/sessions/{sessionId}")]
