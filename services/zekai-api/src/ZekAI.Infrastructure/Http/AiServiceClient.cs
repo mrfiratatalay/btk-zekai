@@ -138,6 +138,25 @@ public class AiServiceClient(HttpClient http)
         var response = await http.PostAsJsonAsync("/seller/bundle-recommend", payload, JsonOpts);
         return await ReadAiResponseAsync<AiBundleRecommendResponse>(response);
     }
+
+    // ── SEO Optimization ──────────────────────────────────────────────────────
+
+    public async Task<AiSeoResult?> GenerateSeoAsync(
+        string productTitle, string category, decimal price,
+        string? description, List<string> features, string? brand)
+    {
+        var payload = new
+        {
+            product_title = productTitle,
+            category,
+            price = (double)price,
+            description,
+            features,
+            brand,
+        };
+        var response = await http.PostAsJsonAsync("/seller/seo", payload, JsonOpts);
+        return await ReadAiResponseAsync<AiSeoResult>(response);
+    }
 }
 
 public class AiServiceException(int statusCode, string responseBody) : Exception(responseBody)
@@ -254,5 +273,15 @@ public record AiBundleRec(
 public record AiBundleRecommendResponse(
     List<AiBundleRec> Recommendations,
     string? MissingOpportunityNote,
+    [property: JsonPropertyName("_mock")] bool Mock = false
+);
+
+public record AiSeoResult(
+    string FocusKeyword,
+    List<string> SecondaryKeywords,
+    string SeoTitle,
+    string MetaDescription,
+    string UrlSlugSuggestion,
+    List<string> ImprovementTips,
     [property: JsonPropertyName("_mock")] bool Mock = false
 );

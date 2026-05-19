@@ -32,7 +32,6 @@ import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 import {
   generateSocialContent,
-  saveSocialDraft,
   getProductSocialDrafts,
   deleteSocialDraft,
   activateSocialDraft,
@@ -634,7 +633,6 @@ function GeneratedPanel({
   onActivePlatformChange,
   onUpdateContent,
   onRegeneratePlatform,
-  onSaveDraft,
 }: {
   product: SellerProductPerformance;
   content: SocialMediaContent;
@@ -643,7 +641,6 @@ function GeneratedPanel({
   onActivePlatformChange: (platform: SocialPlatform) => void;
   onUpdateContent: (content: SocialMediaContent) => void;
   onRegeneratePlatform: (platform: SocialPlatform) => void;
-  onSaveDraft: () => void;
 }) {
   const readyPlatforms = PLATFORMS.filter(({ key }) => platformIsReady(content, key));
   const activeText = useMemo(() => {
@@ -680,14 +677,6 @@ function GeneratedPanel({
 
         <div className="flex flex-wrap gap-3">
           <CopyButton text={formatAll(content)} label="Tümünü Kopyala" />
-          <button
-            type="button"
-            onClick={onSaveDraft}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-green-500 bg-background px-4 text-sm font-semibold text-green-700 transition-colors hover:bg-green-500/10 dark:text-green-400"
-          >
-            <Bookmark className="size-4" />
-            Taslak Olarak Kaydet
-          </button>
         </div>
       </div>
 
@@ -890,22 +879,6 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
     }
   }
 
-  async function handleSaveDraft() {
-    if (!content) return;
-    try {
-      const saved = await saveSocialDraft(product.id, {
-        tone,
-        purpose,
-        platforms: content.platforms,
-        content,
-      });
-      setDrafts((current) => [saved, ...current]);
-      toast.success("Taslak DB'ye kaydedildi — Taslaklarım'dan da görebilirsin");
-    } catch {
-      toast.error("Taslak kaydedilemedi.");
-    }
-  }
-
   function handleLoadDraft(draft: SocialDraft) {
     setContent(draft.content);
     setActivePlatform(draft.content.platforms?.[0] ?? "instagram");
@@ -991,7 +964,6 @@ export function SellerSocialMedia({ product }: { product: SellerProductPerforman
               onActivePlatformChange={setActivePlatform}
               onUpdateContent={(nextContent) => setContent(nextContent)}
               onRegeneratePlatform={handleRegeneratePlatform}
-              onSaveDraft={handleSaveDraft}
             />
           ) : (
             <EmptyContentState />

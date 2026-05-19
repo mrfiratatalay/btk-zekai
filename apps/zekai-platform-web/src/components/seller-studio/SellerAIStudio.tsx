@@ -123,12 +123,9 @@ export function SellerAIStudio() {
           {AI_TOOLS.map((tool) => {
             const Icon = tool.icon;
             const disabled = tool.tag === "Yakında";
-            return (
-              <Link
-                key={tool.id}
-                href={disabled ? "#" : tool.href}
-                className={`flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 transition-all ${disabled ? "cursor-default opacity-60" : "hover:shadow-md"}`}
-              >
+            const cardClass = `flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 transition-all ${disabled ? "cursor-not-allowed opacity-60" : "hover:shadow-md cursor-pointer"}`;
+            const inner = (
+              <>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
                     <Icon className="size-5 text-muted-foreground" />
@@ -147,6 +144,21 @@ export function SellerAIStudio() {
                     <ChevronRight className="size-3.5" />
                   </div>
                 )}
+              </>
+            );
+
+            // "Yakında" araçlar için Link kullanma — gerçek yönlendirme yok, sadece statik kart.
+            if (disabled) {
+              return (
+                <div key={tool.id} className={cardClass} aria-disabled="true">
+                  {inner}
+                </div>
+              );
+            }
+
+            return (
+              <Link key={tool.id} href={tool.href} className={cardClass}>
+                {inner}
               </Link>
             );
           })}

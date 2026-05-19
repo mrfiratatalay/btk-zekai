@@ -54,24 +54,6 @@ public record SimulationProductPayload(
 
 // ── Seller Product Drafts ────────────────────────────────────────────────
 
-public record DraftImageInput(string Type, string Label, string? ImageBase64, string? MimeType, string? Url);
-
-public class SaveProductDraftRequest
-{
-    public string Label { get; set; } = "";
-    public string Title { get; set; } = "";
-    public string ShortDescription { get; set; } = "";
-    public string Description { get; set; } = "";
-    public Dictionary<string, string> Features { get; set; } = new();
-    public decimal Price { get; set; }
-    public decimal? OriginalPrice { get; set; }
-    public int Stock { get; set; }
-    public string Brand { get; set; } = "";
-    public string CargoText { get; set; } = "";
-    public int CategoryId { get; set; }
-    public List<DraftImageInput> Images { get; set; } = new();
-}
-
 public record DraftImageDto(string Type, string Label, string Url);
 
 public record ProductDraftDto(
@@ -95,15 +77,6 @@ public record ProductDraftDto(
 );
 
 // ── Sosyal Medya Taslakları (markete gitmez; varyasyon saklama) ──────────
-
-public class SaveSocialDraftRequest
-{
-    public string Label { get; set; } = "";
-    public string Tone { get; set; } = "";
-    public string Purpose { get; set; } = "";
-    public List<string> Platforms { get; set; } = new();
-    public System.Text.Json.JsonElement Content { get; set; }
-}
 
 public record SocialDraftDto(
     Guid Id,

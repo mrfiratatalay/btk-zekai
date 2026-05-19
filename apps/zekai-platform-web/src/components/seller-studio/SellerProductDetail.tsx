@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Bot, ChevronRight, Eye, Package, PackagePlus, Share2, Sparkles } from "lucide-react";
+import { Bot, ChevronRight, Eye, FileText, Package, PackagePlus, Share2, Sparkles } from "lucide-react";
 import type { SellerProductPerformance } from "@/types/seller";
 import { formatSellerPrice } from "@/lib/format";
 
@@ -44,6 +44,15 @@ const MODULES = [
     href: (id: string) => `/seller/product/${id}/bundles`,
     iconBg: "bg-lime-500/10",
     iconColor: "text-lime-700 dark:text-lime-300",
+  },
+  {
+    key: "seo",
+    icon: FileText,
+    title: "SEO Optimizasyonu",
+    description: "Arama görünürlüğü için anahtar kelime, başlık ve meta üret",
+    href: (id: string) => `/seller/product/${id}/seo`,
+    iconBg: "bg-amber-500/10",
+    iconColor: "text-amber-600 dark:text-amber-400",
   },
 ] as const;
 

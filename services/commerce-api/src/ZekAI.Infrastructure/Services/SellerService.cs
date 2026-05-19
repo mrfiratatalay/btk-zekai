@@ -1,5 +1,3 @@
-using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -12,7 +10,31 @@ namespace ZekAI.Infrastructure.Services;
 
 public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory, IConfiguration config)
 {
-    private string AkilliMarketBaseUrl => config["AkilliMarket:BaseUrl"] ?? "http://localhost:5001";
+    // Akıllı Market storefront (Next.js) revalidation hook — commerce-api kendisi
+    // marketplace backend olduğundan dış publish çağrısı yapmıyoruz; sadece
+    // ön yüzdeki Next.js cache'i geçersiz kılıyoruz.
+    private string? AkilliMarketWebBaseUrl => config["AkilliMarketWeb:BaseUrl"];
+    private string AkilliMarketWebRevalidateSecret =>
+        config["AkilliMarketWeb:RevalidateSecret"] ?? "zekai-revalidate-2024";
+
+    private async Task TryRevalidateStorefrontAsync(string? productId = null)
+    {
+        var baseUrl = AkilliMarketWebBaseUrl;
+        if (string.IsNullOrWhiteSpace(baseUrl)) return;
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(5);
+            var url = $"{baseUrl.TrimEnd('/')}/api/revalidate?secret={Uri.EscapeDataString(AkilliMarketWebRevalidateSecret)}";
+            if (!string.IsNullOrWhiteSpace(productId))
+                url += $"&productId={Uri.EscapeDataString(productId)}";
+            await client.PostAsync(url, content: null);
+        }
+        catch
+        {
+            // Revalidation best-effort; storefront cache TTL ile er ya da geç tazelenir.
+        }
+    }
     private async Task<Seller> GetSellerByUserIdAsync(Guid userId)
     {
         return await db.Sellers.FirstOrDefaultAsync(s => s.UserId == userId)
@@ -171,6 +193,7 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
         db.SellerProducts.Remove(sp);
         db.Products.Remove(product);
         await db.SaveChangesAsync();
+        await TryRevalidateStorefrontAsync(productId);
     }
 
     public async Task<List<StoreConnectionDto>> GetConnectionsAsync(Guid userId)
@@ -242,32 +265,12 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
             .FirstOrDefaultAsync(sp => sp.SellerId == seller.Id && sp.ProductId == productId)
             ?? throw new KeyNotFoundException("Ürün bulunamadı.");
 
-        // Bağlı DemoStore (Akıllı Market) varsa harici API'ye de yayınla
-        var connection = await db.StoreConnections
-            .FirstOrDefaultAsync(c => c.SellerId == seller.Id &&
-                                      c.Status == StoreConnectionStatus.Connected &&
-                                      c.StoreApiKey != "");
-
-        if (connection is not null && published)
-        {
-            var client = httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", connection.StoreApiKey);
-
-            var body = new StringContent(
-                JsonSerializer.Serialize(new { published = true }),
-                Encoding.UTF8, "application/json");
-
-            var url = $"{AkilliMarketBaseUrl}/api/seller/products/{productId}/publish";
-            var response = await client.PutAsync(url, body);
-
-            if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException("Akıllı Market'e yayınlama başarısız oldu.");
-        }
-
         sp.IsPublished = published;
         sp.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+
+        // Storefront Next.js cache'i geçersiz kıl — yayın/gizle anında market'te yansısın.
+        await TryRevalidateStorefrontAsync(productId);
     }
 
     public async Task UpdateProductContentAsync(Guid userId, string productId, UpdateProductContentRequest req)
@@ -316,6 +319,7 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
         sp.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        await TryRevalidateStorefrontAsync(productId);
     }
 
     public async Task<string> UpdateProductImageAsync(Guid userId, string productId, string imageBase64, string mimeType, string webRootPath)
@@ -348,6 +352,7 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
 
         sp.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+        await TryRevalidateStorefrontAsync(productId);
         return imageUrl;
     }
 
@@ -739,6 +744,7 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
         bundle.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
+        await TryRevalidateStorefrontAsync(productId);
         return await GetBundleByIdAsync(seller.Id, productId, bundleId);
     }
 
@@ -750,6 +756,7 @@ public class SellerService(AppDbContext db, IHttpClientFactory httpClientFactory
         bundle.ArchivedAt = DateTime.UtcNow;
         bundle.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+        await TryRevalidateStorefrontAsync(productId);
     }
 
     private async Task<ProductBundleDto> GetBundleByIdAsync(Guid sellerId, string productId, Guid bundleId)

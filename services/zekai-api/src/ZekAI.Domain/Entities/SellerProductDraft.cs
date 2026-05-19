@@ -38,6 +38,10 @@ public class SellerProductDraft
     public string InputHash { get; set; } = "";
     public string AiModel { get; set; } = "";
     public string Source { get; set; } = "manual";
+
+    /// <summary>"ready" (aktif) / "archived" (geri alınabilir).</summary>
+    public string Status { get; set; } = "ready";
+
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

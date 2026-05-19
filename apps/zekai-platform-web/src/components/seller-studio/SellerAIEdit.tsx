@@ -25,12 +25,10 @@ import {
   updateProductContent,
   generateAiContent,
   generateProductImage,
-  saveProductDraft,
   applyProductImage,
   getStoreConnections,
   aiFeaturesToRecord,
   IMAGE_STYLE_LABELS,
-  type SaveDraftInput,
   type ProductImageStyle,
   type GeneratedProductImageItem,
   type SimulationInsight,
@@ -102,7 +100,6 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
   const [imageGenerating, setImageGenerating]     = useState(false);
   const [generatingStyle, setGeneratingStyle]     = useState<ProductImageStyle | null>(null);
   const [lightboxSrc, setLightboxSrc]             = useState<string | null>(null);
-  const [saving, setSaving]                       = useState(false);
   const [publishing, setPublishing]               = useState(false);
   const [aiApplied, setAiApplied]                 = useState(false);
   const [isDraft, setIsDraft]                     = useState(false);
@@ -215,41 +212,6 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
       toast.error("Görsel kaydedilemedi.");
     } finally {
       setApplyingImage(false);
-    }
-  }
-
-  async function handleSaveDraft() {
-    setSaving(true);
-    try {
-      const draftImages: SaveDraftInput["images"] = generatedImages.map((img) => ({
-        type: img.type,
-        label: img.label,
-        imageBase64: img.imageBase64,
-        mimeType: img.mimeType,
-      }));
-      // Uygulanmış görsel varsa (storage'da) onu da taslağa URL olarak iliştir
-      if (appliedImageUrl && draftImages.length === 0) {
-        draftImages.push({ type: "applied", label: "Uygulanan", url: appliedImageUrl });
-      }
-      await saveProductDraft(product.id, {
-        title,
-        shortDescription,
-        description,
-        features,
-        price: Number(price),
-        originalPrice: originalPrice ? Number(originalPrice) : null,
-        stock: Number(stock),
-        brand,
-        cargoText,
-        categoryId,
-        images: draftImages,
-      });
-      setIsDraft(true);
-      toast.success("Taslak kaydedildi — Taslaklarım'dan tek tıkla yayınlayabilirsin");
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Taslak kaydedilemedi.");
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -423,11 +385,7 @@ export function SellerAIEdit({ product }: { product: SellerProductPerformance })
 
           {/* Aksiyon butonları */}
           <div className="flex flex-col gap-2">
-            <button onClick={handleSaveDraft} disabled={saving || publishing} className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/8">
-              {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              {saving ? "Kaydediliyor..." : "Taslak Kaydet"}
-            </button>
-            <button onClick={handlePublish} disabled={saving || publishing || !hasStoreConnection} title={!hasStoreConnection ? "Önce bir mağaza bağlamalısın" : undefined} className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-500 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60">
+            <button onClick={handlePublish} disabled={publishing || !hasStoreConnection} title={!hasStoreConnection ? "Önce bir mağaza bağlamalısın" : undefined} className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-500 text-sm font-bold text-white shadow-sm transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60">
               {publishing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {publishing ? "Yayınlanıyor..." : hasStoreConnection ? "Akıllı Market'e Yayınla" : "Mağaza Bağlı Değil"}
             </button>

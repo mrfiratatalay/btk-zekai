@@ -345,6 +345,10 @@ namespace ZekAI.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<int>("Stock")
                         .HasColumnType("integer");
 
@@ -408,6 +412,10 @@ namespace ZekAI.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
 

@@ -15,6 +15,7 @@ public class ProductService(AppDbContext db)
             .Include(p => p.Images)
             .Include(p => p.Category)
             .Include(p => p.Reviews)
+            .Where(p => p.SellerProduct != null && p.SellerProduct.IsPublished)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(category))
@@ -46,9 +47,12 @@ public class ProductService(AppDbContext db)
             .Include(p => p.Images)
             .Include(p => p.Category)
             .Include(p => p.Reviews)
+            .Include(p => p.SellerProduct)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (p is null) return null;
+        // Yayınlanmamış ürünler storefront'ta görünmez; satıcı önizleme ProductsController içinde ayrı yol kullanır.
+        if (p.SellerProduct is null || !p.SellerProduct.IsPublished) return null;
 
         var features = JsonSerializer.Deserialize<Dictionary<string, string>>(p.FeaturesJson) ?? [];
         var badges = JsonSerializer.Deserialize<List<string>>(p.BadgesJson) ?? [];
@@ -175,7 +179,11 @@ public class ProductService(AppDbContext db)
         return bundle.PrimaryProduct is not null &&
                bundle.ComplementaryProduct is not null &&
                bundle.PrimaryProduct.Stock > 0 &&
-               bundle.ComplementaryProduct.Stock > 0;
+               bundle.ComplementaryProduct.Stock > 0 &&
+               bundle.PrimaryProduct.SellerProduct is not null &&
+               bundle.PrimaryProduct.SellerProduct.IsPublished &&
+               bundle.ComplementaryProduct.SellerProduct is not null &&
+               bundle.ComplementaryProduct.SellerProduct.IsPublished;
     }
 
     private static PublicProductBundleDto MapPublicBundle(ProductBundle bundle)

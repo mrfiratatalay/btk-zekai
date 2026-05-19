@@ -2,11 +2,12 @@ import asyncio
 import os
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from google import genai
 from google.genai import errors as genai_errors, types
 from pydantic import BaseModel, Field
 
-from mock.responses import is_mockable_gemini_error
+from mock.responses import get_mock_social_content, is_mockable_gemini_error
 
 router = APIRouter()
 
@@ -149,22 +150,32 @@ def _generate_sync(client: genai.Client, req: SocialContentRequest) -> SocialCon
     return result
 
 
-@router.post("/social-content", response_model=SocialContentResponse)
+def _mock_response(req: SocialContentRequest) -> JSONResponse:
+    platforms = _normalize_platforms(req.platforms)
+    payload = get_mock_social_content(
+        product_title=req.product_title,
+        category=req.category,
+        price=req.price,
+        tone=req.tone,
+        purpose=req.purpose,
+        platforms=platforms,
+    )
+    return JSONResponse(payload)
+
+
+@router.post("/social-content")
 async def generate_social_content(req: SocialContentRequest):
     api_key = os.getenv("GOOGLE_API_KEY", "").strip()
     if not api_key or api_key == "your_google_api_key_here":
-        raise HTTPException(
-            status_code=503,
-            detail="Gemini API key tanımlı değil. Sosyal medya içeriği mock veriyle üretilmedi.",
-        )
+        # API key yoksa demo mock dön — diğer seller agent'larıyla tutarlı.
+        return _mock_response(req)
 
     client = genai.Client(api_key=api_key)
     try:
-        return await asyncio.to_thread(_generate_sync, client, req)
+        result = await asyncio.to_thread(_generate_sync, client, req)
+        return JSONResponse(result.model_dump())
     except genai_errors.APIError as exc:
         if is_mockable_gemini_error(exc):
-            raise HTTPException(
-                status_code=503,
-                detail="Gemini API limitine veya erişim sorununa takıldı. Mock içerik üretilmedi; daha önce kaydedilmiş taslak/cache varsa onu kullan.",
-            ) from exc
+            # Rate-limit / transient hata → demo mock; UI _mock bayrağını gösterir.
+            return _mock_response(req)
         raise HTTPException(status_code=503, detail=f"Gemini API hatası: {exc}") from exc

@@ -109,6 +109,22 @@ export const generateSocialContent = (productId: string, payload: GenerateSocial
     suppressMockMode: true,
   });
 
+// ── SEO Optimizasyonu ────────────────────────────────────────────────────────
+
+export interface SeoResult {
+  focusKeyword: string;
+  secondaryKeywords: string[];
+  seoTitle: string;
+  metaDescription: string;
+  urlSlugSuggestion: string;
+  improvementTips: string[];
+  _mock?: boolean;
+  _cached?: boolean;
+}
+
+export const generateSeo = (productId: string) =>
+  apiFetch<SeoResult>(`/api/seller/products/${productId}/seo`, { method: "POST" });
+
 export interface BundleProduct {
   id: string;
   title: string;
@@ -490,28 +506,6 @@ export interface ProductDraft {
   createdAt: string;
 }
 
-export interface SaveDraftInput {
-  label?: string;
-  title: string;
-  shortDescription: string;
-  description: string;
-  features: Record<string, string>;
-  price: number;
-  originalPrice?: number | null;
-  stock: number;
-  brand: string;
-  cargoText: string;
-  categoryId: number;
-  // Üretilen görseller — base64 gönderilir, backend commerce storage'a kalıcılaştırır
-  images: { type: string; label: string; imageBase64?: string; mimeType?: string; url?: string }[];
-}
-
-export const saveProductDraft = (productId: string, input: SaveDraftInput) =>
-  apiFetch<ProductDraft>(`/api/seller/products/${productId}/drafts`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-
 export const getProductDrafts = (productId: string) =>
   apiFetch<ProductDraft[]>(`/api/seller/products/${productId}/drafts`);
 
@@ -556,20 +550,6 @@ export interface SocialDraft {
   aiModel?: string | null;
   createdAt: string;
 }
-
-export interface SaveSocialDraftInput {
-  label?: string;
-  tone: string;
-  purpose: string;
-  platforms: string[];
-  content: SocialMediaContent;
-}
-
-export const saveSocialDraft = (productId: string, input: SaveSocialDraftInput) =>
-  apiFetch<SocialDraft>(`/api/seller/products/${productId}/social-drafts`, {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
 
 export const getProductSocialDrafts = (productId: string) =>
   apiFetch<SocialDraft[]>(`/api/seller/products/${productId}/social-drafts`);

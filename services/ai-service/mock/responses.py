@@ -240,6 +240,39 @@ def get_mock_content(product_title: str, category: str, price: float) -> dict:
     }
 
 
+# ── SEO Mock ───────────────────────────────────────────────────────────────────
+
+def get_mock_seo(product_title: str, category: str, price: float) -> dict:
+    base = product_title.lower().strip()
+    slug = base.replace("ı", "i").replace("ş", "s").replace("ç", "c").replace("ğ", "g").replace("ö", "o").replace("ü", "u")
+    slug = "-".join(part for part in slug.split() if part)
+    return {
+        "focus_keyword": product_title,
+        "secondary_keywords": [
+            f"{category.lower()} {product_title.split()[0].lower() if product_title.split() else ''}".strip(),
+            f"{product_title} fiyat",
+            f"{product_title} yorumları",
+            f"uygun fiyatlı {category.lower()}",
+            f"en iyi {category.lower()}",
+            f"{category.lower()} öneri",
+        ],
+        "seo_title": f"{product_title} — {category} | Hızlı Kargo & Güvenli Alışveriş",
+        "meta_description": (
+            f"{product_title} ₺{price:.0f} fiyatıyla Akıllı Market'te. "
+            f"{category} kategorisinde uygun fiyat, hızlı kargo ve güvenli alışveriş."
+        )[:160],
+        "url_slug_suggestion": slug or "urun",
+        "improvement_tips": [
+            "Başlığa marka adını ve birincil anahtar kelimeyi başa yaklaştır.",
+            "Açıklamanın ilk 160 karakterine ana fayda + fiyat sinyalini sıkıştır.",
+            "Özellikler bölümünde teknik değerleri sayılarla ver — arama motoru zengin sonuç gösterir.",
+            "Kategori-uzun-kuyruk (long-tail) kelimelerini kullanım senaryoları içine doğal yedir.",
+            "Görsel alt metinlerine (alt text) ürün adı + kategori ekle.",
+        ],
+        "_mock": True,
+    }
+
+
 # ── Social Content Mock ────────────────────────────────────────────────────────
 
 def get_mock_social_content(

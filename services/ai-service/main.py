@@ -11,6 +11,7 @@ from seller.content_router import router as content_router
 from seller.simulation_router import router as simulation_router
 from seller.image_router import router as image_router
 from seller.bundle_router import router as bundle_router
+from seller.seo_router import router as seo_router
 from buyer.buyer_router import router as buyer_router
 from buyer.kombin_router import router as kombin_router
 from buyer.compare_router import router as compare_router
@@ -41,6 +42,7 @@ app.include_router(content_router, prefix="/seller", tags=["seller-ai"])
 app.include_router(simulation_router, prefix="/seller", tags=["seller-ai"])
 app.include_router(image_router, prefix="/seller", tags=["seller-ai"])
 app.include_router(bundle_router, prefix="/seller", tags=["seller-ai"])
+app.include_router(seo_router, prefix="/seller", tags=["seller-ai"])
 app.include_router(buyer_router, prefix="/buyer", tags=["buyer-ai"])
 app.include_router(kombin_router, prefix="/buyer", tags=["buyer-ai"])
 app.include_router(compare_router, prefix="/buyer", tags=["buyer-ai"])

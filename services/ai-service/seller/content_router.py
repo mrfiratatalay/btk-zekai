@@ -12,7 +12,7 @@ from mock.responses import is_mockable_gemini_error, get_mock_content
 
 router = APIRouter()
 
-MODEL = "gemini-2.5-flash-lite"
+MODEL = os.getenv("GEMINI_CONTENT_MODEL", "gemini-2.5-flash-lite").strip()
 
 
 class SimulationContext(BaseModel):

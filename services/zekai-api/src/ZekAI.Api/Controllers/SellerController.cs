@@ -158,6 +158,19 @@ public class SellerController(SellerService seller) : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    [HttpPost("products/{productId}/seo")]
+    public async Task<IActionResult> GenerateSeo(string productId)
+    {
+        try
+        {
+            var result = await seller.GenerateSeoAsync(UserId, productId);
+            return result is null ? StatusCode(503, new { message = "SEO analizi üretilemedi." }) : Ok(result);
+        }
+        catch (AiServiceException ex) { return AiServiceError(ex); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     [HttpPost("products/{productId}/simulate")]
     public async Task<IActionResult> SimulateProduct(string productId)
     {
@@ -321,14 +334,6 @@ public class SellerController(SellerService seller) : ControllerBase
 
     // ── Product Drafts (AI çıktısı DB'de saklanır → ücretsiz tekrar yayın) ──
 
-    [HttpPost("products/{productId}/drafts")]
-    public async Task<IActionResult> SaveDraft(string productId, [FromBody] SaveProductDraftRequest req)
-    {
-        try { return Ok(await seller.SaveDraftAsync(UserId, productId, req)); }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-    }
-
     [HttpGet("products/{productId}/drafts")]
     public async Task<IActionResult> GetProductDrafts(string productId)
     {
@@ -355,11 +360,25 @@ public class SellerController(SellerService seller) : ControllerBase
         return ok ? Ok(new { message = "AI çıktısı arşivlendi." }) : NotFound(new { message = "AI çıktısı bulunamadı." });
     }
 
+    [HttpPost("ai-artifacts/{artifactId:guid}/restore")]
+    public async Task<IActionResult> RestoreAiArtifact(Guid artifactId)
+    {
+        var ok = await seller.RestoreAiArtifactAsync(UserId, artifactId);
+        return ok ? Ok(new { message = "AI çıktısı geri yüklendi." }) : NotFound(new { message = "AI çıktısı bulunamadı." });
+    }
+
     [HttpDelete("drafts/{draftId:guid}")]
     public async Task<IActionResult> DeleteDraft(Guid draftId)
     {
         var ok = await seller.DeleteDraftAsync(UserId, draftId);
-        return ok ? Ok(new { message = "Taslak silindi." }) : NotFound(new { message = "Taslak bulunamadı." });
+        return ok ? Ok(new { message = "Taslak arşivlendi." }) : NotFound(new { message = "Taslak bulunamadı." });
+    }
+
+    [HttpPost("drafts/{draftId:guid}/restore")]
+    public async Task<IActionResult> RestoreDraft(Guid draftId)
+    {
+        var ok = await seller.RestoreDraftAsync(UserId, draftId);
+        return ok ? Ok(new { message = "Taslak geri yüklendi." }) : NotFound(new { message = "Taslak bulunamadı." });
     }
 
     [HttpPost("drafts/{draftId:guid}/publish")]
@@ -376,14 +395,6 @@ public class SellerController(SellerService seller) : ControllerBase
 
     // ── Social Media Drafts (markete gitmez; varyasyon saklama) ───────────
 
-    [HttpPost("products/{productId}/social-drafts")]
-    public async Task<IActionResult> SaveSocialDraft(string productId, [FromBody] SaveSocialDraftRequest req)
-    {
-        try { return Ok(await seller.SaveSocialDraftAsync(UserId, productId, req)); }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
-    }
-
     [HttpGet("products/{productId}/social-drafts")]
     public async Task<IActionResult> GetProductSocialDrafts(string productId)
     {
@@ -399,7 +410,14 @@ public class SellerController(SellerService seller) : ControllerBase
     public async Task<IActionResult> DeleteSocialDraft(Guid draftId)
     {
         var ok = await seller.DeleteSocialDraftAsync(UserId, draftId);
-        return ok ? Ok(new { message = "Taslak silindi." }) : NotFound(new { message = "Taslak bulunamadı." });
+        return ok ? Ok(new { message = "Taslak arşivlendi." }) : NotFound(new { message = "Taslak bulunamadı." });
+    }
+
+    [HttpPost("social-drafts/{draftId:guid}/restore")]
+    public async Task<IActionResult> RestoreSocialDraft(Guid draftId)
+    {
+        var ok = await seller.RestoreSocialDraftAsync(UserId, draftId);
+        return ok ? Ok(new { message = "Taslak geri yüklendi." }) : NotFound(new { message = "Taslak bulunamadı." });
     }
 
     [HttpPost("social-drafts/{draftId:guid}/activate")]
