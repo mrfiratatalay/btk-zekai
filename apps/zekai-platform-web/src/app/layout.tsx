@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { AppProviders } from "@/components/layout/app-providers";
+import { DemoBadge } from "@/components/demo/DemoBadge";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -28,6 +29,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <AppProviders>{children}</AppProviders>
           <Toaster richColors position="top-right" />
+          <DemoBadge />
         </ThemeProvider>
       </body>
     </html>

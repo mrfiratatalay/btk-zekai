@@ -1,4 +1,5 @@
 import { apiFetch, API_BASE } from "./client";
+import { transport } from "./transport";
 
 export interface SavedAnalysisApi {
   id: string;
@@ -207,7 +208,7 @@ export async function streamCompareVerdict(
     ? combineAbortSignals([signal, timeoutSignal])
     : timeoutSignal;
 
-  const response = await fetch(`${API_BASE}/api/buyer/compare-verdict`, {
+  const response = await transport(`${API_BASE}/api/buyer/compare-verdict`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

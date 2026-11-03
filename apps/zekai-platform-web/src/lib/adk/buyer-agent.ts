@@ -7,6 +7,7 @@ import type {
   Verdict,
 } from "@/types/analysis";
 import type { Product } from "@/types/product";
+import { transport } from "@/lib/api/transport";
 
 export type AdkAgentEvent = {
   type?: string;
@@ -265,7 +266,7 @@ export async function runBuyerAgentStream({
 }) {
   const timeoutSignal = AbortSignal.timeout(ANALYZE_TIMEOUT_MS);
   const combinedSignal = signal ? combineAbortSignals([signal, timeoutSignal]) : timeoutSignal;
-  const response = await fetch(`${ZEKAI_API_URL}/api/buyer/analyze`, {
+  const response = await transport(`${ZEKAI_API_URL}/api/buyer/analyze`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

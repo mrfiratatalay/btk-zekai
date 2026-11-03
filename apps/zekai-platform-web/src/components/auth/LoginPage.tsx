@@ -7,6 +7,8 @@ import { Eye, EyeOff, Lock, Mail, TrendingUp } from "lucide-react";
 import { login } from "@/lib/api/auth";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { ZekaiLogo } from "@/components/ui/ZekaiLogo";
+import { DemoLoginCards } from "@/components/demo/DemoLoginCards";
+import { isDemoMode } from "@/lib/api/transport";
 
 type Role = "buyer" | "seller";
 
@@ -53,6 +55,8 @@ export function LoginPage() {
             <h1 className="text-2xl font-bold text-foreground">Hoş geldiniz</h1>
             <p className="mt-1 text-sm text-muted-foreground">Hesabınıza giriş yapın.</p>
           </div>
+
+          {isDemoMode && <DemoLoginCards returnUrl={searchParams.get("returnUrl")} />}
 
           {/* Role toggle */}
           <div className="mb-6 flex rounded-2xl bg-muted p-1" style={{ borderRadius: "16px" }}>
@@ -132,41 +136,24 @@ export function LoginPage() {
               {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
             </button>
 
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {[
-                { label: "Demo Satıcı", email: "seller@zekai.com", password: "Seller123!", role: "seller" as Role },
-                { label: "Demo Alıcı", email: "buyer@zekai.com", password: "Buyer123!", role: "buyer" as Role },
-              ].map((demo) => (
-                <button
-                  key={demo.role}
-                  type="button"
-                  onClick={() => { setEmail(demo.email); setPassword(demo.password); setRole(demo.role); }}
-                  className="cursor-pointer rounded-xl border border-border bg-muted px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/80"
-                >
-                  <p className="text-[11px] font-semibold text-foreground/60">{demo.label}</p>
-                  <p className="mt-0.5 truncate text-xs font-mono text-[#86c820] dark:text-[#ADFF41]">{demo.email}</p>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 border-t border-border" />
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">veya</span>
-              <div className="flex-1 border-t border-border" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {["Google", "Apple"].map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  className="flex items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-semibold text-foreground transition-colors hover:border-foreground border-border"
-                  style={{ borderRadius: "16px", borderWidth: "1.5px" }}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+            {!isDemoMode && (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {[
+                  { label: "Demo Satıcı", email: "seller@zekai.com", password: "Seller123!", role: "seller" as Role },
+                  { label: "Demo Alıcı", email: "buyer@zekai.com", password: "Buyer123!", role: "buyer" as Role },
+                ].map((demo) => (
+                  <button
+                    key={demo.role}
+                    type="button"
+                    onClick={() => { setEmail(demo.email); setPassword(demo.password); setRole(demo.role); }}
+                    className="cursor-pointer rounded-xl border border-border bg-muted px-3 py-2 text-left transition-colors hover:border-foreground/30 hover:bg-muted/80"
+                  >
+                    <p className="text-[11px] font-semibold text-foreground/60">{demo.label}</p>
+                    <p className="mt-0.5 truncate text-xs font-mono text-[#86c820] dark:text-[#ADFF41]">{demo.email}</p>
+                  </button>
+                ))}
+              </div>
+            )}
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">

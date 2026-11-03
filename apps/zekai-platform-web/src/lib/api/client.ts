@@ -1,4 +1,5 @@
 import { useMockStore } from "@/lib/store/mock-store";
+import { transport } from "./transport";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_ZEKAI_API_URL ??
@@ -19,7 +20,7 @@ async function tryRefresh(): Promise<string | null> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
   try {
-    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+    const res = await transport(`${API_BASE}/api/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),
@@ -50,7 +51,7 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const token = getToken();
   const { suppressMockMode, ...fetchOptions } = options;
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await transport(`${API_BASE}${path}`, {
     ...fetchOptions,
     headers: {
       "Content-Type": "application/json",

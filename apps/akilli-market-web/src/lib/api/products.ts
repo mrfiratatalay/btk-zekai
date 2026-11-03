@@ -1,4 +1,5 @@
 import type { Product, ProductReview } from "@/types/product";
+import { transport } from "./transport";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_COMMERCE_API_URL ??
@@ -55,7 +56,7 @@ export interface PublicProductBundle {
 
 async function apiFetch<T>(path: string, fallback?: T, init?: RequestInit): Promise<T> {
   try {
-    const res = await fetch(`${API_BASE}${path}`, init ?? { next: { revalidate: 30 } });
+    const res = await transport(`${API_BASE}${path}`, init ?? { next: { revalidate: 30 } });
     if (!res.ok) {
       if (fallback !== undefined) return fallback;
       throw new Error(`HTTP ${res.status}`);
@@ -101,7 +102,7 @@ export async function postProductReview(
 ): Promise<ProductReview> {
   const token = typeof window !== "undefined" ? localStorage.getItem("market_token") : null;
   if (!token) throw new Error("Yorum yapmak için giriş yapmalısınız.");
-  const res = await fetch(`${API_BASE}/api/products/${productId}/reviews`, {
+  const res = await transport(`${API_BASE}/api/products/${productId}/reviews`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(data),

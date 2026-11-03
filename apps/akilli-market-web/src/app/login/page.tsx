@@ -6,6 +6,8 @@ import { useState, Suspense } from "react";
 import { Eye, EyeOff, Lock, Mail, ShoppingBag, Store } from "lucide-react";
 import { login } from "@/lib/api/auth";
 import { Button } from "@/components/ui/button";
+import { DemoLoginCards } from "@/components/demo/DemoLoginCards";
+import { isDemoMode } from "@/lib/api/transport";
 
 type Tab = "buyer" | "seller";
 
@@ -48,6 +50,8 @@ function LoginForm() {
         </Link>
 
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-8 shadow-sm">
+
+          {isDemoMode && <DemoLoginCards returnUrl={searchParams.get("returnUrl")} />}
 
           {/* Tabs */}
           <div className="mb-6 flex rounded-xl border border-[#E5E7EB] p-1">
@@ -140,28 +144,30 @@ function LoginForm() {
           </form>
 
           {/* Demo hesaplar */}
-          <div className="mt-5 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3 text-xs text-[#6B7280]">
-            <p className="mb-1.5 font-semibold text-[#111827]">
-              {tab === "buyer" ? "Demo alıcı hesabı:" : "Demo satıcı hesabı:"}
-            </p>
-            {tab === "buyer" ? (
-              <button
-                type="button"
-                onClick={() => { setEmail("burak@ornekstore.com"); setPassword("Buyer123!"); }}
-                className="font-mono hover:text-[#111827] text-left"
-              >
-                burak@ornekstore.com / Buyer123!
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => { setEmail("mehmet@ornekstore.com"); setPassword("Seller123!"); }}
-                className="font-mono hover:text-[#111827] text-left"
-              >
-                mehmet@ornekstore.com / Seller123!
-              </button>
-            )}
-          </div>
+          {!isDemoMode && (
+            <div className="mt-5 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-3 text-xs text-[#6B7280]">
+              <p className="mb-1.5 font-semibold text-[#111827]">
+                {tab === "buyer" ? "Demo alıcı hesabı:" : "Demo satıcı hesabı:"}
+              </p>
+              {tab === "buyer" ? (
+                <button
+                  type="button"
+                  onClick={() => { setEmail("burak@ornekstore.com"); setPassword("Buyer123!"); }}
+                  className="font-mono hover:text-[#111827] text-left"
+                >
+                  burak@ornekstore.com / Buyer123!
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setEmail("mehmet@ornekstore.com"); setPassword("Seller123!"); }}
+                  className="font-mono hover:text-[#111827] text-left"
+                >
+                  mehmet@ornekstore.com / Seller123!
+                </button>
+              )}
+            </div>
+          )}
 
           <p className="mt-5 text-center text-sm text-[#6B7280]">
             Hesabın yok mu?{" "}
