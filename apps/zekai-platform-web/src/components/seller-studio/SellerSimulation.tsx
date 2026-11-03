@@ -99,6 +99,8 @@ function ProductCard({ product, activeArea }: {
   const displayFeatures = featureValues.length > 0
     ? featureValues.slice(0, 3)
     : ["Ürün özellikleri yükleniyor..."];
+  // The preview shows the product's real data; nothing here is a placeholder figure.
+  const warranty = Object.entries(product.features).find(([key]) => key.toLocaleLowerCase("tr-TR").includes("garanti"));
   const hl = (s: FocusArea) => cn(
     "transition-all duration-300",
     activeArea === s && "ring-2 ring-green-500 ring-offset-2 ring-offset-card rounded-xl"
@@ -130,7 +132,7 @@ function ProductCard({ product, activeArea }: {
           <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Puan</p>
           <div className="mt-0.5 flex items-center gap-1">
             <Star className="size-4 fill-amber-400 text-amber-400" />
-            <span className="text-base font-black text-foreground">4.7</span>
+            <span className="text-base font-black text-foreground">{product.rating ? product.rating.toFixed(1) : "—"}</span>
             <span className="text-[10px] text-muted-foreground">/5</span>
           </div>
         </div>
@@ -157,18 +159,18 @@ function ProductCard({ product, activeArea }: {
           <MessageSquare className="size-3.5 text-muted-foreground" />
           <span className="text-[11px] font-semibold text-muted-foreground">Yorumlar</span>
         </div>
-        <span className="text-[11px] font-bold text-foreground">128 değerlendirme</span>
+        <span className="text-[11px] font-bold text-foreground">{product.reviewCount ?? 0} değerlendirme</span>
       </div>
 
       {/* Shipping + Warranty row */}
       <div className="flex border-t border-border">
         <div className={cn("flex flex-1 items-center gap-1.5 px-4 py-2.5", hl("shipping"))}>
           <Truck className="size-3.5 text-green-600 dark:text-green-400" />
-          <span className="text-[10px] font-semibold text-foreground">Yarın kargo</span>
+          <span className="text-[10px] font-semibold text-foreground">{product.cargoText || "Kargo bilgisi yok"}</span>
         </div>
         <div className={cn("flex flex-1 items-center gap-1.5 border-l border-border px-4 py-2.5", hl("warranty"))}>
           <Shield className="size-3.5 text-green-600 dark:text-green-400" />
-          <span className="text-[10px] font-semibold text-foreground">2 yıl garanti</span>
+          <span className="text-[10px] font-semibold text-foreground">{warranty ? `${warranty[1]} garanti` : "Garanti bilgisi yok"}</span>
         </div>
       </div>
 

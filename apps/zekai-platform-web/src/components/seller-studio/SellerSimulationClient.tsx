@@ -24,6 +24,8 @@ function mapToPerformance(pd: ProductDetail | SellerProductDetail): SellerProduc
     description: pd.description ?? "",
     shortDescription: pd.shortDescription ?? "",
     features: pd.features ?? {},
+    rating: pd.rating,
+    reviewCount: pd.reviewCount,
   };
 }
 

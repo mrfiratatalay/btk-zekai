@@ -24,8 +24,8 @@ const COMMERCE_WEB_URL = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://loc
 
 /* ── Data ────────────────────────────────────────────────────────────────── */
 const STATS = [
-  { value: "8", label: "AI Ajan" },
-  { value: "3", label: "Analiz Boyutu" },
+  { value: "3 adım", label: "Şeffaf Karar Akışı" },
+  { value: "4", label: "Karar Skoru" },
   { value: "5", label: "Müşteri Profili" },
   { value: "1 tuş", label: "Mağazaya Uygula" },
 ];
@@ -40,8 +40,8 @@ const FEATURES = [
   },
   {
     icon: Bot,
-    title: "8 AI Ajan, Şeffaf Akış",
-    description: "Advisor → Market → Review → Price → Alternatives → Return Risk → Decision → Synthesis — her ajan ekranda izlenebilir, karar gerekçesi görülür.",
+    title: "Şeffaf Karar Akışı",
+    description: "Danışman → gerekirse piyasa kontrolü → karar motoru. Skorları yapay zekâ üretir, son kararı açık eşiklerle çalışan kod verir; her adım ekranda izlenir.",
     color: "#10B981",
     audience: "Alıcı",
   },
@@ -81,7 +81,7 @@ const SCENARIOS = [
     tagColor: "#C1F25D",
     icon: ShieldCheck,
     title: "Kulaklık satın almadan önce",
-    content: "Ürün linki yapıştırıldı, ihtiyaç metni yazıldı. 8 ajan devreye girdi: yorum forensiğinde 18 mikrofon şikayeti bulundu, fiyat geçmişi sahte indirim paterni gösterdi. Pişmanlık Riski: %62 — Dikkatli İlerle.",
+    content: "Ürün linki yapıştırıldı, ihtiyaç metni yazıldı. Danışman yorumlarda tekrar eden mikrofon şikâyetlerini buldu, piyasa kontrolü fiyatı benzer ürünlerle karşılaştırdı. Karar motoru: Dikkatli İlerle.",
   },
   {
     tag: "Satıcı Senaryosu",
@@ -94,8 +94,8 @@ const SCENARIOS = [
     tag: "Alıcı Senaryosu",
     tagColor: "#C1F25D",
     icon: Bot,
-    title: "8 ajan, şeffaf karar",
-    content: "İhtiyaç Anlama → Pazar Kontrolü → Yorum Analizi → Fiyat Kontrolü → Alternatif Önerisi → Pişmanlık Riski → Sentez — her adım ekranda izlenebilir, karar gerekçesi görülür.",
+    title: "Şeffaf karar",
+    content: "Danışman → Piyasa kontrolü → Karar motoru — her adım ekranda izlenebilir; kararın hangi kuraldan çıktığı gerekçesiyle görülür.",
   },
 ];
 
@@ -106,8 +106,8 @@ const SCORE_BARS = [
 ];
 
 const BUYER_STEPS = [
-  { step: "01", icon: Store, title: "Ürüne bak", desc: "ZekAI Market'ten beğendiğin ürünün sayfasına git, linkini kopyala." },
-  { step: "02", icon: Bot, title: "Yapıştır ve yaz", desc: "Linki Zekai'ye yapıştır, ihtiyacını doğal dille açıkla. 8 ajan devreye girer." },
+  { step: "01", icon: Store, title: "Ürüne bak", desc: "Akıllı Market'te beğendiğin ürünün sayfasına git, linkini kopyala." },
+  { step: "02", icon: Bot, title: "Yapıştır ve yaz", desc: "Linki ZekAI'ye yapıştır, ihtiyacını doğal dille açıkla. Danışman ürünü, yorumları ve fiyatı birlikte değerlendirir." },
   { step: "03", icon: ShieldCheck, title: "Raporu al", desc: "Pişmanlık Riski Raporu ve kişisel alternatif önerileriyle doğru kararı ver." },
 ];
 
@@ -118,9 +118,9 @@ const SELLER_STEPS = [
 ];
 
 const BUYER_BENEFITS = [
-  "8 AI ajanlı derin ürün analizi (Uygunluk, Güven, Fiyat)",
+  "Uyum, güven, fiyat ve iade riski skorlarıyla ürün analizi",
   "Pişmanlık riski skoru — ALABİLİRSİN / DİKKATLİ İLERLE / ALTERNATİFE BAK",
-  "Sahte indirim & fiyat manipülasyonu tespiti",
+  "Gerektiğinde piyasa fiyatlarıyla karşılaştırma",
   "Kişisel ihtiyaca göre alternatif ürün önerisi",
   "Karar Odası — projeye göre ürün gruplayıp bütçe takibi",
   "2-3 ürün yan yana karşılaştırma, AI karar gerekçesi",
@@ -266,7 +266,7 @@ export function ZekaiLanding() {
               </h1>
               <p className="mb-8 mt-5 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
                 Zekai, e-ticarette her iki tarafın da doğru kararı vermesini sağlayan bağımsız bir AI platformudur.
-                Alıcılar için 8 ajanlı risk analizi, Karar Odası ve karşılaştırma motoru; satıcılar için müşteri simülasyonu, AI içerik editörü, Müşteri Sesi AI ve sosyal medya araçları — tek çatı altında.
+                Alıcılar için pişmanlık riski analizi, Karar Odası ve karşılaştırma motoru; satıcılar için müşteri simülasyonu, AI içerik editörü, Müşteri Sesi AI ve sosyal medya araçları — tek çatı altında.
               </p>
 
               <div className="flex flex-wrap gap-3">
@@ -295,7 +295,7 @@ export function ZekaiLanding() {
               <div className="mt-5 flex flex-wrap gap-2">
                 <span className="flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
                   <Bot className="size-3.5" />
-                  Advisor · Market · Review · Price · Alternatives · Return Risk · Decision · Synthesis
+                  Danışman · Piyasa kontrolü · Karar motoru
                 </span>
               </div>
             </motion.div>
@@ -315,7 +315,7 @@ export function ZekaiLanding() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-foreground">Bluetooth Kulaklık Pro X1</p>
-                      <p className="text-xs text-muted-foreground">₺1.015 · TeknoPazar Plus</p>
+                      <p className="text-xs text-muted-foreground">₺1.015 · Mehmet Elektronik</p>
                     </div>
                   </div>
 
@@ -346,7 +346,7 @@ export function ZekaiLanding() {
                       <Bot className="size-4 text-black" />
                     </div>
                     <p className="text-xs leading-relaxed text-muted-foreground">
-                      18 mikrofon şikayeti bulundu. Fiyat geçmişi sahte indirim paterni gösteriyor.
+                      Yorumlarda tekrar eden mikrofon şikâyetleri bulundu.
                     </p>
                   </div>
                 </div>
@@ -356,9 +356,9 @@ export function ZekaiLanding() {
               <div className="absolute -top-5 -right-5 hidden sm:block rounded-[20px] bg-card px-4 py-3 shadow-xl border border-border">
                 <div className="flex items-center gap-2">
                   <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <p className="text-xs font-semibold text-foreground">8 Ajan çalışıyor</p>
+                  <p className="text-xs font-semibold text-foreground">Analiz çalışıyor</p>
                 </div>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Yorum forensiği tamamlandı</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Yorumlar değerlendirildi</p>
               </div>
 
               {/* Floating: seller — gizli mobilde */}
@@ -679,11 +679,11 @@ export function ZekaiLanding() {
       <footer className="border-t border-border bg-card py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-4 sm:px-6 md:flex-row md:justify-between">
           <ZekaiLogo size="md" />
-          <p className="text-center text-sm text-muted-foreground">© 2025 ZekAI — AI Commerce Platform. Tüm hakları saklıdır.</p>
+          <p className="text-center text-sm text-muted-foreground">© 2026 ZekAI · HackAthon'26 için geliştirilmiş bir proje</p>
           <div className="flex gap-4 text-sm text-muted-foreground">
-            <Link href="/privacy" className="transition-colors hover:text-foreground">Gizlilik</Link>
-            <Link href="/terms" className="transition-colors hover:text-foreground">Kullanım Şartları</Link>
-            <Link href="mailto:destek@zekai.ai" className="transition-colors hover:text-foreground">İletişim</Link>
+            <a href={COMMERCE_WEB_URL} className="transition-colors hover:text-foreground">Akıllı Market</a>
+            <a href="https://github.com/mrfiratatalay/btk-zekai" className="transition-colors hover:text-foreground">GitHub</a>
+            <a href="https://github.com/mrfiratatalay/btk-zekai/tree/main/docs" className="transition-colors hover:text-foreground">Dokümanlar</a>
           </div>
         </div>
       </footer>
