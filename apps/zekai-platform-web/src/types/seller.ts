@@ -31,6 +31,8 @@ export type SellerProductPerformance = {
   description: string;
   shortDescription: string;
   features: Record<string, string>;
+  rating?: number;
+  reviewCount?: number;
 };
 
 export type SyntheticPersonaDecision = "buy" | "skip" | "undecided";

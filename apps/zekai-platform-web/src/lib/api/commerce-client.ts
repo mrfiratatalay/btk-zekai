@@ -1,3 +1,4 @@
+import { transport } from "./transport";
 export const COMMERCE_API_BASE =
   process.env.NEXT_PUBLIC_COMMERCE_API_URL ?? "http://localhost:5001";
 
@@ -5,7 +6,7 @@ export async function commerceFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const res = await fetch(`${COMMERCE_API_BASE}${path}`, {
+  const res = await transport(`${COMMERCE_API_BASE}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

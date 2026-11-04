@@ -1,5 +1,6 @@
 import { apiFetch } from "./client";
 import type { ProductDetail } from "./products";
+import { transport } from "./transport";
 
 export interface SellerProfile {
   id: string;
@@ -315,7 +316,7 @@ export async function streamSimulateProduct(
   productId: string,
   onEvent: (event: SimulationStreamEvent) => void,
 ): Promise<void> {
-  const response = await fetch(
+  const response = await transport(
     `${ZEKAI_API_URL}/api/seller/products/${productId}/simulate-stream`,
     {
       method: "POST",
@@ -460,7 +461,7 @@ export const updateProductContent = async (
     // Next.js cache temizle
     const commerceWebUrl = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
     try {
-      await fetch(
+      await transport(
         `${commerceWebUrl}/api/revalidate?secret=zekai-revalidate-2024&productId=${encodeURIComponent(id)}`,
         { method: "POST" },
       );
@@ -519,7 +520,7 @@ export const publishDraft = async (
   // Akıllı Market Next.js cache temizle
   const commerceWebUrl = process.env.NEXT_PUBLIC_COMMERCE_WEB_URL ?? "http://localhost:3000";
   try {
-    await fetch(
+    await transport(
       `${commerceWebUrl}/api/revalidate?secret=zekai-revalidate-2024&productId=${encodeURIComponent(commerceProductId)}`,
       { method: "POST" },
     );

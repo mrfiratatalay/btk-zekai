@@ -22,6 +22,7 @@ node_modules/
 out/
 dist/
 build/
+*.tsbuildinfo
 
 # ── Databases ─────────────────────────────────────────────────────────────────
 sessions.db
@@ -42,7 +43,7 @@ gece.md
 scripts/logs/
 
 # ── IDE ───────────────────────────────────────────────────────────────────────
-.claude/
+.vscode/
 .idea/
 .vs/
 *.user

@@ -1,4 +1,5 @@
 import type { KombinAnalyzeRequest, KombinAnalysisResult, KombinScores } from "@/types/kombin";
+import { transport } from "./transport";
 
 const ZEKAI_API_URL =
   process.env.NEXT_PUBLIC_ZEKAI_API_URL ??
@@ -73,7 +74,7 @@ export async function runKombinAnalyzeStream(
   req: KombinAnalyzeRequest,
   callbacks: KombinStreamCallbacks,
 ): Promise<void> {
-  const response = await fetch(`${ZEKAI_API_URL}/api/buyer/kombin-analyze`, {
+  const response = await transport(`${ZEKAI_API_URL}/api/buyer/kombin-analyze`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

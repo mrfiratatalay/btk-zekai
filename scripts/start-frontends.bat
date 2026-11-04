@@ -7,6 +7,8 @@ set "PLATFORM_DIR=%~dp0..\apps\zekai-platform-web"
 set "LOG_DIR=%~dp0logs"
 set "MARKET_PORT=3000"
 set "PLATFORM_PORT=3001"
+rem Frontends talk to the real APIs in Docker; without this they start in browser demo mode.
+set "NEXT_PUBLIC_DATA_MODE=api"
 
 echo.
 echo ============================================================
