@@ -64,6 +64,12 @@ export function advise(db: ZekaiDb, product: CommerceProduct, need: string): Adv
       warnings.push({ warning: `${aspect.label} hakkında veri yok`, evidence: "Ne ürün bilgisinde ne de yorumlarda bu konu geçiyor.", confidence: "low" });
     }
   }
+  // A need whose topics appear neither in the product nor in its reviews is about another product.
+  const relevant = aspects.length === 0 || signals.length > 0 || aspects.some((a) => a.terms.some((t) => productText.includes(t)));
+  if (!relevant) {
+    fit = Math.min(fit, 35);
+    warnings.unshift({ warning: "İhtiyacındaki konular bu ürünle ilgili görünmüyor", evidence: "Ne ürün bilgisinde ne de yorumlarda bu konular geçiyor.", confidence: "medium" });
+  }
   const budget = budgetFrom(need);
   if (budget !== null && product.price > budget) {
     fit -= 14;
